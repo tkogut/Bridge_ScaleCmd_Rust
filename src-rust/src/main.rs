@@ -6,32 +6,10 @@ use parking_lot::RwLock;
 use lazy_static::lazy_static;
 use config::Config;
 
-use scaleit_bridge::models::device::{AppConfig, DeviceConfig};
+use scaleit_bridge::models::device::{AppConfig};
 use scaleit_bridge::models::weight::{HealthResponse, ScaleCommandRequest, ScaleCommandResponse, DeviceListResponse};
 use scaleit_bridge::error::BridgeError;
-
-// Placeholder for device manager
-struct DeviceManager {
-    config: AppConfig,
-}
-
-impl DeviceManager {
-    fn new(config: AppConfig) -> Self {
-        DeviceManager { config }
-    }
-
-    async fn execute_command(&self, request: ScaleCommandRequest) -> Result<ScaleCommandResponse, BridgeError> {
-        info!("Executing command: {:?} for device: {}", request.command, request.device_id);
-        // Placeholder for actual command execution logic
-        Err(BridgeError::CommandError(format!("Command '{}' not implemented yet for device '{}'", request.command, request.device_id)))
-    }
-
-    fn get_devices(&self) -> Vec<(String, String, String)> {
-        self.config.devices.iter()
-            .map(|(id, dev)| (id.clone(), dev.name.clone(), dev.model.clone()))
-            .collect()
-    }
-}
+use scaleit_bridge::device_manager::DeviceManager; // Importujemy nowy DeviceManager
 
 lazy_static! {
     static ref APP_CONFIG: RwLock<Option<AppConfig>> = RwLock::new(None);
@@ -102,7 +80,7 @@ async fn main() -> std::io::Result<()> {
 
     // Load configuration
     let settings = Config::builder()
-        .add_source(config::File::with_name("config/devices.json"))
+        .add_source(config::File::with_name("src-rust/config/devices.json")) // Zaktualizowana ścieżka
         .build()
         .map_err(|e| {
             error!("Failed to load configuration: {}", e);
@@ -118,16 +96,42 @@ async fn main() -> std::io::Result<()> {
     info!("Configuration loaded successfully. Devices: {:?}", app_config.devices.keys());
 
     // Initialize global APP_CONFIG and DEVICE_MANAGER
-    *APP_CONFIG.write() = Some(app_config.clone());
-    *DEVICE_MANAGER.write() = Some(Arc::new(DeviceManager::new(app_config)));
+    let dm = Arc::new(DeviceManager::new(app_config.clone())
+        .map_err(|e| {
+            error!("Failed to initialize DeviceManager: {}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, format!("DeviceManager init error: {}", e))
+        })?);
+
+    // Connect to all devices on startup
+    dm.connect_all_devices().await;
+
+    *APP_CONFIG.write() = Some(app_config);
+    *DEVICE_MANAGER.write() = Some(dm.clone()); // Używamy sklonowanego Arc
 
     let host = "0.0.0.0";
     let port = 8080;
 
     info!("Server running on http://{}:{}", host, port);
 
-    HttpServer::new(|| {
+    // Graceful shutdown handler
+    let dm_for_shutdown = dm.clone();
+    ctrlc::set_handler(move || {
+        info!("Ctrl-C received, initiating graceful shutdown...");
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("Failed to create Tokio runtime for shutdown handler");
+        rt.block_on(async {
+            dm_for_shutdown.disconnect_all_devices().await;
+            info!("All devices disconnected. Exiting.");
+            std::process::exit(0);
+        });
+    }).expect("Error setting Ctrl-C handler");
+
+
+    HttpServer::new(move || {
         App::new()
+            .app_data(web::Data::new(dm.clone())) // Przekazujemy DeviceManager do handlerów
             .service(web::resource("/health").to(health_check))
             .service(web::resource("/devices").to(list_devices))
             .service(web::resource("/scalecmd").to(handle_scalecmd))
