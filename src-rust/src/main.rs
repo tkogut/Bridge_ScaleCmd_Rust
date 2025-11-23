@@ -8,7 +8,7 @@ use config::Config;
 
 use scaleit_bridge::models::device::{AppConfig};
 use scaleit_bridge::models::weight::{HealthResponse, ScaleCommandRequest, ScaleCommandResponse, DeviceListResponse};
-use scaleit_bridge::error::BridgeError;
+// use scaleit_bridge::error::BridgeError; // not used
 use scaleit_bridge::device_manager::DeviceManager; // Importujemy nowy DeviceManager
 
 lazy_static! {
@@ -43,17 +43,23 @@ async fn list_devices() -> impl Responder {
 }
 
 async fn handle_scalecmd(req_body: web::Json<ScaleCommandRequest>) -> impl Responder {
-    info!("Received scalecmd request for device: {}", req_body.device_id);
+    // Take ownership of the request body and keep copies of device_id/command
+    // for error responses after moving the request into `execute_command`.
+    let request = req_body.into_inner();
+    let device_id = request.device_id.clone();
+    let command = request.command.clone();
+    info!("Received scalecmd request for device: {}", device_id);
+
     let dm_guard = DEVICE_MANAGER.read();
     if let Some(dm) = dm_guard.as_ref() {
-        match dm.execute_command(req_body.into_inner()).await {
+        match dm.execute_command(request).await {
             Ok(response) => HttpResponse::Ok().json(response),
             Err(e) => {
                 error!("Error executing command: {:?}", e);
                 HttpResponse::InternalServerError().json(ScaleCommandResponse {
                     success: false,
-                    device_id: req_body.device_id.clone(),
-                    command: req_body.command.clone(),
+                    device_id: device_id.clone(),
+                    command: command.clone(),
                     result: None,
                     error: Some(e.to_string()),
                 })
@@ -63,8 +69,8 @@ async fn handle_scalecmd(req_body: web::Json<ScaleCommandRequest>) -> impl Respo
         error!("Device manager not initialized.");
         HttpResponse::InternalServerError().json(ScaleCommandResponse {
             success: false,
-            device_id: req_body.device_id.clone(),
-            command: req_body.command.clone(),
+            device_id: device_id.clone(),
+            command: command.clone(),
             result: None,
             error: Some("Device manager not initialized".to_string()),
         })
@@ -78,9 +84,10 @@ async fn main() -> std::io::Result<()> {
 
     info!("Starting ScaleIT Bridge v{}", env!("CARGO_PKG_VERSION"));
 
-    // Load configuration
+    // Load configuration: prefer `CONFIG_PATH` env var, otherwise use `config/devices.json`
+    let config_path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/devices.json".to_string());
     let settings = Config::builder()
-        .add_source(config::File::with_name("src-rust/config/devices.json")) // Zaktualizowana ścieżka
+        .add_source(config::File::with_name(&config_path))
         .build()
         .map_err(|e| {
             error!("Failed to load configuration: {}", e);

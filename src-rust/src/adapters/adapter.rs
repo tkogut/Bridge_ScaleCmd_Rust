@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use crate::error::BridgeError;
-use crate::models::device::{ConnectionConfig, CommandConfig};
 use crate::models::weight::WeightReading;
 
 #[async_trait]

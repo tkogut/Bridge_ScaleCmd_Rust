@@ -22,3 +22,4 @@ config = { version = "0.13", features = ["toml"] }
 serialport = "4.3"
 futures = "0.3"
 ctrlc = { version = "3.4", features = ["termination"] } # Dodana zależność
+regex = "1"
