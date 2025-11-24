@@ -1,5 +1,4 @@
 import React from "react";
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import SidebarNav from "@/components/SidebarNav";
 
 interface LayoutProps {
@@ -33,9 +32,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
       
       <footer className="border-t py-4">
-        <div className="container flex justify-between items-center text-sm text-muted-foreground">
-          <p>© 2025 ScaleIT Team. All rights reserved.</p>
-          <MadeWithDyad />
+        <div className="container flex justify-center items-center text-sm text-muted-foreground">
+          <p>© 2025 ScaleIT Team. All rights reserved. | Bridge v3.1.0</p>
         </div>
       </footer>
     </div>
