@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, WeightReading, DeviceId } from "@/types/api";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
-import { Scale, RefreshCw, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { useLogContext } from "@/context/LogContext";
 
 const ScaleOperationsPanel = () => {
+  const { addLog } = useLogContext();
   const [selectedDeviceId, setSelectedDeviceId] = useState<DeviceId | undefined>(undefined);
   const [lastReading, setLastReading] = useState<WeightReading | null>(null);
 
@@ -46,10 +48,15 @@ const ScaleOperationsPanel = () => {
       } else {
         showError(`Command failed: ${response.error || "Unknown error"}`);
       }
+      
+      addLog(selectedDeviceId!, command, response);
     },
     onError: (error, command, toastId) => {
       dismissToast(toastId as string);
       showError(`API Error during '${command}': ${error.message}`);
+      
+      // Symulacja odpowiedzi błędu dla logowania
+      addLog(selectedDeviceId!, command, { success: false, device_id: selectedDeviceId!, command, error: error.message }, error);
     },
   });
 

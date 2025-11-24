@@ -47,3 +47,12 @@ export interface HealthResponse {
   service: string;
   version: string;
 }
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  deviceId: DeviceId;
+  command: Command;
+  status: "Success" | "Error";
+  message: string;
+}

@@ -1,6 +1,7 @@
 import Layout from "@/components/Layout";
 import BridgeStatusCard from "@/components/BridgeStatusCard";
 import ScaleOperationsPanel from "@/components/ScaleOperationsPanel";
+import RecentRequestsLog from "@/components/RecentRequestsLog";
 
 const Index = () => {
   return (
@@ -21,11 +22,8 @@ const Index = () => {
           </div>
         </div>
         
-        {/* Placeholder for Logs */}
-        <div className="bg-card p-6 rounded-lg shadow border">
-          <h3 className="text-xl font-semibold">Recent Requests Log</h3>
-          <p className="mt-2 text-muted-foreground">Logs will appear here...</p>
-        </div>
+        {/* Recent Requests Log */}
+        <RecentRequestsLog />
       </div>
     </Layout>
   );
