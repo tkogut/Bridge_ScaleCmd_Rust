@@ -1,4 +1,6 @@
 import Layout from "@/components/Layout";
+import BridgeStatusCard from "@/components/BridgeStatusCard";
+import ScaleOperationsPanel from "@/components/ScaleOperationsPanel";
 
 const Index = () => {
   return (
@@ -9,25 +11,20 @@ const Index = () => {
           Visual control panel for ScaleIT Bridge management.
         </p>
         
-        {/* Tutaj będą dodawane główne panele kontrolne */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Placeholder for Status Card */}
-          <div className="bg-card p-6 rounded-lg shadow border">
-            <h3 className="text-xl font-semibold">Bridge Status</h3>
-            <p className="mt-2 text-muted-foreground">Loading...</p>
-          </div>
+          {/* Bridge Status Card */}
+          <BridgeStatusCard />
           
-          {/* Placeholder for Device Control */}
-          <div className="lg:col-span-2 bg-card p-6 rounded-lg shadow border">
-            <h3 className="text-xl font-semibold">Scale Operations</h3>
-            <p className="mt-2 text-muted-foreground">Loading...</p>
+          {/* Scale Operations Panel */}
+          <div className="lg:col-span-2">
+            <ScaleOperationsPanel />
           </div>
         </div>
         
         {/* Placeholder for Logs */}
         <div className="bg-card p-6 rounded-lg shadow border">
           <h3 className="text-xl font-semibold">Recent Requests Log</h3>
-          <p className="mt-2 text-muted-foreground">Loading...</p>
+          <p className="mt-2 text-muted-foreground">Logs will appear here...</p>
         </div>
       </div>
     </Layout>
