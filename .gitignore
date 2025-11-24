@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 *.o
 *.rlib
-target/
+target/*
