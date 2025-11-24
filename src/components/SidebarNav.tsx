@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Settings } from "lucide-react";
+import { LayoutDashboard, Settings, Activity } from "lucide-react";
 
 const sidebarNavItems = [
   {
@@ -12,6 +12,11 @@ const sidebarNavItems = [
     title: "Configuration",
     href: "/config",
     icon: Settings,
+  },
+  {
+    title: "Diagnostics",
+    href: "/diagnostics",
+    icon: Activity,
   },
 ];
 
