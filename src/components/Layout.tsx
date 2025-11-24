@@ -1,6 +1,6 @@
 import React from "react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Separator } from "@/components/ui/separator";
+import SidebarNav from "@/components/SidebarNav";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,7 +19,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </div>
       </header>
-      <main className="flex-1 container py-8">{children}</main>
+      
+      <div className="container flex-1 flex flex-col lg:flex-row py-8 gap-8">
+        {/* Sidebar */}
+        <aside className="lg:w-1/5">
+          <div className="lg:sticky lg:top-24">
+            <SidebarNav />
+          </div>
+        </aside>
+        
+        {/* Main Content */}
+        <main className="flex-1 lg:w-4/5">{children}</main>
+      </div>
+      
       <footer className="border-t py-4">
         <div className="container flex justify-between items-center text-sm text-muted-foreground">
           <p>© 2025 ScaleIT Team. All rights reserved.</p>
