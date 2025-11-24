@@ -32,8 +32,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
       
       <footer className="border-t py-4">
-        <div className="container flex justify-center items-center text-sm text-muted-foreground">
+        <div className="container flex justify-between items-center text-sm text-muted-foreground">
           <p>© 2025 ScaleIT Team. All rights reserved. | Bridge v3.1.0</p>
+          <p className="text-xs">Made by MIW Group</p>
         </div>
       </footer>
     </div>
