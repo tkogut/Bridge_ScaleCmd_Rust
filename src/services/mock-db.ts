@@ -1,0 +1,63 @@
+import { DeviceConfig, DeviceId } from "@/types/api";
+
+// Początkowe dane konfiguracyjne, zgodne z devices.json
+const initialConfigs: Record<DeviceId, DeviceConfig> = {
+  "c320_line1": {
+    "name": "C320 - Production Line 1",
+    "manufacturer": "Rinstrum",
+    "model": "C320",
+    "protocol": "RINCMD",
+    "connection": {
+      "connection_type": "Tcp",
+      "host": "192.168.1.254",
+      "port": 4001,
+      "timeout_ms": 3000
+    },
+    "commands": {
+      "read_gross": "20050026",
+      "read_net": "20050025",
+      "tare": "21120008:0C",
+      "zero": "21120008:0B"
+    }
+  },
+  "dini_argeo_lab": {
+    "name": "Dini Argeo - Lab Scale",
+    "manufacturer": "Dini Argeo",
+    "model": "DGTQ",
+    "protocol": "ASCII",
+    "connection": {
+      "connection_type": "Serial",
+      "port": "/dev/ttyUSB0",
+      "baud_rate": 9600,
+      "timeout_ms": 1000
+    },
+    "commands": {
+      "read_gross": "W",
+      "read_net": "N",
+      "tare": "T",
+      "zero": "Z"
+    }
+  }
+};
+
+let deviceConfigs: Record<DeviceId, DeviceConfig> = { ...initialConfigs };
+
+export const mockDb = {
+  getConfigs: (): Record<DeviceId, DeviceConfig> => {
+    return deviceConfigs;
+  },
+
+  saveConfig: (deviceId: DeviceId, config: DeviceConfig): void => {
+    deviceConfigs = {
+      ...deviceConfigs,
+      [deviceId]: config,
+    };
+    console.log(`[MockDB] Configuration saved for ${deviceId}. Current devices:`, Object.keys(deviceConfigs));
+  },
+
+  deleteConfig: (deviceId: DeviceId): void => {
+    const { [deviceId]: _, ...rest } = deviceConfigs;
+    deviceConfigs = rest;
+    console.log(`[MockDB] Configuration deleted for ${deviceId}. Current devices:`, Object.keys(deviceConfigs));
+  },
+};

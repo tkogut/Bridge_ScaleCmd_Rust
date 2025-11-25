@@ -6,6 +6,7 @@ import {
   DeviceId,
   DeviceConfig,
 } from "@/types/api";
+import { mockDb } from "./mock-db";
 
 const BRIDGE_URL = "http://localhost:8080";
 
@@ -34,13 +35,20 @@ export async function executeScaleCommand(
  * Pobiera listę skonfigurowanych urządzeń.
  */
 export async function getDevices(): Promise<DevicesResponse> {
-  const response = await fetch(`${BRIDGE_URL}/devices`);
+  // W rzeczywistości: Bridge API zwraca listę urządzeń
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  const configs = mockDb.getConfigs();
+  const devices: [DeviceId, string, string][] = Object.entries(configs).map(([id, config]) => [
+    id,
+    config.name,
+    config.model,
+  ]);
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+  return {
+    success: true,
+    devices: devices,
+  };
 }
 
 /**
@@ -50,7 +58,12 @@ export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${BRIDGE_URL}/health`);
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    // Symulacja błędu połączenia, jeśli Bridge nie działa
+    return {
+      status: "ERROR",
+      service: "ScaleIT Bridge",
+      version: "3.1.0",
+    };
   }
 
   return response.json();
@@ -59,74 +72,30 @@ export async function getHealth(): Promise<HealthResponse> {
 // --- Konfiguracja Urządzeń (Symulowane API) ---
 
 /**
- * Pobiera szczegółową konfigurację wszystkich urządzeń.
- * W rzeczywistości Bridge API może wymagać osobnego endpointu.
- * Tutaj symulujemy, że Bridge zwraca pełną konfigurację.
+ * Pobiera szczegółową konfigurację wszystkich urządzeń z symulowanego magazynu.
  */
 export async function getAllDeviceConfigs(): Promise<Record<DeviceId, DeviceConfig>> {
-  // Symulacja odpowiedzi z Bridge API
   await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Zwracamy przykładową konfigurację z devices.json (z backendu Rust)
-  return {
-    "c320_line1": {
-      "name": "C320 - Production Line 1",
-      "manufacturer": "Rinstrum",
-      "model": "C320",
-      "protocol": "RINCMD",
-      "connection": {
-        "connection_type": "Tcp",
-        "host": "192.168.1.254",
-        "port": 4001,
-        "timeout_ms": 3000
-      },
-      "commands": {
-        "read_gross": "20050026",
-        "read_net": "20050025",
-        "tare": "21120008:0C",
-        "zero": "21120008:0B"
-      }
-    },
-    "dini_argeo_lab": {
-      "name": "Dini Argeo - Lab Scale",
-      "manufacturer": "Dini Argeo",
-      "model": "DGTQ",
-      "protocol": "ASCII",
-      "connection": {
-        "connection_type": "Serial",
-        "port": "/dev/ttyUSB0",
-        "baud_rate": 9600,
-        "timeout_ms": 1000
-      },
-      "commands": {
-        "read_gross": "W",
-        "read_net": "N",
-        "tare": "T",
-        "zero": "Z"
-      }
-    }
-  };
+  return mockDb.getConfigs();
 }
 
 /**
  * Dodaje lub aktualizuje konfigurację urządzenia.
+ * W rzeczywistości: POST/PUT do Bridge API, które zapisuje do devices.json i przeładowuje konfigurację.
  */
 export async function saveDeviceConfig(
   deviceId: DeviceId,
   config: DeviceConfig,
 ): Promise<void> {
-  // W rzeczywistości: POST /api/config/add lub PUT /api/config/update
-  console.log(`[API] Saving configuration for ${deviceId}:`, config);
   await new Promise(resolve => setTimeout(resolve, 500));
-  // Symulacja sukcesu
+  mockDb.saveConfig(deviceId, config);
 }
 
 /**
  * Usuwa konfigurację urządzenia.
+ * W rzeczywistości: DELETE do Bridge API, które usuwa z devices.json i przeładowuje konfigurację.
  */
 export async function deleteDeviceConfig(deviceId: DeviceId): Promise<void> {
-  // W rzeczywistości: DELETE /api/config/delete/{deviceId}
-  console.log(`[API] Deleting configuration for ${deviceId}`);
   await new Promise(resolve => setTimeout(resolve, 500));
-  // Symulacja sukcesu
+  mockDb.deleteConfig(deviceId);
 }

@@ -1,6 +1,6 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getAllDeviceConfigs } from "@/services/bridge-api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getAllDeviceConfigs, deleteDeviceConfig } from "@/services/bridge-api";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -21,24 +21,32 @@ interface DeviceListProps {
 }
 
 const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
+  const queryClient = useQueryClient();
+  
   const { data: configs, isLoading, error, refetch } = useQuery({
     queryKey: ["deviceConfigs"],
     queryFn: getAllDeviceConfigs,
     refetchInterval: 60000, // Odświeżanie co minutę
   });
 
-  const handleDelete = async (deviceId: DeviceId) => {
+  const deleteMutation = useMutation({
+    mutationFn: deleteDeviceConfig,
+    onSuccess: (_, deviceId) => {
+      showSuccess(`Device ${deviceId} deleted successfully.`);
+      // Inwalidacja obu zapytań, aby odświeżyć listę i operacje
+      queryClient.invalidateQueries({ queryKey: ["deviceConfigs"] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+    },
+    onError: (err, deviceId) => {
+      showError(`Failed to delete device ${deviceId}: ${err.message}`);
+    },
+  });
+
+  const handleDelete = (deviceId: DeviceId) => {
     if (!window.confirm(`Are you sure you want to delete device ${deviceId}?`)) {
       return;
     }
-    try {
-      // Symulacja usunięcia
-      // await deleteDeviceConfig(deviceId); 
-      showSuccess(`Device ${deviceId} deleted successfully (simulated).`);
-      refetch();
-    } catch (err) {
-      showError(`Failed to delete device ${deviceId}.`);
-    }
+    deleteMutation.mutate(deviceId);
   };
 
   if (isLoading) {
@@ -110,6 +118,7 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
                         size="icon" 
                         onClick={() => onEdit(id, config)}
                         title="Edit"
+                        disabled={deleteMutation.isPending}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -118,8 +127,13 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
                         size="icon" 
                         onClick={() => handleDelete(id)}
                         title="Delete"
+                        disabled={deleteMutation.isPending}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        {deleteMutation.isPending && deleteMutation.variables === id ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        )}
                       </Button>
                     </div>
                   </TableCell>
