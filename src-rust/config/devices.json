@@ -12,10 +12,28 @@
         "timeout_ms": 3000
       },
       "commands": {
-        "read_gross": "20050026:",
-        "read_net": "20050027:",
+        "read_gross": "20050026",
+        "read_net": "20050025",
         "tare": "21120008:0C",
         "zero": "21120008:0B"
+      }
+    },
+    "dini_argeo_lab": {
+      "name": "Dini Argeo - Lab Scale",
+      "manufacturer": "Dini Argeo",
+      "model": "DGTQ",
+      "protocol": "ASCII",
+      "connection": {
+        "connection_type": "Serial",
+        "port": "/dev/ttyUSB0",
+        "baud_rate": 9600,
+        "timeout_ms": 1000
+      },
+      "commands": {
+        "read_gross": "W",
+        "read_net": "N",
+        "tare": "T",
+        "zero": "Z"
       }
     }
   }

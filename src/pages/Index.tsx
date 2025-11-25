@@ -1,18 +1,31 @@
-// Update this page (the content is just a fallback if you fail to update the page)
-
-import { MadeWithDyad } from "@/components/made-with-dyad";
+import Layout from "@/components/Layout";
+import BridgeStatusCard from "@/components/BridgeStatusCard";
+import ScaleOperationsPanel from "@/components/ScaleOperationsPanel";
+import RecentRequestsLog from "@/components/RecentRequestsLog";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">
-          Start building your amazing project here!
+    <Layout>
+      <div className="space-y-8">
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <p className="text-muted-foreground">
+          Visual control panel for ScaleIT Bridge management.
         </p>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Bridge Status Card */}
+          <BridgeStatusCard />
+          
+          {/* Scale Operations Panel */}
+          <div className="lg:col-span-2">
+            <ScaleOperationsPanel />
+          </div>
+        </div>
+        
+        {/* Recent Requests Log */}
+        <RecentRequestsLog />
       </div>
-      <MadeWithDyad />
-    </div>
+    </Layout>
   );
 };
 
