@@ -141,7 +141,7 @@ RUST_BACKTRACE=1
 NUM_WORKERS=0
 "@
 Set-Content (Join-Path $PackageDir ".env.example") $envTemplate
-Write-Host "  ✓ Environment template created" -ForegroundColor Green
+Write-Host "  * Environment template created" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "[4/5] Creating README..." -ForegroundColor Cyan
