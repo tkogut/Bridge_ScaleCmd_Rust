@@ -6,6 +6,7 @@ use log::{info, warn, error, debug};
 use std::sync::Arc;
 use parking_lot::RwLock;
 use chrono::Utc;
+use regex::Regex;
 
 use crate::error::BridgeError;
 use crate::models::device::{ConnectionConfig, CommandConfig, ConnectionType};
@@ -37,8 +38,14 @@ impl RinstrumC320Adapter {
     }
 
     async fn send_command_and_read_response(&self, command_str: &str) -> Result<String, BridgeError> {
-        let mut conn_guard = self.connection.write();
-        let conn = conn_guard.as_mut().ok_or_else(|| {
+        // Take the TcpStream out of the RwLock-protected Option so we don't hold
+        // a non-Send lock guard across .await points. Put it back after I/O.
+        let conn_opt = {
+            let mut conn_guard = self.connection.write();
+            conn_guard.take()
+        };
+
+        let mut conn = conn_opt.ok_or_else(|| {
             error!("Attempted to send command without an active connection for device {}", self.device_id);
             BridgeError::ConnectionError("No active connection".to_string())
         })?;
@@ -46,10 +53,9 @@ impl RinstrumC320Adapter {
         let full_command = format!("{}\r\n", command_str); // RINCMD typically uses CR+LF
         debug!("Sending command to {}: {}", self.device_id, full_command.trim());
 
-        let write_future = conn.write_all(full_command.as_bytes());
         let timeout_duration = Duration::from_millis(self.connection_config.timeout_ms);
 
-        timeout(timeout_duration, write_future)
+        timeout(timeout_duration, conn.write_all(full_command.as_bytes()))
             .await
             .map_err(|_| {
                 warn!("Write timeout for device {}", self.device_id);
@@ -61,9 +67,8 @@ impl RinstrumC320Adapter {
             })?;
 
         let mut buffer = vec![0; 1024];
-        let read_future = conn.read(&mut buffer);
 
-        let bytes_read = timeout(timeout_duration, read_future)
+        let bytes_read = timeout(timeout_duration, conn.read(&mut buffer))
             .await
             .map_err(|_| {
                 warn!("Read timeout for device {}", self.device_id);
@@ -76,6 +81,13 @@ impl RinstrumC320Adapter {
 
         let response = String::from_utf8_lossy(&buffer[..bytes_read]).trim().to_string();
         debug!("Received response from {}: {}", self.device_id, response);
+
+        // Put the stream back into the shared slot.
+        {
+            let mut conn_guard = self.connection.write();
+            *conn_guard = Some(conn);
+        }
+
         Ok(response)
     }
 
@@ -89,39 +101,135 @@ impl RinstrumC320Adapter {
             return Err(BridgeError::ProtocolError("Empty response from device".to_string()));
         }
 
-        let parts: Vec<&str> = response.split_whitespace().collect();
-        if parts.len() < 3 {
-            if response == "E" {
-                return Err(BridgeError::ProtocolError("Device returned error 'E'".to_string()));
+        // Normalize common unicode minus/dash characters and non-breaking spaces
+        let mut cleaned = response.trim().to_string();
+    let replacements = [
+            ('\t', ' '), // TAB -> space
+            ('\n', ' '), // LF -> space
+            ('\x0B', ' '),
+            ('\x0C', ' '),
+            ('\r', ' '),
+            ('\u{00A0}', ' '), // NBSP
+        ];
+        for (from, to) in replacements.iter() {
+            cleaned = cleaned.replace(*from, &to.to_string());
+        }
+        // Various dash/minus characters -> ASCII hyphen-minus
+        let dash_chars = ['−', '–', '—', '―', '‑', '−', '－'];
+        for d in dash_chars.iter() {
+            if cleaned.contains(*d) {
+                cleaned = cleaned.replace(*d, "-");
             }
-            return Err(BridgeError::ProtocolError(format!("Unexpected response format: '{}'", response)));
         }
 
+        if cleaned != response {
+            debug!("Normalized device response from '{}' to '{}'", response, cleaned);
+        }
+
+        let parts: Vec<&str> = cleaned.split_whitespace().collect();
+        if parts.is_empty() {
+            return Err(BridgeError::ProtocolError("Empty response from device".to_string()));
+        }
+
+        if cleaned == "E" || response == "E" {
+            return Err(BridgeError::ProtocolError("Device returned error 'E'".to_string()));
+        }
+
+        // Stability marker is usually the first token (e.g., "S" or "U")
         let is_stable = parts[0] == "S";
-        let weight_str = parts[1];
-        let unit = parts[2].to_string();
 
-        let weight = weight_str.parse::<f64>().map_err(|e| {
-            BridgeError::ProtocolError(format!("Failed to parse weight '{}': {}", weight_str, e))
-        })?;
+        // If there's a colon, prefer parsing the substring after it (this avoids matching
+        // command echoes like "81050026" before the colon). Otherwise, search the whole string.
+        let search_space = if let Some(pos) = cleaned.find(':') {
+            cleaned[(pos + 1)..].trim().to_string()
+        } else {
+            cleaned.clone()
+        };
 
-        Ok(WeightReading {
-            gross_weight: weight, // Assuming readGross/readNet will return the relevant weight
-            net_weight: weight, // Placeholder, actual logic might differentiate
-            unit,
-            is_stable,
-            timestamp: Utc::now(),
-        })
+        // Try to detect a hex value at the start of the search space (e.g. "FFFFFFE9")
+        let hex_match = Regex::new(r"^[0-9A-Fa-f]{2,8}").unwrap();
+        if let Some(mh) = hex_match.find(&search_space) {
+            let token = &search_space[mh.start()..mh.end()];
+            // If token contains alphabetic hex digits (A-F) it's likely a hex two's-complement value.
+            if token.chars().any(|c| matches!(c, 'A'..='F' | 'a'..='f')) {
+                if let Ok(u) = u32::from_str_radix(token, 16) {
+                    let signed = u as i32 as f64;
+                    // try to infer unit from the rest of the search space
+                    let mut unit = String::new();
+                    if let Some(parts_after) = search_space.split_whitespace().nth(1) {
+                        if parts_after.chars().all(|c| c.is_alphabetic()) {
+                            unit = parts_after.to_string();
+                        }
+                    }
+                    return Ok(WeightReading {
+                        gross_weight: signed,
+                        net_weight: signed,
+                        unit,
+                        is_stable,
+                        timestamp: Utc::now(),
+                    });
+                }
+            } else {
+                // Token contains only digits; treat as a decimal integer (not hex)
+                if let Ok(dec) = i64::from_str_radix(token, 10) {
+                    let val = dec as f64;
+                    let mut unit = String::new();
+                    if let Some(parts_after) = search_space.split_whitespace().nth(1) {
+                        if parts_after.chars().all(|c| c.is_alphabetic()) {
+                            unit = parts_after.to_string();
+                        }
+                    }
+                    return Ok(WeightReading {
+                        gross_weight: val,
+                        net_weight: val,
+                        unit,
+                        is_stable,
+                        timestamp: Utc::now(),
+                    });
+                }
+            }
+        }
+
+        // Use regex to find a signed or unsigned numeric token in the search space,
+        // allowing spaces between sign and digits
+        let num_re = Regex::new(r"(?P<num>[+-]?\s*\d+(?:\.\d+)?)").unwrap();
+        if let Some(m) = num_re.find(&search_space) {
+            let mut num_str = m.as_str().to_string();
+            num_str.retain(|c| c != ' '); // remove spaces between sign and digits
+            let weight_val = num_str.parse::<f64>().map_err(|e| BridgeError::ProtocolError(format!("Failed to parse weight '{}': {}", num_str, e)))?;
+
+            // find unit after the number within the search space
+            let after = &search_space[m.end()..];
+            let unit_re = Regex::new(r"[A-Za-z%]+").unwrap();
+            let unit = unit_re.find(after).map(|u| u.as_str().to_string()).unwrap_or_default();
+
+            return Ok(WeightReading {
+                gross_weight: weight_val,
+                net_weight: weight_val,
+                unit,
+                is_stable,
+                timestamp: Utc::now(),
+            });
+        }
+
+        Err(BridgeError::ProtocolError(format!("Unexpected response format: '{}'", response)))
     }
+
+
+    
 }
 
 #[async_trait]
 impl DeviceAdapter for RinstrumC320Adapter {
     async fn connect(&self) -> Result<(), BridgeError> {
-        let mut conn_guard = self.connection.write();
-        if conn_guard.is_some() {
-            info!("Device {} already connected.", self.device_id);
-            return Ok(());
+        // Fast path: check without taking a write lock (use read guard), and avoid
+        // holding any parking_lot guard across await points.
+        {
+            let conn_guard = self.connection.read();
+            if conn_guard.is_some() {
+                info!("Device {} already connected.", self.device_id);
+                return Ok(());
+            }
         }
 
         let addr = format!("{}:{}",
@@ -145,13 +253,16 @@ impl DeviceAdapter for RinstrumC320Adapter {
             })?;
 
         info!("Successfully connected to Rinstrum C320 at {} for device {}", addr, self.device_id);
-        *conn_guard = Some(stream);
+        {
+            let mut conn_guard = self.connection.write();
+            *conn_guard = Some(stream);
+        }
         Ok(())
     }
 
     async fn disconnect(&self) -> Result<(), BridgeError> {
         let mut conn_guard = self.connection.write();
-        if let Some(stream) = conn_guard.take() {
+        if let Some(_stream) = conn_guard.take() {
             // TcpStream doesn't have an explicit close method, dropping it closes the connection.
             // However, we might want to ensure all data is flushed before dropping.
             // For simplicity, we just drop it here.
@@ -182,5 +293,73 @@ impl DeviceAdapter for RinstrumC320Adapter {
 
         let response = self.send_command_and_read_response(command_str).await?;
         self.parse_rincmd_response(&response)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::device::{ConnectionConfig, CommandConfig, ConnectionType};
+
+    fn make_adapter() -> RinstrumC320Adapter {
+        let conn = ConnectionConfig {
+            connection_type: ConnectionType::Tcp,
+            host: Some("127.0.0.1".to_string()),
+            port: Some(4001),
+            path: None,
+            baud_rate: None,
+            timeout_ms: 1000,
+        };
+        let cmd = CommandConfig {
+            read_gross: "".to_string(),
+            read_net: "".to_string(),
+            tare: "".to_string(),
+            zero: "".to_string(),
+        };
+        RinstrumC320Adapter::new("test_device".to_string(), conn, cmd).unwrap()
+    }
+
+    #[test]
+    fn parses_negative_with_space_and_unit() {
+        let a = make_adapter();
+        let parsed = a.parse_rincmd_response("S -32.000 kg").unwrap();
+        assert!(parsed.is_stable);
+        assert_eq!(parsed.unit, "kg");
+        assert_eq!(parsed.gross_weight, -32.0);
+    }
+
+    #[test]
+    fn parses_negative_attached_unit() {
+        let a = make_adapter();
+        let parsed = a.parse_rincmd_response("S -00032.000kg").unwrap();
+        assert!(parsed.is_stable);
+        assert_eq!(parsed.unit, "kg");
+        assert_eq!(parsed.gross_weight, -32.0);
+    }
+
+    #[test]
+    fn parses_unstable_positive() {
+        let a = make_adapter();
+        let parsed = a.parse_rincmd_response("U 00032.000 kg").unwrap();
+        assert!(!parsed.is_stable);
+        assert_eq!(parsed.unit, "kg");
+        assert_eq!(parsed.gross_weight, 32.0);
+    }
+
+    #[test]
+    fn returns_error_on_e() {
+        let a = make_adapter();
+        assert!(a.parse_rincmd_response("E").is_err());
+    }
+
+    #[test]
+    fn parses_negative_spaced_sign_and_flags() {
+        let a = make_adapter();
+        // Exact raw response provided: command echo + colon + sign with spaces + number + unit + flag
+        let raw = "81050026:-     23 kg G";
+        let parsed = a.parse_rincmd_response(raw).unwrap();
+        assert_eq!(parsed.gross_weight, -23.0);
+        assert_eq!(parsed.unit, "kg");
     }
 }

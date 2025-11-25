@@ -4,8 +4,8 @@ use parking_lot::RwLock;
 use log::{info, error};
 
 use crate::error::BridgeError;
-use crate::models::device::{AppConfig, DeviceConfig, ConnectionType};
-use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse, WeightReading};
+use crate::models::device::AppConfig;
+use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
 use crate::adapters::adapter::DeviceAdapter;
 use crate::adapters::rinstrum::RinstrumC320Adapter;
 

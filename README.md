@@ -140,9 +140,9 @@ Wbudowana aplikacja do kontroli Bridge:
       },
       "commands": {
         "readGross": "20050026:",
-        "readNet": "20110027:",
-        "tare": "20120008:8003",
-        "zero": "20120008:8002"
+        "readNet": "20050025:",
+        "tare": "21120008:0C",
+        "zero": "21120008:0B"
       }
     }
   }
