@@ -34,22 +34,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 
-// Schemat walidacji dla połączenia TCP
-const TcpConnectionSchema = z.object({
-  connection_type: z.literal("Tcp"),
-  host: z.string().ip({ message: "Invalid IP address format" }),
-  port: z.coerce.number().int().min(1).max(65535),
-  timeout_ms: z.coerce.number().int().min(100).max(30000),
-});
-
-// Schemat walidacji dla połączenia Serial
-const SerialConnectionSchema = z.object({
-  connection_type: z.literal("Serial"),
-  port: z.string().min(1, "Port path is required (e.g., COM1 or /dev/ttyUSB0)"),
-  baud_rate: z.coerce.number().int().min(1).default(9600),
-  timeout_ms: z.coerce.number().int().min(100).max(30000),
-});
-
 // Schemat walidacji dla konfiguracji urządzenia
 const DeviceConfigSchema = z.object({
   deviceId: z.string().min(3, "Device ID must be at least 3 characters long").regex(/^[a-z0-9_]+$/, "Device ID must be lowercase alphanumeric or underscore"),
@@ -58,18 +42,55 @@ const DeviceConfigSchema = z.object({
   model: z.string().min(1, "Model is required"),
   protocol: z.string().min(1, "Protocol is required"),
   connection_type: z.enum(["Tcp", "Serial"]),
-  connection: z.union([TcpConnectionSchema, SerialConnectionSchema]),
+  host: z.string().ip({ message: "Invalid IP address format" }).optional(),
+  tcp_port: z.coerce.number().int().min(1).max(65535).optional(),
+  serial_port: z.string().min(1, "Port path is required (e.g., COM1 or /dev/ttyUSB0)").optional(),
+  baud_rate: z.coerce.number().int().min(1).optional(),
+  timeout_ms: z.coerce.number().int().min(100).max(30000),
   
   // Uproszczone pola dla komend (w pełni konfigurowalny Bridge wymagałby bardziej złożonego formularza)
   read_gross_cmd: z.string().min(1, "Command is required"),
   read_net_cmd: z.string().min(1, "Command is required"),
   tare_cmd: z.string().min(1, "Command is required"),
   zero_cmd: z.string().min(1, "Command is required"),
+}).superRefine((values, ctx) => {
+  if (values.connection_type === "Tcp") {
+    if (!values.host) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["host"],
+        message: "Host IP is required for TCP connections",
+      });
+    }
+    if (values.tcp_port === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["tcp_port"],
+        message: "Port is required for TCP connections",
+      });
+    }
+  } else if (values.connection_type === "Serial") {
+    if (!values.serial_port) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["serial_port"],
+        message: "Serial port path is required",
+      });
+    }
+    if (values.baud_rate === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["baud_rate"],
+        message: "Baud rate is required for serial connections",
+      });
+    }
+  }
 });
 
 type DeviceFormValues = z.infer<typeof DeviceConfigSchema> & {
   host?: string;
-  port?: number;
+  tcp_port?: number;
+  serial_port?: string;
   baud_rate?: number;
 };
 
@@ -89,7 +110,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
   const isEdit = !!initialConfig;
   
   // Funkcja pomocnicza do spłaszczania danych dla formularza
-  const getInitialValues = (): Partial<DeviceFormValues> => {
+  const getInitialValues = React.useCallback((): Partial<DeviceFormValues> => {
     if (!initialConfig) {
       return {
         deviceId: "",
@@ -99,7 +120,9 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
         protocol: "RINCMD",
         connection_type: "Tcp",
         host: "127.0.0.1",
-        port: 4001,
+        tcp_port: 4001,
+        serial_port: "",
+        baud_rate: 9600,
         timeout_ms: 3000,
         read_gross_cmd: "",
         read_net_cmd: "",
@@ -116,10 +139,10 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       model: config.model,
       protocol: config.protocol,
       connection_type: config.connection.connection_type,
-      read_gross_cmd: config.commands.read_gross || "",
-      read_net_cmd: config.commands.read_net || "",
-      tare_cmd: config.commands.tare || "",
-      zero_cmd: config.commands.zero || "",
+      read_gross_cmd: config.commands["readGross"] || "",
+      read_net_cmd: config.commands["readNet"] || "",
+      tare_cmd: config.commands["tare"] || "",
+      zero_cmd: config.commands["zero"] || "",
       timeout_ms: config.connection.timeout_ms,
     };
 
@@ -127,17 +150,17 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       return {
         ...baseValues,
         host: config.connection.host,
-        port: config.connection.port,
+        tcp_port: config.connection.port,
       };
     } else if (config.connection.connection_type === "Serial") {
       return {
         ...baseValues,
-        port: config.connection.port,
+        serial_port: config.connection.port,
         baud_rate: config.connection.baud_rate,
       };
     }
     return baseValues;
-  };
+  }, [initialConfig]);
 
   const form = useForm<DeviceFormValues>({
     resolver: zodResolver(DeviceConfigSchema),
@@ -148,34 +171,47 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
   // Resetowanie formularza przy otwarciu/zmianie initialConfig
   React.useEffect(() => {
     form.reset(getInitialValues());
-  }, [initialConfig, open]);
+  }, [getInitialValues, open, form]);
 
 
   const connectionType = form.watch("connection_type");
   const isSubmitting = form.formState.isSubmitting;
 
   const onSubmit = async (values: DeviceFormValues) => {
-    const { deviceId, name, manufacturer, model, protocol, connection_type, read_gross_cmd, read_net_cmd, tare_cmd, zero_cmd, timeout_ms, ...connDetails } = values;
+    const {
+      deviceId,
+      name,
+      manufacturer,
+      model,
+      protocol,
+      connection_type,
+      read_gross_cmd,
+      read_net_cmd,
+      tare_cmd,
+      zero_cmd,
+      timeout_ms,
+      host,
+      tcp_port,
+      serial_port,
+      baud_rate,
+    } = values;
 
-    let connection: DeviceConfig['connection'];
+    let connection: DeviceConfig["connection"];
 
     if (connection_type === "Tcp") {
       connection = {
         connection_type: "Tcp",
-        host: connDetails.host!,
-        port: connDetails.port!,
-        timeout_ms: timeout_ms,
-      };
-    } else if (connection_type === "Serial") {
-      connection = {
-        connection_type: "Serial",
-        port: connDetails.port as unknown as string, // Port jest stringiem dla Serial
-        baud_rate: connDetails.baud_rate!,
-        timeout_ms: timeout_ms,
+        host: host!,
+        port: tcp_port!,
+        timeout_ms,
       };
     } else {
-      // Powinno być niemożliwe dzięki Zod
-      return;
+      connection = {
+        connection_type: "Serial",
+        port: serial_port!,
+        baud_rate: baud_rate!,
+        timeout_ms,
+      };
     }
 
     const newConfig: DeviceConfig = {
@@ -185,8 +221,8 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       protocol,
       connection,
       commands: {
-        read_gross: read_gross_cmd,
-        read_net: read_net_cmd,
+        readGross: read_gross_cmd,
+        readNet: read_net_cmd,
         tare: tare_cmd,
         zero: zero_cmd,
       },
@@ -342,7 +378,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
                   />
                   <FormField
                     control={form.control}
-                    name="port"
+                    name="tcp_port"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Port</FormLabel>
@@ -360,7 +396,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
                 <>
                   <FormField
                     control={form.control}
-                    name="port"
+                    name="serial_port"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Serial Port Path</FormLabel>

@@ -28,13 +28,22 @@ export interface DeviceConfig {
   manufacturer: string;
   model: string;
   protocol: string;
-  connection: {
-    connection_type: string;
-    host: string;
-    port: number;
-    timeout_ms: number;
-  };
+  connection: TcpConnection | SerialConnection;
   commands: Record<string, string>;
+}
+
+export interface TcpConnection {
+  connection_type: "Tcp";
+  host: string;
+  port: number;
+  timeout_ms: number;
+}
+
+export interface SerialConnection {
+  connection_type: "Serial";
+  port: string;
+  baud_rate: number;
+  timeout_ms: number;
 }
 
 export interface DevicesResponse {

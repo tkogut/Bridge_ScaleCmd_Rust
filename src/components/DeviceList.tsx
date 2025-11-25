@@ -70,6 +70,17 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
 
   const devices = configs ? Object.entries(configs) : [];
 
+  const renderConnection = (config: DeviceConfig) => {
+    const connection = config.connection;
+    if (connection.connection_type === "Tcp") {
+      return `${connection.host}:${connection.port}`;
+    }
+    if (connection.connection_type === "Serial") {
+      return `${connection.port} (${connection.baud_rate} baud)`;
+    }
+    return connection.connection_type;
+  };
+
   return (
     <Card>
       <div className="flex justify-end p-4">
@@ -105,11 +116,7 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
                   <TableCell>{config.model}</TableCell>
                   <TableCell>{config.protocol}</TableCell>
                   <TableCell>
-                    {config.connection.connection_type === 'Tcp' 
-                      ? `${config.connection.host}:${config.connection.port}`
-                      : config.connection.connection_type === 'Serial'
-                      ? `${config.connection.port} (${config.connection.baud_rate} baud)`
-                      : config.connection.connection_type}
+                    {renderConnection(config)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">

@@ -6,7 +6,6 @@ import {
   DeviceId,
   DeviceConfig,
 } from "@/types/api";
-import { mockDb } from "./mock-db";
 
 const BRIDGE_URL = "http://localhost:8080";
 
@@ -35,20 +34,11 @@ export async function executeScaleCommand(
  * Pobiera listę skonfigurowanych urządzeń.
  */
 export async function getDevices(): Promise<DevicesResponse> {
-  // W rzeczywistości: Bridge API zwraca listę urządzeń
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  const configs = mockDb.getConfigs();
-  const devices: [DeviceId, string, string][] = Object.entries(configs).map(([id, config]) => [
-    id,
-    config.name,
-    config.model,
-  ]);
-
-  return {
-    success: true,
-    devices: devices,
-  };
+  const response = await fetch(`${BRIDGE_URL}/devices`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch devices (${response.status})`);
+  }
+  return response.json();
 }
 
 /**
@@ -75,8 +65,11 @@ export async function getHealth(): Promise<HealthResponse> {
  * Pobiera szczegółową konfigurację wszystkich urządzeń z symulowanego magazynu.
  */
 export async function getAllDeviceConfigs(): Promise<Record<DeviceId, DeviceConfig>> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return mockDb.getConfigs();
+  const response = await fetch(`${BRIDGE_URL}/api/config`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch device configs (${response.status})`);
+  }
+  return response.json();
 }
 
 /**
@@ -87,8 +80,18 @@ export async function saveDeviceConfig(
   deviceId: DeviceId,
   config: DeviceConfig,
 ): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  mockDb.saveConfig(deviceId, config);
+  const response = await fetch(`${BRIDGE_URL}/api/config/save`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ device_id: deviceId, config }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Failed to save configuration (${response.status})`);
+  }
 }
 
 /**
@@ -96,6 +99,12 @@ export async function saveDeviceConfig(
  * W rzeczywistości: DELETE do Bridge API, które usuwa z devices.json i przeładowuje konfigurację.
  */
 export async function deleteDeviceConfig(deviceId: DeviceId): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  mockDb.deleteConfig(deviceId);
+  const response = await fetch(`${BRIDGE_URL}/api/config/${deviceId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Failed to delete configuration (${response.status})`);
+  }
 }

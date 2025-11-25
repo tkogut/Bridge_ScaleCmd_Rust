@@ -39,12 +39,18 @@ const ScaleOperationsPanel = () => {
     onSuccess: (response, command, toastId) => {
       dismissToast(toastId as string);
       
-      if (response.success && response.result && 'gross_weight' in response.result) {
-        setLastReading(response.result as WeightReading);
-        showSuccess(`Successfully read weight: ${response.result.gross_weight} ${response.result.unit}`);
-      } else if (response.success && response.result && 'message' in response.result) {
-        showSuccess(`Command '${command}' successful: ${response.result.message}`);
-        setLastReading(null); // Resetowanie odczytu dla komend sterujących (tare/zero)
+      if (response.success) {
+        if (response.result && "gross_weight" in response.result) {
+          const reading = response.result as WeightReading;
+          setLastReading(reading);
+          showSuccess(`Successfully read weight: ${reading.gross_weight} ${reading.unit}`);
+        } else if (response.result && "message" in response.result) {
+          showSuccess(`Command '${command}' successful: ${response.result.message}`);
+          setLastReading(null);
+        } else {
+          showSuccess(`Command '${command}' executed successfully.`);
+          setLastReading(null);
+        }
       } else {
         showError(`Command failed: ${response.error || "Unknown error"}`);
       }

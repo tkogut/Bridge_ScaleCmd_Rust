@@ -14,8 +14,8 @@ const initialConfigs: Record<DeviceId, DeviceConfig> = {
       "timeout_ms": 3000
     },
     "commands": {
-      "read_gross": "20050026",
-      "read_net": "20050025",
+      "readGross": "20050026",
+      "readNet": "20050025",
       "tare": "21120008:0C",
       "zero": "21120008:0B"
     }
@@ -32,8 +32,8 @@ const initialConfigs: Record<DeviceId, DeviceConfig> = {
       "timeout_ms": 1000
     },
     "commands": {
-      "read_gross": "W",
-      "read_net": "N",
+      "readGross": "W",
+      "readNet": "N",
       "tare": "T",
       "zero": "Z"
     }
