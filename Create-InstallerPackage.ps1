@@ -27,7 +27,7 @@ $InformationPreference = "Continue"
 
 # Script variables
 $ScriptDir = Split-Path -Parent (Resolve-Path $PSCommandPath)
-$BackendBinary = Join-Path $ScriptDir "src-rust\target\release\scaleit-bridge.exe"
+$BackendBinary = Join-Path $ScriptDir "src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"
 $FrontendDir = Join-Path $ScriptDir "dist"
 $ConfigFile = Join-Path $ScriptDir "src-rust\config\devices.json"
 $PackageName = "ScaleIT_Bridge_Windows_v$Version"
@@ -265,7 +265,7 @@ Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 "@
 
 Set-Content "$PackageDir\README.md" $readme
-Write-Host "  ✓ README created" -ForegroundColor Green
+Write-Host "  * README created" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "[5/5] Creating distribution archive..." -ForegroundColor Cyan
@@ -278,7 +278,7 @@ if (Test-Path $zipPath) {
 
 # Use built-in Compress-Archive
 Compress-Archive -Path $PackageDir -DestinationPath $zipPath -CompressionLevel Optimal
-Write-Host "  ✓ ZIP archive created" -ForegroundColor Green
+Write-Host "  * ZIP archive created" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
