@@ -1,4 +1,5 @@
-pub mod adapter;
+﻿pub mod adapter;
+pub mod dini_argeo;
 pub mod rinstrum;
 
 // Re-export common types if callers expect to access them directly from `adapters`.

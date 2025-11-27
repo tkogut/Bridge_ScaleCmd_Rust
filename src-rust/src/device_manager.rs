@@ -8,6 +8,7 @@ use log::{error, info, warn};
 use parking_lot::RwLock;
 
 use crate::adapters::adapter::DeviceAdapter;
+use crate::adapters::dini_argeo::DiniArgeoAsciiAdapter;
 use crate::adapters::rinstrum::RinstrumC320Adapter;
 use crate::error::BridgeError;
 use crate::models::device::{AppConfig, DeviceConfig};
@@ -173,8 +174,14 @@ impl DeviceManager {
                 device_id, device_config.name
             );
 
-            let adapter: Arc<dyn DeviceAdapter> = match device_config.protocol.as_str() {
+            let protocol = device_config.protocol.to_uppercase();
+            let adapter: Arc<dyn DeviceAdapter> = match protocol.as_str() {
                 "RINCMD" => Arc::new(RinstrumC320Adapter::new(
+                    device_id.clone(),
+                    device_config.connection.clone(),
+                    device_config.commands.clone(),
+                )?),
+                "ASCII" | "DFW" | "DINIA" | "DINI_ARGEO" => Arc::new(DiniArgeoAsciiAdapter::new(
                     device_id.clone(),
                     device_config.connection.clone(),
                     device_config.commands.clone(),

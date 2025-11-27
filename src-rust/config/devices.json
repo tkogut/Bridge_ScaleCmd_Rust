@@ -22,7 +22,7 @@
       "name": "Dini Argeo - Lab Scale",
       "manufacturer": "Dini Argeo",
       "model": "DGTQ",
-      "protocol": "ASCII",
+      "protocol": "DINI_ARGEO",
       "connection": {
         "connection_type": "Serial",
         "port": "/dev/ttyUSB0",
