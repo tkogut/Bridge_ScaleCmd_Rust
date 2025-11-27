@@ -200,7 +200,7 @@ pub struct WeightReading {
 ///
 /// # Example
 /// ```
-/// let reading = execute_command("c320_line1", "readGross")?;
+/// let reading = execute_command("C320", "readGross")?;
 /// println!("Weight: {} {}", reading.gross_weight, reading.unit);
 /// ```
 pub async fn execute_command(device_id: &str, command: &str) -> Result<WeightReading, Error> {

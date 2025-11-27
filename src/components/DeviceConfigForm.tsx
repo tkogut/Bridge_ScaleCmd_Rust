@@ -260,7 +260,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
                   <FormItem>
                     <FormLabel>Device ID</FormLabel>
                     <FormControl>
-                      <Input placeholder="c320_line1" {...field} disabled={isEdit} />
+                      <Input placeholder="C320" {...field} disabled={isEdit} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

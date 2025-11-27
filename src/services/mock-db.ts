@@ -2,8 +2,8 @@ import { DeviceConfig, DeviceId } from "@/types/api";
 
 // Początkowe dane konfiguracyjne, zgodne z devices.json
 const initialConfigs: Record<DeviceId, DeviceConfig> = {
-  "c320_line1": {
-    "name": "C320 - Production Line 1",
+  "C320": {
+    "name": "C320 Rinstrum",
     "manufacturer": "Rinstrum",
     "model": "C320",
     "protocol": "RINCMD",
@@ -20,11 +20,11 @@ const initialConfigs: Record<DeviceId, DeviceConfig> = {
       "zero": "21120008:0B"
     }
   },
-  "dini_argeo_lab": {
-    "name": "Dini Argeo - Lab Scale",
+  "DWF": {
+    "name": "DFW - Dini Argeo",
     "manufacturer": "Dini Argeo",
-    "model": "DGTQ",
-    "protocol": "ASCII",
+    "model": "DFW",
+    "protocol": "DINI_ARGEO",
     "connection": {
       "connection_type": "Serial",
       "port": "/dev/ttyUSB0",
@@ -32,10 +32,10 @@ const initialConfigs: Record<DeviceId, DeviceConfig> = {
       "timeout_ms": 1000
     },
     "commands": {
-      "readGross": "W",
-      "readNet": "N",
-      "tare": "T",
-      "zero": "Z"
+      "readGross": "READ",
+      "readNet": "REXT",
+      "tare": "TARE",
+      "zero": "ZERO"
     }
   }
 };

@@ -113,9 +113,9 @@ Wbudowana aplikacja do kontroli Bridge:
 │ TOOLS:   [Config] [Logs] [Diagnostics]   │
 │                                          │
 │ Recent Requests                          │
-│ ✓ readGross c320_line1 12:34:45          │
-│ ✓ readNet   c320_line1 12:34:40          │
-│ ✓ tare      c320_line1 12:34:15          │
+│ ✓ readGross C320 12:34:45          │
+│ ✓ readNet   C320 12:34:40          │
+│ ✓ tare      C320 12:34:15          │
 └──────────────────────────────────────────┘
 ```
 
@@ -127,22 +127,40 @@ Wbudowana aplikacja do kontroli Bridge:
 ```json
 {
   "devices": {
-    "c320_line1": {
-      "name": "C320 - Production Line 1",
+    "C320": {
+      "name": "C320 Rinstrum",
       "manufacturer": "Rinstrum",
       "model": "C320",
       "protocol": "RINCMD",
       "connection": {
-        "type": "tcp",
+        "connection_type": "Tcp",
         "host": "192.168.1.254",
         "port": 4001,
-        "timeout": 3000
+        "timeout_ms": 3000
       },
       "commands": {
-        "readGross": "20050026:",
-        "readNet": "20050025:",
+        "readGross": "20050026",
+        "readNet": "20050025",
         "tare": "21120008:0C",
         "zero": "21120008:0B"
+      }
+    },
+    "DWF": {
+      "name": "DFW - Dini Argeo",
+      "manufacturer": "Dini Argeo",
+      "model": "DFW",
+      "protocol": "DINI_ARGEO",
+      "connection": {
+        "connection_type": "Serial",
+        "port": "/dev/ttyUSB0",
+        "baud_rate": 9600,
+        "timeout_ms": 1000
+      },
+      "commands": {
+        "readGross": "READ",
+        "readNet": "REXT",
+        "tare": "TARE",
+        "zero": "ZERO"
       }
     }
   }
@@ -158,14 +176,14 @@ Wbudowana aplikacja do kontroli Bridge:
 curl -X POST http://localhost:8080/scalecmd \
   -H "Content-Type: application/json" \
   -d '{
-    "device_id": "c320_line1",
+    "device_id": "C320",
     "command": "readGross"
   }'
 
 # Response
 {
   "success": true,
-  "device_id": "c320_line1",
+  "device_id": "C320",
   "command": "readGross",
   "result": {
     "gross_weight": 42.50,
@@ -181,7 +199,7 @@ curl -X POST http://localhost:8080/scalecmd \
 curl -X POST http://localhost:8080/scalecmd \
   -H "Content-Type: application/json" \
   -d '{
-    "device_id": "c320_line1",
+    "device_id": "C320",
     "command": "readNet"
   }'
 
@@ -199,13 +217,13 @@ curl -X POST http://localhost:8080/scalecmd \
 ### Tare (Zero Tare)
 ```bash
 curl -X POST http://localhost:8080/scalecmd \
-  -d '{"device_id":"c320_line1","command":"tare"}'
+  -d '{"device_id":"C320","command":"tare"}'
 ```
 
 ### Zero Scale
 ```bash
 curl -X POST http://localhost:8080/scalecmd \
-  -d '{"device_id":"c320_line1","command":"zero"}'
+  -d '{"device_id":"C320","command":"zero"}'
 ```
 
 ### Health Check
@@ -228,8 +246,8 @@ curl http://localhost:8080/devices
 {
   "success": true,
   "devices": [
-    ["c320_line1", "C320 - Line 1", "C320"],
-    ["c320_line2", "C320 - Line 2", "C320"]
+    ["C320", "C320 Rinstrum", "C320"],
+    ["DWF", "DFW - Dini Argeo", "DFW"]
   ]
 }
 ```

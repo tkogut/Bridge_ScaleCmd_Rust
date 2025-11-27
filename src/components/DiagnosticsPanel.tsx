@@ -92,7 +92,7 @@ const DiagnosticsPanel = () => {
 
   const renderStatus = () => {
     // Symulacja statusu połączenia
-    const isConnected = selectedDeviceId === "c320_line1"; // Symulacja, że tylko c320_line1 jest 'online'
+    const isConnected = selectedDeviceId === "C320"; // Symulacja, że tylko C320 jest 'online'
     
     return (
       <div className="space-y-3">
