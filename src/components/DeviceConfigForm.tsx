@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 // Schemat walidacji dla konfiguracji urządzenia
 const DeviceConfigSchema = z.object({
@@ -53,6 +54,7 @@ const DeviceConfigSchema = z.object({
   read_net_cmd: z.string().min(1, "Command is required"),
   tare_cmd: z.string().min(1, "Command is required"),
   zero_cmd: z.string().min(1, "Command is required"),
+  enabled: z.boolean().default(true),
 }).superRefine((values, ctx) => {
   if (values.connection_type === "Tcp") {
     if (!values.host) {
@@ -128,6 +130,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
         read_net_cmd: "",
         tare_cmd: "",
         zero_cmd: "",
+        enabled: true,
       };
     }
 
@@ -144,6 +147,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       tare_cmd: config.commands["tare"] || "",
       zero_cmd: config.commands["zero"] || "",
       timeout_ms: config.connection.timeout_ms,
+      enabled: config.enabled ?? true,
     };
 
     if (config.connection.connection_type === "Tcp") {
@@ -194,6 +198,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       tcp_port,
       serial_port,
       baud_rate,
+      enabled,
     } = values;
 
     let connection: DeviceConfig["connection"];
@@ -226,6 +231,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
         tare: tare_cmd,
         zero: zero_cmd,
       },
+      enabled,
     };
 
     try {
@@ -319,6 +325,28 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="enabled"
+              render={({ field }) => (
+                <FormItem className="flex flex-col space-y-2">
+                  <FormLabel>Device Enabled</FormLabel>
+                  <FormControl>
+                    <div className="flex items-center space-x-3">
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <span className="text-sm text-muted-foreground">
+                        {field.value
+                          ? "Bridge will auto-connect this device on startup."
+                          : "Device stays offline until you enable it here."}
+                      </span>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
 
             <Separator />
             

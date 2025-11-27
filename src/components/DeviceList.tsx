@@ -1,7 +1,9 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAllDeviceConfigs, deleteDeviceConfig } from "@/services/bridge-api";
+import { getAllDeviceConfigs, deleteDeviceConfig, saveDeviceConfig } from "@/services/bridge-api";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -41,6 +43,24 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
       showError(`Failed to delete device ${deviceId}: ${err.message}`);
     },
   });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ deviceId, config, enabled }: { deviceId: DeviceId; config: DeviceConfig; enabled: boolean }) => {
+      await saveDeviceConfig(deviceId, { ...config, enabled });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deviceConfigs"] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      showSuccess("Device status updated.");
+    },
+    onError: (err) => {
+      showError(`Failed to update device status: ${err.message}`);
+    },
+  });
+
+  const handleToggle = (deviceId: DeviceId, config: DeviceConfig, enabled: boolean) => {
+    toggleMutation.mutate({ deviceId, config, enabled });
+  };
 
   const handleDelete = (deviceId: DeviceId) => {
     if (!window.confirm(`Are you sure you want to delete device ${deviceId}?`)) {
@@ -98,6 +118,7 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
               <TableHead>Model</TableHead>
               <TableHead>Protocol</TableHead>
               <TableHead>Connection</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -118,7 +139,19 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
                   <TableCell>
                     {renderConnection(config)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <Badge variant={config.enabled ? "default" : "secondary"}>
+                        {config.enabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                      <Switch
+                        checked={config.enabled}
+                        onCheckedChange={(value) => handleToggle(id, config, value)}
+                        disabled={toggleMutation.isPending}
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right"
                     <div className="flex justify-end space-x-2">
                       <Button 
                         variant="ghost" 

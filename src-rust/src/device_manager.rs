@@ -43,6 +43,7 @@ impl DeviceManager {
         self.devices
             .read()
             .iter()
+            .filter(|(_, dev)| dev.enabled)
             .map(|(id, dev)| (id.clone(), dev.name.clone(), dev.model.clone()))
             .collect()
     }
@@ -63,6 +64,20 @@ impl DeviceManager {
         &self,
         request: ScaleCommandRequest,
     ) -> Result<ScaleCommandResponse, BridgeError> {
+        {
+            let devices_guard = self.devices.read();
+            if let Some(config) = devices_guard.get(&request.device_id) {
+                if !config.enabled {
+                    return Err(BridgeError::InvalidCommand(format!(
+                        "Device {} is disabled",
+                        request.device_id
+                    )));
+                }
+            } else {
+                return Err(BridgeError::DeviceNotFound(request.device_id.clone()));
+            }
+        }
+
         let adapter = {
             let adapters_guard = self.adapters.read();
             adapters_guard
@@ -173,6 +188,11 @@ impl DeviceManager {
                 "Initializing adapter for device: {} ({})",
                 device_id, device_config.name
             );
+
+            if !device_config.enabled {
+                info!("Skipping disabled device {}", device_id);
+                continue;
+            }
 
             let protocol = device_config.protocol.to_uppercase();
             let adapter: Arc<dyn DeviceAdapter> = match protocol.as_str() {

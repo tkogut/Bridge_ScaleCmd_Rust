@@ -30,6 +30,7 @@ export interface DeviceConfig {
   protocol: string;
   connection: TcpConnection | SerialConnection;
   commands: Record<string, string>;
+  enabled: boolean;
 }
 
 export interface TcpConnection {

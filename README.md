@@ -143,7 +143,8 @@ Wbudowana aplikacja do kontroli Bridge:
         "readNet": "20050025",
         "tare": "21120008:0C",
         "zero": "21120008:0B"
-      }
+      },
+      "enabled": true
     },
     "DWF": {
       "name": "DFW - Dini Argeo",
@@ -161,7 +162,8 @@ Wbudowana aplikacja do kontroli Bridge:
         "readNet": "REXT",
         "tare": "TARE",
         "zero": "ZERO"
-      }
+      },
+      "enabled": false
     }
   }
 }

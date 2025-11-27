@@ -24,6 +24,12 @@ pub struct DeviceConfig {
     pub protocol: String,
     pub connection: Connection,
     pub commands: HashMap<String, String>,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
