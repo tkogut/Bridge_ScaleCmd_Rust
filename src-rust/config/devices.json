@@ -30,10 +30,10 @@
         "timeout_ms": 1000
       },
       "commands": {
-        "readGross": "W",
-        "readNet": "N",
-        "tare": "T",
-        "zero": "Z"
+        "readGross": "READ",
+        "readNet": "REXT",
+        "tare": "TARE",
+        "zero": "ZERO"
       }
     }
   }
