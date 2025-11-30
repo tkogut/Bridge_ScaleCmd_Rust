@@ -1,0 +1,198 @@
+# Prometheus Configuration for ScaleIT Bridge Monitoring
+# Version: 3.1.0
+# Description: Comprehensive monitoring setup for production deployment
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'scaleit-bridge-production'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Rules files
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # ScaleIT Bridge main application
+  - job_name: 'scaleit-bridge'
+    static_configs:
+      - targets: ['scaleit-bridge:8080']
+    metrics_path: /metrics
+    scrape_interval: 10s
+    scrape_timeout: 8s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: scaleit-bridge:8080
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):(.*)'
+        target_label: instance
+        replacement: '${1}'
+
+  # Docker container metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['host.docker.internal:9323']
+    scrape_interval: 30s
+
+  # PostgreSQL metrics (if used)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis metrics (if used)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Nginx metrics (if used)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 15s
+
+  # Blackbox exporter for endpoint monitoring
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - http://scaleit-bridge:8080/health
+        - http://scaleit-bridge:8080/devices
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # TCP connectivity checks
+  - job_name: 'blackbox-tcp'
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+        - scaleit-bridge:8080
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Custom device connectivity monitoring
+  - job_name: 'device-connectivity'
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+        - 192.168.1.254:4001  # Example scale IP
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+      - target_label: device_type
+        replacement: 'industrial_scale'
+
+  # Application-specific metrics
+  - job_name: 'scaleit-bridge-custom'
+    static_configs:
+      - targets: ['scaleit-bridge:8080']
+    metrics_path: /api/metrics
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    honor_timestamps: true
+    params:
+      format: ['prometheus']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'scaleit_(.+)'
+        target_label: __name__
+        replacement: 'bridge_${1}'
+
+  # Service discovery for dynamic targets
+  - job_name: 'docker-swarm'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: tasks
+        port: 8080
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_service_name]
+        regex: 'scaleit-bridge.*'
+        action: keep
+      - source_labels: [__meta_dockerswarm_service_name]
+        target_label: service
+      - source_labels: [__meta_dockerswarm_task_name]
+        target_label: task
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+
+# Remote write configuration (optional)
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint.example.com/api/v1/write"
+#     basic_auth:
+#       username: "prometheus"
+#       password_file: "/etc/prometheus/remote_write_password"
+
+# Remote read configuration (optional)
+# remote_read:
+#   - url: "https://prometheus-remote-read-endpoint.example.com/api/v1/read"
+#     basic_auth:
+#       username: "prometheus"
+#       password_file: "/etc/prometheus/remote_read_password"
+
+# Web configuration
+web:
+  console:
+    libraries: /etc/prometheus/console_libraries
+    templates: /etc/prometheus/consoles
+  enable-lifecycle: true
+  enable-admin-api: true
+  max-connections: 512
+  read-timeout: 30s

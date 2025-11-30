@@ -1,0 +1,90 @@
+# Test-specific Dockerfile for ScaleIT Bridge
+FROM node:18-alpine AS test-base
+
+# Install system dependencies for testing
+RUN apk add --no-cache \
+    git \
+    curl \
+    chromium \
+    chromium-chromedriver \
+    firefox \
+    xvfb \
+    dbus \
+    ttf-freefont \
+    musl-dev \
+    pkgconfig \
+    openssl-dev
+
+# Install Rust for backend testing
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files for frontend dependencies
+COPY package*.json ./
+COPY pnpm-lock.yaml ./
+
+# Install frontend dependencies including test dependencies
+RUN npm install -g pnpm && pnpm install
+
+# Copy Rust backend files
+COPY src-rust/Cargo.toml src-rust/Cargo.lock ./src-rust/
+
+# Create dummy source to cache Rust dependencies
+RUN mkdir -p src-rust/src && echo "fn main() {}" > src-rust/src/main.rs
+RUN cd src-rust && cargo build --release
+RUN rm -rf src-rust/src
+
+# Copy all source code
+COPY . .
+
+# Install Playwright browsers
+RUN npx playwright install --with-deps chromium firefox webkit
+
+# Set up test environment variables
+ENV NODE_ENV=test
+ENV RUST_LOG=debug
+ENV CI=true
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
+ENV FIREFOX_PATH=/usr/bin/firefox
+
+# Create test directories
+RUN mkdir -p test-results playwright-report coverage
+
+# Set proper permissions
+RUN chmod +x src-rust/target/release/* || true
+
+# Health check for test environment
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Default command runs all tests
+CMD ["sh", "-c", "\
+    echo 'Starting test suite...' && \
+    echo 'Running Rust backend tests...' && \
+    cd src-rust && \
+    cargo test --release --verbose && \
+    cd .. && \
+    echo 'Running frontend unit tests...' && \
+    npm run test:run && \
+    echo 'Running frontend tests with coverage...' && \
+    npm run test:coverage && \
+    echo 'Building application for E2E tests...' && \
+    npm run build && \
+    echo 'Starting backend for E2E tests...' && \
+    (cd src-rust && cargo run &) && \
+    sleep 10 && \
+    echo 'Running E2E tests...' && \
+    npm run test:e2e && \
+    echo 'All tests completed successfully!' \
+"]
+
+# Alternative commands for specific test types
+LABEL test.unit="cd src-rust && cargo test --lib"
+LABEL test.integration="cd src-rust && cargo test --test integration_test"
+LABEL test.frontend="npm run test:run"
+LABEL test.e2e="npm run test:e2e"
+LABEL test.coverage="npm run test:coverage"

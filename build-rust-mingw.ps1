@@ -1,0 +1,132 @@
+# PowerShell script to build ScaleIT Bridge with MinGW toolchain
+# This script properly configures MinGW environment and builds the Rust project
+
+Write-Host "Building ScaleIT Bridge with MinGW toolchain..." -ForegroundColor Green
+Write-Host ""
+
+# Set MinGW paths
+$mingwPath = "D:\msys64\mingw64"
+$mingwBinPath = "$mingwPath\bin"
+$mingwCrossBinPath = "$mingwPath\x86_64-w64-mingw32\bin"
+
+# Check if MSYS2 MinGW paths exist
+if (-not (Test-Path $mingwPath)) {
+    Write-Host "Error: MSYS2 MinGW path not found: $mingwPath" -ForegroundColor Red
+    Write-Host "Please ensure MSYS2 is installed with MinGW64 environment." -ForegroundColor Red
+    exit 1
+}
+
+if (-not (Test-Path $mingwCrossBinPath)) {
+    Write-Host "Error: MinGW cross-compile tools not found: $mingwCrossBinPath" -ForegroundColor Red
+    Write-Host "Please install mingw-w64 toolchain in MSYS2:" -ForegroundColor Red
+    Write-Host "  pacman -S mingw-w64-x86_64-toolchain" -ForegroundColor Yellow
+    exit 1
+}
+
+# Set environment variables for MinGW build
+$env:PATH = "$mingwBinPath;$mingwCrossBinPath;$env:PATH"
+$env:CC = "$mingwBinPath\gcc.exe"
+$env:CXX = "$mingwBinPath\g++.exe"
+$env:AR = "$mingwCrossBinPath\ar.exe"
+$env:RANLIB = "$mingwCrossBinPath\ranlib.exe"
+$env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "$mingwBinPath\gcc.exe"
+$env:RUSTFLAGS = "-C target-cpu=native"
+
+Write-Host "MinGW environment configured:" -ForegroundColor Yellow
+Write-Host "  MINGW_PATH: $mingwPath" -ForegroundColor Gray
+Write-Host "  CC: $env:CC" -ForegroundColor Gray
+Write-Host "  AR: $env:AR" -ForegroundColor Gray
+Write-Host "  LINKER: $env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER" -ForegroundColor Gray
+Write-Host ""
+
+# Verify tools are available
+Write-Host "Verifying MinGW tools..." -ForegroundColor Yellow
+
+$tools = @(
+    @{ Name = "gcc"; Path = "$mingwBinPath\gcc.exe" },
+    @{ Name = "dlltool"; Path = "$mingwCrossBinPath\dlltool.exe" },
+    @{ Name = "ar"; Path = "$mingwCrossBinPath\ar.exe" },
+    @{ Name = "ranlib"; Path = "$mingwCrossBinPath\ranlib.exe" }
+)
+
+foreach ($tool in $tools) {
+    if (Test-Path $tool.Path) {
+        Write-Host "  checkmark $($tool.Name) found" -ForegroundColor Green
+    } else {
+        Write-Host "  X $($tool.Name) not found at $($tool.Path)" -ForegroundColor Red
+        exit 1
+    }
+}
+
+Write-Host ""
+
+# Set Rust toolchain to GNU
+Write-Host "Setting Rust toolchain to GNU..." -ForegroundColor Yellow
+try {
+    rustup default stable-x86_64-pc-windows-gnu
+    Write-Host "Rust GNU toolchain activated" -ForegroundColor Green
+} catch {
+    Write-Host "Error setting Rust toolchain. Please run manually:" -ForegroundColor Red
+    Write-Host "  rustup toolchain install stable-x86_64-pc-windows-gnu" -ForegroundColor White
+    Write-Host "  rustup default stable-x86_64-pc-windows-gnu" -ForegroundColor White
+    exit 1
+}
+
+Write-Host ""
+
+# Navigate to Rust source directory
+if (-not (Test-Path "src-rust")) {
+    Write-Host "Error: src-rust directory not found" -ForegroundColor Red
+    exit 1
+}
+
+Set-Location "src-rust"
+Write-Host "Changed to src-rust directory" -ForegroundColor Gray
+
+# Clean previous build
+Write-Host "Cleaning previous build..." -ForegroundColor Yellow
+cargo clean
+
+# Build the project
+Write-Host ""
+Write-Host "Building Rust project..." -ForegroundColor Yellow
+Write-Host "This may take a few minutes on first build..." -ForegroundColor Gray
+Write-Host ""
+
+$buildResult = cargo build
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "Build failed!" -ForegroundColor Red
+    Write-Host "Check the error messages above for details." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Common solutions:" -ForegroundColor Cyan
+    Write-Host "1. Ensure MSYS2 MinGW64 is fully installed" -ForegroundColor White
+    Write-Host "2. Run: pacman -S mingw-w64-x86_64-toolchain" -ForegroundColor White
+    Write-Host "3. Check that no antivirus is blocking build files" -ForegroundColor White
+    exit 1
+}
+
+Write-Host ""
+Write-Host "Build successful!" -ForegroundColor Green
+Write-Host ""
+
+# Run tests
+Write-Host "Running tests..." -ForegroundColor Yellow
+$testResult = cargo test
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "Some tests failed, but build is complete." -ForegroundColor Yellow
+} else {
+    Write-Host ""
+    Write-Host "All tests passed!" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "Build complete!" -ForegroundColor Green
+Write-Host ""
+Write-Host "You can now:" -ForegroundColor Cyan
+Write-Host "  - Run the server: cargo run" -ForegroundColor White
+Write-Host "  - Build release version: cargo build --release" -ForegroundColor White
+Write-Host "  - Run tests: cargo test" -ForegroundColor White
+Write-Host ""
+Write-Host "Server will be available at: http://localhost:8080" -ForegroundColor Yellow

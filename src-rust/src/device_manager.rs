@@ -7,9 +7,7 @@ use std::sync::Arc;
 use log::{error, info, warn};
 use parking_lot::RwLock;
 
-use crate::adapters::adapter::DeviceAdapter;
-use crate::adapters::dini_argeo::DiniArgeoAsciiAdapter;
-use crate::adapters::rinstrum::RinstrumC320Adapter;
+use crate::adapters::adapter_enum::DeviceAdapterEnum;
 use crate::error::BridgeError;
 use crate::models::device::{AppConfig, DeviceConfig};
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
@@ -17,7 +15,7 @@ use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
 pub struct DeviceManager {
     config_path: PathBuf,
     devices: RwLock<HashMap<String, DeviceConfig>>,
-    adapters: RwLock<HashMap<String, Arc<dyn DeviceAdapter>>>,
+    adapters: RwLock<HashMap<String, DeviceAdapterEnum>>,
 }
 
 impl DeviceManager {
@@ -180,8 +178,8 @@ impl DeviceManager {
 
     fn build_adapters(
         devices: &HashMap<String, DeviceConfig>,
-    ) -> Result<HashMap<String, Arc<dyn DeviceAdapter>>, BridgeError> {
-        let mut adapters: HashMap<String, Arc<dyn DeviceAdapter>> = HashMap::new();
+    ) -> Result<HashMap<String, DeviceAdapterEnum>, BridgeError> {
+        let mut adapters: HashMap<String, DeviceAdapterEnum> = HashMap::new();
 
         for (device_id, device_config) in devices.iter() {
             info!(
@@ -195,17 +193,18 @@ impl DeviceManager {
             }
 
             let protocol = device_config.protocol.to_uppercase();
-            let adapter: Arc<dyn DeviceAdapter> = match protocol.as_str() {
-                "RINCMD" => Arc::new(RinstrumC320Adapter::new(
+
+            let adapter = match protocol.as_str() {
+                "RINCMD" => DeviceAdapterEnum::new_rinstrum(
                     device_id.clone(),
                     device_config.connection.clone(),
                     device_config.commands.clone(),
-                )?),
-                "ASCII" | "DFW" | "DINIA" | "DINI_ARGEO" => Arc::new(DiniArgeoAsciiAdapter::new(
+                )?,
+                "ASCII" | "DFW" | "DINIA" | "DINI_ARGEO" => DeviceAdapterEnum::new_dini_argeo(
                     device_id.clone(),
                     device_config.connection.clone(),
                     device_config.commands.clone(),
-                )?),
+                )?,
                 _ => {
                     error!(
                         "Unsupported protocol '{}' for device {}",
