@@ -1,30 +1,37 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { scaleService } from "@/services/scaleService";
+import { useToast } from "@/hooks/use-toast";
 
 export const HealthCheck = () => {
   const [status, setStatus] = useState<"idle" | "checking" | "success" | "error">("idle");
   const [message, setMessage] = useState<string>("");
+  const { toast } = useToast();
   
   const checkHealth = async () => {
     setStatus("checking");
     setMessage("Checking connection...");
     
     try {
-      // Try to connect to a health endpoint
-      const response = await fetch("/api/health");
+      const response = await scaleService.healthCheck();
       
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === "OK") {
         setStatus("success");
-        setMessage(`Connected successfully. Backend says: ${data.message || "OK"}`);
+        setMessage(`Connected successfully. Backend says: ${response.service}`);
       } else {
         setStatus("error");
-        setMessage(`Backend returned error: ${response.status} ${response.statusText}`);
+        setMessage(`Unexpected response from backend: ${JSON.stringify(response)}`);
       }
     } catch (error) {
       setStatus("error");
       setMessage(`Connection failed: ${error.message}`);
+      
+      toast({
+        title: "Connection Error",
+        description: `Failed to connect to backend: ${error.message}`,
+        variant: "destructive"
+      });
     }
   };
   
@@ -72,11 +79,11 @@ export const HealthCheck = () => {
           {status === "checking" ? "Checking..." : "Check Connection"}
         </Button>
         
-        <div className="text-sm text-gray-500 mt-4">
+        <div className="text-sm text-gray-500">
           <p className="font-medium">Troubleshooting tips:</p>
           <ul className="list-disc list-inside mt-1 space-y-1">
-            <li>Ensure your backend server is running</li>
-            <li>Check if API endpoints are correctly configured</li>
+            <li>Ensure the backend server is running on port 8080</li>
+            <li>Check if the backend URL is correctly configured</li>
             <li>Verify CORS settings if making cross-origin requests</li>
             <li>Check browser console for network errors</li>
           </ul>
