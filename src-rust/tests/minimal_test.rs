@@ -104,18 +104,17 @@ fn test_device_config_tcp_serialization() {
     commands.insert("tare".to_string(), "T".to_string());
     commands.insert("zero".to_string(), "Z".to_string());
 
-    let tcp_connection = Connection::Tcp {
-        host: "192.168.1.100".to_string(),
-        port: 4001,
-        timeout_ms: 5000,
-    };
-
+    use scaleit_bridge::models::device::ConnectionConfig;
     let device_config = DeviceConfig {
         name: "C320 Rinstrum Scale".to_string(),
         manufacturer: "Rinstrum".to_string(),
         model: "C320".to_string(),
         protocol: "RINCMD".to_string(),
-        connection: tcp_connection,
+        connection: ConnectionConfig::Tcp {
+            host: "192.168.1.100".to_string(),
+            port: 4001,
+        },
+        timeout_ms: 5000,
         commands,
         enabled: true,
     };
@@ -133,25 +132,14 @@ fn test_device_config_tcp_serialization() {
     assert_eq!(device_config.commands.len(), deserialized.commands.len());
 
     // Check TCP connection details
-    match (device_config.connection, deserialized.connection) {
-        (
-            Connection::Tcp {
-                host: h1,
-                port: p1,
-                timeout_ms: t1,
-            },
-            Connection::Tcp {
-                host: h2,
-                port: p2,
-                timeout_ms: t2,
-            },
-        ) => {
+    match (&device_config.connection, &deserialized.connection) {
+        (ConnectionConfig::Tcp { host: h1, port: p1 }, ConnectionConfig::Tcp { host: h2, port: p2 }) => {
             assert_eq!(h1, h2);
             assert_eq!(p1, p2);
-            assert_eq!(t1, t2);
         }
         _ => panic!("Connection types don't match"),
     }
+    assert_eq!(device_config.timeout_ms, deserialized.timeout_ms);
 }
 
 #[test]
@@ -162,18 +150,32 @@ fn test_device_config_serial_serialization() {
     commands.insert("tare".to_string(), "T".to_string());
     commands.insert("zero".to_string(), "Z".to_string());
 
+    use scaleit_bridge::models::device::{FlowControl, Parity, StopBits};
     let serial_connection = Connection::Serial {
         port: "COM3".to_string(),
         baud_rate: 9600,
+        data_bits: 8,
+        stop_bits: StopBits::One,
+        parity: Parity::None,
+        flow_control: FlowControl::None,
         timeout_ms: 1000,
     };
 
+    use scaleit_bridge::models::device::ConnectionConfig;
     let device_config = DeviceConfig {
         name: "DFW Dini Argeo Scale".to_string(),
         manufacturer: "Dini Argeo".to_string(),
         model: "DFW".to_string(),
         protocol: "DINI_ARGEO".to_string(),
-        connection: serial_connection,
+        connection: ConnectionConfig::Serial {
+            port: "COM3".to_string(),
+            baud_rate: 9600,
+            data_bits: 8,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
+        },
+        timeout_ms: 1000,
         commands,
         enabled: true,
     };
@@ -190,25 +192,28 @@ fn test_device_config_serial_serialization() {
     assert_eq!(device_config.enabled, deserialized.enabled);
 
     // Check Serial connection details
-    match (device_config.connection, deserialized.connection) {
+    match (&device_config.connection, &deserialized.connection) {
         (
-            Connection::Serial {
+            ConnectionConfig::Serial {
                 port: p1,
                 baud_rate: b1,
-                timeout_ms: t1,
+                data_bits: d1,
+                ..
             },
-            Connection::Serial {
+            ConnectionConfig::Serial {
                 port: p2,
                 baud_rate: b2,
-                timeout_ms: t2,
+                data_bits: d2,
+                ..
             },
         ) => {
             assert_eq!(p1, p2);
             assert_eq!(b1, b2);
-            assert_eq!(t1, t2);
+            assert_eq!(d1, d2);
         }
         _ => panic!("Connection types don't match"),
     }
+    assert_eq!(device_config.timeout_ms, deserialized.timeout_ms);
 }
 
 #[test]
@@ -220,16 +225,17 @@ fn test_app_config_serialization() {
     tcp_commands.insert("readGross".to_string(), "20050026".to_string());
     tcp_commands.insert("readNet".to_string(), "20050025".to_string());
 
+    use scaleit_bridge::models::device::ConnectionConfig;
     let tcp_device = DeviceConfig {
         name: "C320 Rinstrum".to_string(),
         manufacturer: "Rinstrum".to_string(),
         model: "C320".to_string(),
         protocol: "RINCMD".to_string(),
-        connection: Connection::Tcp {
+        connection: ConnectionConfig::Tcp {
             host: "192.168.1.254".to_string(),
             port: 4001,
-            timeout_ms: 3000,
         },
+        timeout_ms: 3000,
         commands: tcp_commands,
         enabled: true,
     };
@@ -239,16 +245,21 @@ fn test_app_config_serialization() {
     serial_commands.insert("readGross".to_string(), "READ".to_string());
     serial_commands.insert("tare".to_string(), "TARE".to_string());
 
+    use scaleit_bridge::models::device::ConnectionConfig;
     let serial_device = DeviceConfig {
         name: "DFW Dini Argeo".to_string(),
         manufacturer: "Dini Argeo".to_string(),
         model: "DFW".to_string(),
         protocol: "DINI_ARGEO".to_string(),
-        connection: Connection::Serial {
+        connection: ConnectionConfig::Serial {
             port: "/dev/ttyUSB0".to_string(),
             baud_rate: 9600,
-            timeout_ms: 1000,
+            data_bits: 8,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
         },
+        timeout_ms: 1000,
         commands: serial_commands,
         enabled: false, // Disabled for testing
     };
@@ -287,16 +298,17 @@ fn test_app_config_file_operations() {
     let mut commands = HashMap::new();
     commands.insert("readGross".to_string(), "TEST_CMD".to_string());
 
+    use scaleit_bridge::models::device::ConnectionConfig;
     let test_device = DeviceConfig {
         name: "Test Device".to_string(),
         manufacturer: "Test Corp".to_string(),
         model: "Test-1".to_string(),
         protocol: "TEST_PROTOCOL".to_string(),
-        connection: Connection::Tcp {
+        connection: ConnectionConfig::Tcp {
             host: "127.0.0.1".to_string(),
             port: 8080,
-            timeout_ms: 5000,
         },
+        timeout_ms: 5000,
         commands,
         enabled: true,
     };

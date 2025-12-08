@@ -10,9 +10,9 @@ const initialConfigs: Record<DeviceId, DeviceConfig> = {
     "connection": {
       "connection_type": "Tcp",
       "host": "192.168.1.254",
-      "port": 4001,
-      "timeout_ms": 3000
+      "port": 4001
     },
+    "timeout_ms": 3000,
     "commands": {
       "readGross": "20050026",
       "readNet": "20050025",
@@ -29,9 +29,9 @@ const initialConfigs: Record<DeviceId, DeviceConfig> = {
     "connection": {
       "connection_type": "Serial",
       "port": "/dev/ttyUSB0",
-      "baud_rate": 9600,
-      "timeout_ms": 1000
+      "baud_rate": 9600
     },
+    "timeout_ms": 1000,
     "commands": {
       "readGross": "READ",
       "readNet": "REXT",

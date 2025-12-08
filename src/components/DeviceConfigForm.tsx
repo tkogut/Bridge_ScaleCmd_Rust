@@ -121,11 +121,11 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
         model: "",
         protocol: "RINCMD",
         connection_type: "Tcp",
-        host: "127.0.0.1",
+        host: "192.168.1.254",
         tcp_port: 4001,
         serial_port: "",
         baud_rate: 9600,
-        timeout_ms: 3000,
+        timeout_ms: 1000,
         read_gross_cmd: "",
         read_net_cmd: "",
         tare_cmd: "",
@@ -146,7 +146,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       read_net_cmd: config.commands["readNet"] || "",
       tare_cmd: config.commands["tare"] || "",
       zero_cmd: config.commands["zero"] || "",
-      timeout_ms: config.connection.timeout_ms,
+      timeout_ms: config.timeout_ms ?? 1000,
       enabled: config.enabled ?? true,
     };
 
@@ -204,18 +204,22 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
     let connection: DeviceConfig["connection"];
 
     if (connection_type === "Tcp") {
+      if (!host || tcp_port === undefined) {
+        throw new Error("TCP connection requires host and port");
+      }
       connection = {
         connection_type: "Tcp",
-        host: host!,
-        port: tcp_port!,
-        timeout_ms,
+        host,
+        port: tcp_port,
       };
     } else {
+      if (!serial_port || baud_rate === undefined) {
+        throw new Error("Serial connection requires port and baud_rate");
+      }
       connection = {
         connection_type: "Serial",
-        port: serial_port!,
-        baud_rate: baud_rate!,
-        timeout_ms,
+        port: serial_port,
+        baud_rate,
       };
     }
 
@@ -225,6 +229,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       model,
       protocol,
       connection,
+      timeout_ms,
       commands: {
         readGross: read_gross_cmd,
         readNet: read_net_cmd,

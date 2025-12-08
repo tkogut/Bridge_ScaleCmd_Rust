@@ -2,7 +2,7 @@ use crate::adapters::adapter::DeviceAdapter;
 use crate::adapters::dini_argeo::DiniArgeoAsciiAdapter;
 use crate::adapters::rinstrum::RinstrumC320Adapter;
 use crate::error::BridgeError;
-use crate::models::device::Connection;
+use crate::models::device::{Connection, FlowControl, Parity, StopBits};
 use crate::models::weight::WeightReading;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -117,6 +117,10 @@ mod tests {
         let serial_connection = Connection::Serial {
             port: "COM1".to_string(),
             baud_rate: 9600,
+            data_bits: 8,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
             timeout_ms: 1000,
         };
         let tcp_connection = Connection::Tcp {
@@ -147,6 +151,10 @@ mod tests {
         let serial_connection = Connection::Serial {
             port: "COM1".to_string(),
             baud_rate: 9600,
+            data_bits: 8,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
             timeout_ms: 1000,
         };
         let tcp_connection = Connection::Tcp {
@@ -188,6 +196,10 @@ mod tests {
         let serial_connection = Connection::Serial {
             port: "COM1".to_string(),
             baud_rate: 9600,
+            data_bits: 8,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
             timeout_ms: 1000,
         };
         let commands = HashMap::new();

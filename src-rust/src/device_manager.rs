@@ -194,15 +194,17 @@ impl DeviceManager {
 
             let protocol = device_config.protocol.to_uppercase();
 
+            let connection = device_config.get_connection();
+            
             let adapter = match protocol.as_str() {
                 "RINCMD" => DeviceAdapterEnum::new_rinstrum(
                     device_id.clone(),
-                    device_config.connection.clone(),
+                    connection,
                     device_config.commands.clone(),
                 )?,
                 "ASCII" | "DFW" | "DINIA" | "DINI_ARGEO" => DeviceAdapterEnum::new_dini_argeo(
                     device_id.clone(),
-                    device_config.connection.clone(),
+                    connection,
                     device_config.commands.clone(),
                 )?,
                 _ => {

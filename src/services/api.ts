@@ -43,8 +43,11 @@ export interface ConnectionConfig {
   connection_type: "Tcp" | "Serial";
   host?: string;
   port?: number;
-  timeout_ms?: number;
   baud_rate?: number;
+  data_bits?: number;
+  stop_bits?: "one" | "two";
+  parity?: "none" | "even" | "odd";
+  flow_control?: "none" | "software" | "hardware";
 }
 
 export interface DeviceConfig {
@@ -53,6 +56,7 @@ export interface DeviceConfig {
   model: string;
   protocol: string;
   connection: ConnectionConfig;
+  timeout_ms: number;
   commands: Record<string, string>;
   enabled: boolean;
 }

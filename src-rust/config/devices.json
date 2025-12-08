@@ -8,9 +8,9 @@
       "connection": {
         "connection_type": "Tcp",
         "host": "192.168.1.254",
-        "port": 4001,
-        "timeout_ms": 3000
+        "port": 4001
       },
+      "timeout_ms": 3000,
       "commands": {
         "readGross": "20050026",
         "readNet": "20050025",
@@ -19,17 +19,17 @@
       },
       "enabled": true
     },
-    "DWF": {
+    "DFW": {
       "name": "DFW - Dini Argeo",
       "manufacturer": "Dini Argeo",
       "model": "DFW",
       "protocol": "DINI_ARGEO",
       "connection": {
         "connection_type": "Serial",
-        "port": "/dev/ttyUSB0",
-        "baud_rate": 9600,
-        "timeout_ms": 1000
+        "port": "COM4",
+        "baud_rate": 9600
       },
+      "timeout_ms": 1000,
       "commands": {
         "readGross": "READ",
         "readNet": "REXT",

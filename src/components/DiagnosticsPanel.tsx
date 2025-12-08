@@ -65,7 +65,7 @@ const DiagnosticsPanel = () => {
               <DetailItem label="Baud Rate" value={conn.baud_rate?.toString() || 'N/A'} />
             </>
           )}
-          <DetailItem label="Timeout (ms)" value={conn.timeout_ms.toString()} />
+          <DetailItem label="Timeout (ms)" value={config.timeout_ms.toString()} />
         </div>
       </div>
     );
@@ -81,10 +81,10 @@ const DiagnosticsPanel = () => {
         </div>
         
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <DetailItem label="Read Gross Cmd" value={cmds.read_gross} />
-          <DetailItem label="Read Net Cmd" value={cmds.read_net} />
-          <DetailItem label="Tare Cmd" value={cmds.tare} />
-          <DetailItem label="Zero Cmd" value={cmds.zero} />
+          <DetailItem label="Read Gross Cmd" value={cmds["readGross"] || "N/A"} />
+          <DetailItem label="Read Net Cmd" value={cmds["readNet"] || "N/A"} />
+          <DetailItem label="Tare Cmd" value={cmds["tare"] || "N/A"} />
+          <DetailItem label="Zero Cmd" value={cmds["zero"] || "N/A"} />
         </div>
       </div>
     );

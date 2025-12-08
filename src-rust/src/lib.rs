@@ -59,22 +59,21 @@ mod tests {
 
     #[test]
     fn test_device_config_creation() {
+        use crate::models::device::ConnectionConfig;
         let mut commands = HashMap::new();
         commands.insert("readGross".to_string(), "20050026".to_string());
         commands.insert("readNet".to_string(), "20050025".to_string());
-
-        let connection = Connection::Tcp {
-            host: "192.168.1.100".to_string(),
-            port: 4001,
-            timeout_ms: 5000,
-        };
 
         let config = DeviceConfig {
             name: "Test Scale".to_string(),
             manufacturer: "Test Manufacturer".to_string(),
             model: "Test Model".to_string(),
             protocol: "RINCMD".to_string(),
-            connection,
+            connection: ConnectionConfig::Tcp {
+                host: "192.168.1.100".to_string(),
+                port: 4001,
+            },
+            timeout_ms: 5000,
             commands,
             enabled: true,
         };
@@ -89,22 +88,21 @@ mod tests {
 
     #[test]
     fn test_app_config_serialization() {
+        use crate::models::device::ConnectionConfig;
         let mut devices = HashMap::new();
         let mut commands = HashMap::new();
         commands.insert("readGross".to_string(), "20050026".to_string());
-
-        let connection = Connection::Tcp {
-            host: "localhost".to_string(),
-            port: 8080,
-            timeout_ms: 1000,
-        };
 
         let device_config = DeviceConfig {
             name: "Test Device".to_string(),
             manufacturer: "Test Corp".to_string(),
             model: "Model1".to_string(),
             protocol: "RINCMD".to_string(),
-            connection,
+            connection: ConnectionConfig::Tcp {
+                host: "localhost".to_string(),
+                port: 8080,
+            },
+            timeout_ms: 1000,
             commands,
             enabled: true,
         };
