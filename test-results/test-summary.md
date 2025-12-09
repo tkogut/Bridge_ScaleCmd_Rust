@@ -1,4 +1,90 @@
 # ScaleIT Bridge Test Results Summary
+**Generated**: December 09, 2025 18:40:00  
+**Version**: 0.1.0  
+**Status**: ⚠️ PARTIALLY PASSING
+
+---
+
+## 🧪 Current Test Outputs
+
+### Frontend – `npm run test:run` (Vitest 1.6.1)
+- Suites executed: 5 (4 passed, 1 failed)
+- Total tests: 69 executed (all reported as passed, but the integration suite aborts before running any cases)
+- Failure detail:
+  ```
+  FAIL  src/test/integration.test.tsx [ src/test/integration.test.tsx ]
+  Error: [vitest] There was an error when mocking a module ...
+  Caused by: ReferenceError: Cannot access 'MockIndex' before initialization
+  ```
+- The failure happens while `vi.mock('./pages/Index', ...)` is hoisted above the `MockIndex` declaration in `src/test/integration.test.tsx`.
+- **Next step**: declare mock factories before the modules they replace so Vitest can collect the integration suite.
+
+### Backend – `cargo test` (stable-x86_64-pc-windows-gnu)
+- Environment: MinGW `D:\msys64\mingw64` providing GCC/G++.
+- Failure point: Linking `proc-macro2` and other build scripts stops because `collect2.exe` cannot find the linker.
+- Error snippet: `collect2.exe: fatal error: cannot find 'ld'`
+- **Next step**: install `mingw-w64-x86_64-binutils` or otherwise ensure `ld.exe` exists on `PATH`. Once the linker is available, rerun the test command.
+
+---
+
+## 🚧 Action Plan
+1. Fix the hoisting issue in `src/test/integration.test.tsx` so Vitest can collect the integration suite.
+2. Install/expose the GNU linker (`ld.exe`) for the MinGW toolchain before rerunning `cargo test`.
+3. After both suites succeed, regenerate this summary to report a ✅ PASSING status.
+
+---
+
+## 📌 Reproduce Locally
+```powershell
+cd C:\Users\tkogut\.cursor\Bridge_ScaleCmd_Rust
+npm run test:run
+powershell.exe -ExecutionPolicy Bypass -Command "cd src-rust; cargo test"
+```
+Run the sequence above after applying the fixes above to document a clean pass.
+# ScaleIT Bridge Test Results Summary
+**Generated**: December 09, 2025 18:40:00  
+**Version**: 0.1.0  
+**Status**: ⚠️ PARTIALLY PASSING
+
+---
+
+## 🧪 Current Test Outputs
+
+### Frontend – `npm run test:run` (Vitest 1.6.1)
+- Suites executed: 5 (4 passed, 1 failed)
+- Total tests: 69 executed (all reported as passed, but the integration suite aborts before running any cases)
+- Failure detail:
+  ```
+  FAIL  src/test/integration.test.tsx [ src/test/integration.test.tsx ]
+  Error: [vitest] There was an error when mocking a module ...
+  Caused by: ReferenceError: Cannot access 'MockIndex' before initialization
+  ```
+- The failure happens while `vi.mock('./pages/Index', ...)` is hoisted above the `MockIndex` declaration in `src/test/integration.test.tsx`.
+- **Next step**: declare `vi.mock` factories before any imports that instantiate the mocks so Vitest can collect the integration suite.
+
+### Backend – `cargo test` (stable-x86_64-pc-windows-gnu)
+- Environment: MinGW `D:\msys64\mingw64` providing GCC/G++.
+- Failure point: Linking `proc-macro2` and other build scripts stops because `collect2.exe` cannot find the linker.
+- Error snippet: `collect2.exe: fatal error: cannot find 'ld'`
+- **Next step**: install the `mingw-w64-x86_64-binutils` package inside MSYS2 or ensure the directory containing `ld.exe` is on the `PATH`. Once `ld` exists, rerun the command above to finish the tests.
+
+---
+
+## 🚧 Action Plan
+1. Fix the hoisting issue in `src/test/integration.test.tsx` so Vitest can collect the integration suite.
+2. Install/expose the GNU linker (`ld.exe`) for the MinGW toolchain before rerunning `cargo test`.
+3. After both suites succeed, regenerate this summary to report a ✅ PASSING status.
+
+---
+
+## 📌 Reproduce Locally
+```powershell
+cd C:\Users\tkogut\.cursor\Bridge_ScaleCmd_Rust
+npm run test:run
+powershell.exe -ExecutionPolicy Bypass -Command "cd src-rust; cargo test"
+```
+Run that sequence again after applying the fixes above to document a clean pass.
+# ScaleIT Bridge Test Results Summary
 **Generated**: November 30, 2024 13:08:01  
 **Version**: v3.1.0  
 **Status**: 🟡 PARTIALLY PASSING

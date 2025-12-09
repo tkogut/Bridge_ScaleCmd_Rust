@@ -43,6 +43,18 @@ npm run dev
 # Frontend available at: http://localhost:5173
 ```
 
+### Package Installer
+```powershell
+# Build backend, frontend and create installer in one shot
+powershell.exe -ExecutionPolicy Bypass -File "scripts/prepare-installer.ps1" -Version "1.0.0" -OutputPath ".\release"
+```
+This helper script:
+1. Rebuilds the Rust backend with the MinGW toolchain (`build-rust-mingw.ps1`)
+2. Compiles the React frontend (`npm run build`)
+3. Executes `Create-InstallerPackage.ps1` to bundle the binaries, frontend assets, scripts and docs into `ScaleIT_Bridge_Windows_v1.0.0.zip` (or the supplied version) stored under the `OutputPath`.
+
+If you prefer manual control, you can still run `Create-InstallerPackage.ps1` directly after you have `src-rust/target/release/scaleit-bridge.exe` and a populated `dist/` folder.
+
 ---
 
 ## 🏗️ Windows Toolchain Configuration
@@ -51,11 +63,11 @@ npm run dev
 The project uses GNU toolchain instead of MSVC to avoid Visual Studio requirements:
 
 ```powershell
-# Environment Configuration
-$mingwPath = "D:\msys64\mingw64"
 $env:PATH = "$mingwPath\bin;$mingwPath\x86_64-w64-mingw32\bin;$env:PATH"
 $env:CC = "$mingwPath\bin\gcc.exe"
 $env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "$mingwPath\bin\gcc.exe"
+
+_Note: If `cargo` still cannot find `ld`, ensure the path `D:\msys64\mingw64\x86_64-w64-mingw32\bin` (where the GNU linker lives) appears before `$mingwPath\bin` in your `PATH`. This directory is also referenced by `build-rust-mingw.ps1`, `build-mingw.ps1` and test scripts so they can reuse the same linker._
 
 # Rust toolchain
 rustup default stable-x86_64-pc-windows-gnu

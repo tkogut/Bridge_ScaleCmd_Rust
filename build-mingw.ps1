@@ -5,6 +5,7 @@ Write-Host "Setting up MSYS2 MinGW environment for build..." -ForegroundColor Gr
 
 # Set MinGW path
 $mingwPath = "D:\msys64\mingw64"
+$crossBinPath = "$mingwPath\x86_64-w64-mingw32\bin"
 
 # Check if MSYS2 MinGW path exists
 if (-not (Test-Path $mingwPath)) {
@@ -14,11 +15,11 @@ if (-not (Test-Path $mingwPath)) {
 }
 
 # Set environment variables
-$env:PATH = "$mingwPath\bin;$env:PATH"
+$env:PATH = "$crossBinPath;$mingwPath\bin;$env:PATH"
 $env:CC = "$mingwPath\bin\gcc.exe"
 $env:CXX = "$mingwPath\bin\g++.exe"
-$env:AR = "$mingwPath\bin\ar.exe"
-$env:RANLIB = "$mingwPath\bin\ranlib.exe"
+$env:AR = "$crossBinPath\ar.exe"
+$env:RANLIB = "$crossBinPath\ranlib.exe"
 $env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "$mingwPath\bin\gcc.exe"
 
 Write-Host "Environment configured:" -ForegroundColor Cyan

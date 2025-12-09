@@ -70,6 +70,10 @@ cargo build --release
 # Output will be at: target/release/scaleit-bridge.exe
 ```
 
+For automated releases that target the installer bundle, run `powershell.exe -ExecutionPolicy Bypass -File "..\build-rust-mingw.ps1"` from the repository root to configure the MinGW toolchain and produce the `x86_64-pc-windows-gnu` release binary. This script also handles the `PATH` environment, linker overrides and cleanup required for downstream packaging.
+
+> **GNU linker path**: the scripts depend on `ld.exe` living under `D:\msys64\mingw64\x86_64-w64-mingw32\bin`. Make sure that directory is exported into `%PATH%` before the regular `mingw64\bin` so the linker is discoverable when `cargo` invokes `ld`. The scripts (`build-rust-mingw.ps1`, `build-mingw.ps1`, `test-rust-mingw.ps1`) already include that path, so rerunning them will refresh the environment.
+
 ### Frontend (React + TypeScript)
 
 ```powershell
@@ -127,6 +131,23 @@ Copy-Item "dist/*" "$packageDir/web/" -Recurse
 Copy-Item "BUILD_WINDOWS.md" "$packageDir/README.md"
 Copy-Item ".env.example" "$packageDir/.env.example"
 ```
+
+---
+
+## Automated Installer Packaging
+
+Use `scripts/prepare-installer.ps1` to produce the release ZIP without manually copying files. The script:
+
+1. Prepares the MinGW toolchain via `build-rust-mingw.ps1` and builds `src-rust` with the `x86_64-pc-windows-gnu` target.
+2. Installs frontend dependencies (if missing) and runs `npm run build` to generate the `dist/` bundle.
+3. Calls `Create-InstallerPackage.ps1` to copy binaries, configs, frontend assets, scripts, documentation and `.env.example` into `ScaleIT_Bridge_Windows_v<Version>` and compress it.
+
+```powershell
+# builds backend+frontend and packages everything for v1.0.0 in ./release
+powershell.exe -ExecutionPolicy Bypass -File "scripts/prepare-installer.ps1" -Version "1.0.0" -OutputPath ".\release"
+```
+
+After the script finishes you can extract the generated `ScaleIT_Bridge_Windows_v1.0.0.zip` and proceed with the installation steps below.
 
 ---
 

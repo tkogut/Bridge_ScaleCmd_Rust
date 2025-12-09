@@ -1,8 +1,59 @@
 # PowerShell script to build ScaleIT Bridge with MinGW toolchain
 # This script properly configures MinGW environment and builds the Rust project
 
+function Stop-ExistingRustBuildProcesses {
+    $processNames = @("cargo", "rustc", "x86_64-w64-mingw32-gcc")
+    foreach ($processName in $processNames) {
+        try {
+            $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
+        } catch {
+            continue
+        }
+
+        foreach ($proc in $running) {
+            Write-Host "Stopping lingering process: $($proc.ProcessName) (PID $($proc.Id))" -ForegroundColor Yellow
+            try {
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            } catch {
+                Write-Host "Unable to stop $($proc.ProcessName) (PID $($proc.Id)), continuing..." -ForegroundColor Red
+            }
+        }
+    }
+}
+
+function Reset-TargetDirectory {
+    param([string]$RootPath)
+
+    $targetDir = Join-Path $RootPath "src-rust\target"
+    if (-not (Test-Path $targetDir)) {
+        return
+    }
+
+    Write-Host "Resetting attributes under $targetDir to avoid permission issues..." -ForegroundColor Yellow
+    Get-ChildItem -Path $targetDir -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.Attributes -band [System.IO.FileAttributes]::ReadOnly) {
+            $_.Attributes = $_.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+        }
+    }
+
+    Write-Host "Removing stale target directory before clean build..." -ForegroundColor Yellow
+    try {
+        Remove-Item -Recurse -Force -ErrorAction Stop $targetDir
+        Write-Host "Stale target directory removed successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "Unable to remove target directory cleanly; cargo clean will continue." -ForegroundColor Yellow
+    }
+}
+
 Write-Host "Building ScaleIT Bridge with MinGW toolchain..." -ForegroundColor Green
 Write-Host ""
+
+# Ensure we run from the script directory even if the caller uses an absolute path
+$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+Set-Location $repoRoot
+
+Stop-ExistingRustBuildProcesses
+Reset-TargetDirectory -RootPath $repoRoot
 
 # Set MinGW paths
 $mingwPath = "D:\msys64\mingw64"
