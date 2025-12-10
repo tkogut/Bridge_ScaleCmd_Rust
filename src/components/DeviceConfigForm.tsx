@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { DeviceConfig, DeviceId } from "@/types/api";
-import { saveDeviceConfig } from "@/services/bridge-api";
+import { saveDeviceConfig, getAllDeviceConfigs } from "@/services/bridge-api";
 import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
@@ -45,10 +45,23 @@ const DeviceConfigSchema = z.object({
   model: z.string().min(1, "Model is required"),
   protocol: z.string().min(1, "Protocol is required"),
   connection_type: z.enum(["Tcp", "Serial"]),
+  // TCP fields - optional at schema level, validated in superRefine based on connection_type
   host: z.string().optional(),
-  tcp_port: z.coerce.number().int().min(1).max(65535).optional(),
-  serial_port: z.string().min(1, "Port path is required (e.g., COM1 or /dev/ttyUSB0)").optional(),
-  baud_rate: z.coerce.number().int().min(1).optional(),
+  tcp_port: z.union([
+    z.coerce.number().int().max(65535),
+    z.null(),
+    z.undefined(),
+    z.literal(""),
+  ]).optional(),
+  // Serial fields - optional at schema level, validated in superRefine based on connection_type
+  // No .min() validation here - only in superRefine for Serial connections
+  serial_port: z.string().optional(),
+  baud_rate: z.union([
+    z.coerce.number().int(),
+    z.null(),
+    z.undefined(),
+    z.literal(""),
+  ]).optional(),
   timeout_ms: z.coerce.number().int().min(100).max(30000),
   
   // Uproszczone pola dla komend (w pełni konfigurowalny Bridge wymagałby bardziej złożonego formularza)
@@ -59,6 +72,7 @@ const DeviceConfigSchema = z.object({
   enabled: z.boolean().default(true),
 }).superRefine((values, ctx) => {
   if (values.connection_type === "Tcp") {
+    // Validate TCP fields
     if (!values.host || values.host.trim() === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -76,14 +90,22 @@ const DeviceConfigSchema = z.object({
         });
       }
     }
-    if (values.tcp_port === undefined || values.tcp_port === null) {
+    if (values.tcp_port === undefined || values.tcp_port === null || values.tcp_port === 0 || values.tcp_port === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["tcp_port"],
         message: "Port is required for TCP connections",
       });
+    } else if (typeof values.tcp_port === "number" && (values.tcp_port < 1 || values.tcp_port > 65535)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["tcp_port"],
+        message: "Port must be between 1 and 65535",
+      });
     }
+    // Don't validate serial fields for TCP connections
   } else if (values.connection_type === "Serial") {
+    // Validate Serial fields
     if (!values.serial_port || values.serial_port.trim() === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -91,13 +113,20 @@ const DeviceConfigSchema = z.object({
         message: "Serial port path is required",
       });
     }
-    if (values.baud_rate === undefined || values.baud_rate === null) {
+    if (values.baud_rate === undefined || values.baud_rate === null || values.baud_rate === 0 || values.baud_rate === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["baud_rate"],
         message: "Baud rate is required for serial connections",
       });
+    } else if (typeof values.baud_rate === "number" && values.baud_rate < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["baud_rate"],
+        message: "Baud rate must be at least 1",
+      });
     }
+    // Don't validate TCP fields for Serial connections
   }
 });
 
@@ -135,8 +164,8 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
         connection_type: "Tcp",
         host: "192.168.1.254",
         tcp_port: 4001,
-        serial_port: "",
-        baud_rate: 9600,
+        serial_port: undefined,
+        baud_rate: undefined,
         timeout_ms: 1000,
         read_gross_cmd: "",
         read_net_cmd: "",
@@ -190,6 +219,9 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       const initialValues = getInitialValues();
       console.log("Resetting form with initial values:", initialValues);
       form.reset(initialValues);
+    } else {
+      // Reset form when dialog closes
+      form.reset();
     }
   }, [getInitialValues, open, form]);
 
@@ -222,6 +254,24 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
     // Normalize deviceId to lowercase
     const normalizedDeviceId = deviceId.toLowerCase().trim();
     console.log("Normalized deviceId:", normalizedDeviceId);
+
+    // Check if device ID already exists (only for new devices, not when editing)
+    if (!isEdit) {
+      try {
+        const existingConfigs = await getAllDeviceConfigs();
+        if (existingConfigs[normalizedDeviceId]) {
+          showError(`Device ID '${normalizedDeviceId}' already exists. Please use a different ID or edit the existing device.`);
+          form.setError("deviceId", {
+            type: "manual",
+            message: "Device ID already exists",
+          });
+          return;
+        }
+      } catch (error) {
+        console.warn("Could not check existing devices:", error);
+        // Continue anyway - backend will handle it
+      }
+    }
 
     let connection: DeviceConfig["connection"];
 
@@ -269,9 +319,12 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       console.log("Saving device config:", { deviceId: normalizedDeviceId, config: newConfig });
       await saveDeviceConfig(normalizedDeviceId, newConfig);
       showSuccess(`Device '${name}' configuration saved successfully.`);
+      // Reset form to initial values for new device
+      if (!isEdit) {
+        form.reset(getInitialValues());
+      }
       onSaveSuccess();
       onOpenChange(false);
-      form.reset();
     } catch (error) {
       console.error("Failed to save device config:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);

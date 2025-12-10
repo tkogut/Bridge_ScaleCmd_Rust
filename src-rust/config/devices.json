@@ -1,24 +1,5 @@
 {
   "devices": {
-    "test": {
-      "name": "Test",
-      "manufacturer": "Test",
-      "model": "Test",
-      "protocol": "RINCMD",
-      "connection": {
-        "connection_type": "Tcp",
-        "host": "192.168.1.1",
-        "port": 4001
-      },
-      "timeout_ms": 1000,
-      "commands": {
-        "tare": "21120008:0C",
-        "readGross": "20050026",
-        "zero": "21120008:0B",
-        "readNet": "20050025"
-      },
-      "enabled": true
-    },
     "c320": {
       "name": "C320 Rinstrum",
       "manufacturer": "Rinstrum",
@@ -35,31 +16,12 @@
       },
       "timeout_ms": 3000,
       "commands": {
-        "tare": "21120008:0C",
         "readNet": "20050025",
         "zero": "21120008:0B",
-        "readGross": "20050026"
-      },
-      "enabled": true
-    },
-    "test_device_123": {
-      "name": "Test Device",
-      "manufacturer": "Test Mfg",
-      "model": "Test Model",
-      "protocol": "RINCMD",
-      "connection": {
-        "connection_type": "Tcp",
-        "host": "192.168.1.100",
-        "port": 4001
-      },
-      "timeout_ms": 3000,
-      "commands": {
-        "readNet": "20050025",
         "readGross": "20050026",
-        "zero": "21120008:0B",
         "tare": "21120008:0C"
       },
-      "enabled": true
+      "enabled": false
     },
     "dfw": {
       "name": "DFW - Dini Argeo",
@@ -77,10 +39,67 @@
       },
       "timeout_ms": 1000,
       "commands": {
-        "tare": "TARE",
-        "readnet": "REXT",
         "zero": "ZERO",
-        "readgross": "READ"
+        "tare": "TARE",
+        "readgross": "READ",
+        "readnet": "REXT"
+      },
+      "enabled": false
+    },
+    "c320tcp": {
+      "name": "C320 Rinstrum TCP",
+      "manufacturer": "Rinstrum",
+      "model": "C320",
+      "protocol": "RINCMD",
+      "connection": {
+        "connection_type": "Tcp",
+        "host": "192.168.1.254",
+        "port": 4001
+      },
+      "timeout_ms": 1000,
+      "commands": {
+        "readGross": "20050026",
+        "zero": "21120008:0B",
+        "readNet": "20050025",
+        "tare": "21120008:0C"
+      },
+      "enabled": true
+    },
+    "test_device_123": {
+      "name": "Test Device",
+      "manufacturer": "Test Mfg",
+      "model": "Test Model",
+      "protocol": "RINCMD",
+      "connection": {
+        "connection_type": "Tcp",
+        "host": "192.168.1.100",
+        "port": 4001
+      },
+      "timeout_ms": 3000,
+      "commands": {
+        "readGross": "20050026",
+        "tare": "21120008:0C",
+        "readNet": "20050025",
+        "zero": "21120008:0B"
+      },
+      "enabled": false
+    },
+    "test": {
+      "name": "Test",
+      "manufacturer": "Test",
+      "model": "Test",
+      "protocol": "RINCMD",
+      "connection": {
+        "connection_type": "Tcp",
+        "host": "192.168.1.1",
+        "port": 4001
+      },
+      "timeout_ms": 1000,
+      "commands": {
+        "tare": "21120008:0C",
+        "readGross": "20050026",
+        "readNet": "20050025",
+        "zero": "21120008:0B"
       },
       "enabled": false
     }
