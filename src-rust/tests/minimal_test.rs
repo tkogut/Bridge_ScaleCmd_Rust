@@ -134,7 +134,10 @@ fn test_device_config_tcp_serialization() {
 
     // Check TCP connection details
     match (&device_config.connection, &deserialized.connection) {
-        (ConnectionConfig::Tcp { host: h1, port: p1 }, ConnectionConfig::Tcp { host: h2, port: p2 }) => {
+        (
+            ConnectionConfig::Tcp { host: h1, port: p1 },
+            ConnectionConfig::Tcp { host: h2, port: p2 },
+        ) => {
             assert_eq!(h1, h2);
             assert_eq!(p1, p2);
         }

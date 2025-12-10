@@ -2,6 +2,7 @@
 // Comprehensive API client for ScaleIT Bridge backend
 
 const API_BASE_URL =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (import.meta as any).env?.VITE_API_URL || "http://localhost:8080";
 
 // Types
@@ -119,7 +120,11 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
   }
 };
 
-const validateRequest = (request: any, requiredFields: string[]) => {
+const validateRequest = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  request: any,
+  requiredFields: string[],
+) => {
   for (const field of requiredFields) {
     if (
       !request[field] ||

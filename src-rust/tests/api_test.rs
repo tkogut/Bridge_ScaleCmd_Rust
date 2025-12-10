@@ -102,13 +102,11 @@ impl TestApp {
                 device_id: request.device_id.clone(),
                 command: request.command.clone(),
                 result: Some(WeightReading {
-                    gross_weight: Some(42.5),
-                    net_weight: Some(40.0),
-                    unit: Some("kg".to_string()),
-                    is_stable: Some(true),
-                    timestamp: Some(chrono::Utc::now()),
-                    status: None,
-                    tare_weight: None,
+                    gross_weight: 42.5,
+                    net_weight: 40.0,
+                    unit: "kg".to_string(),
+                    is_stable: true,
+                    timestamp: chrono::Utc::now(),
                 }),
                 error: None,
             };

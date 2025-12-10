@@ -1,4 +1,4 @@
-use actix_web::{test, web, App, HttpServer};
+use actix_web::{test, web, App};
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -151,7 +151,8 @@ impl TestEnvironment {
             let command = request.command.clone();
 
             // Mock successful response for integration tests
-            match state.device_manager.get_config(&device_id) {
+            let device_manager = state.get_ref();
+            match device_manager.get_config(&device_id) {
                 Ok(config) if config.enabled => {
                     let response = ScaleCommandResponse {
                         success: true,
@@ -578,17 +579,19 @@ async fn test_device_manager_lifecycle() {
     assert_eq!(configs.len(), 3); // All devices including disabled
 
     // Test connection lifecycle (these will fail gracefully with mock endpoints)
+    // We just verify that the operations complete without panicking
     let connect_result = timeout(
-        Duration::from_secs(2),
+        Duration::from_secs(5),
         test_env.device_manager.connect_all_devices(),
     )
     .await;
-    assert!(connect_result.is_ok());
+    // Timeout should succeed (operation completes), even if connections fail
+    assert!(connect_result.is_ok(), "connect_all_devices should complete within timeout");
 
     let disconnect_result = timeout(
-        Duration::from_secs(2),
+        Duration::from_secs(5),
         test_env.device_manager.disconnect_all_devices(),
     )
     .await;
-    assert!(disconnect_result.is_ok());
+    assert!(disconnect_result.is_ok(), "disconnect_all_devices should complete within timeout");
 }

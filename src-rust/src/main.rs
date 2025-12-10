@@ -1,3 +1,4 @@
+use actix_cors::Cors;
 use actix_web::{
     delete, get, post,
     web::{self, Data},
@@ -205,7 +206,15 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let state = AppState::new(dm.clone());
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .supports_credentials()
+            .max_age(3600);
+        
         App::new()
+            .wrap(cors)
             .app_data(Data::new(state))
             .service(health_check)
             .service(list_devices)

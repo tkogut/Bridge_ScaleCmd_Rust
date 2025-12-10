@@ -80,17 +80,38 @@ export async function saveDeviceConfig(
   deviceId: DeviceId,
   config: DeviceConfig,
 ): Promise<void> {
-  const response = await fetch(`${BRIDGE_URL}/api/config/save`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ device_id: deviceId, config }),
-  });
+  try {
+    const response = await fetch(`${BRIDGE_URL}/api/config/save`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ device_id: deviceId, config }),
+    });
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Failed to save configuration (${response.status})`);
+    if (!response.ok) {
+      let errorMessage = `Failed to save configuration (${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch {
+        // If JSON parsing fails, try text
+        const text = await response.text();
+        if (text) {
+          errorMessage = text;
+        }
+      }
+      throw new Error(errorMessage);
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Network error: ${String(error)}`);
   }
 }
 

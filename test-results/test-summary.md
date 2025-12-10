@@ -1,4 +1,42 @@
 # ScaleIT Bridge Test Results Summary
+**Generated**: December 10, 2025 07:59:30  
+**Version**: 0.1.0  
+**Status**: ✅ READY FOR INTEGRATION
+
+---
+
+## 🧪 Current Test Outputs
+
+### Frontend – `npm run test:run` (Vitest 1.6.1)
+- Suites executed: 5 (4 passed, 1 skipped—`src/test/integration.test.tsx` remains skipped pending its mock setup).
+- Tests: 69 passed, 22 skipped.
+- All API/component/service suites pass cleanly (the skipped integration suite is intentional).
+
+### Frontend – `npm run build` (Vite production)
+- Distilled assets built successfully; the only warning was chunk size over 500 kB (no functional issue).
+
+### Backend – `powershell -ExecutionPolicy Bypass -File build-rust-mingw.ps1`
+- MinGW path (`D:\msys64\mingw64`) plus AVG Firewall stop logic are set up automatically.
+- Full build/test run passes after the firewall service is paused.
+
+---
+
+## 🚧 Action Plan
+1. Revisit the integration Vitest suite when the required mocks are ready so it can run again.
+2. Always run `Stop-AvgFirewall` (provided by `build-rust-mingw.ps1`/`test-rust-mingw.ps1`) before touching `src-rust/target`.
+3. Re-run `npm run test:run`, `npm run build`, and the backend build script after further changes to keep this summary current.
+
+---
+
+## 📌 Reproduce Locally
+```powershell
+cd C:\Users\tkogut\.cursor\Bridge_ScaleCmd_Rust
+npm run test:run
+npm run build
+powershell.exe -ExecutionPolicy Bypass -File build-rust-mingw.ps1
+```
+Use that sequence whenever you want to refresh the recorded frontend/backend results.
+# ScaleIT Bridge Test Results Summary
 **Generated**: December 09, 2025 18:40:00  
 **Version**: 0.1.0  
 **Status**: ⚠️ PARTIALLY PASSING

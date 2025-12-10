@@ -162,7 +162,10 @@ impl RinstrumC320Adapter {
         let response = String::from_utf8_lossy(&buffer[..bytes_read])
             .trim()
             .to_string();
-        debug!("Received TCP response from {}: {}", self.device_id, response);
+        debug!(
+            "Received TCP response from {}: {}",
+            self.device_id, response
+        );
 
         {
             let mut conn_guard = stream.write();
@@ -288,9 +291,9 @@ impl RinstrumC320Adapter {
             let unit = caps.get(3).unwrap().as_str().to_lowercase();
             let status_char = caps.get(4).unwrap().as_str().to_uppercase();
 
-            let numeric_value = value.parse::<f64>().map_err(|e| {
-                BridgeError::ProtocolError(format!("Failed to parse value: {}", e))
-            })?;
+            let numeric_value = value
+                .parse::<f64>()
+                .map_err(|e| BridgeError::ProtocolError(format!("Failed to parse value: {}", e)))?;
 
             let weight_val = if sign == "-" {
                 -numeric_value
@@ -582,9 +585,13 @@ impl DeviceAdapter for RinstrumC320Adapter {
             self.connect().await?;
         }
 
+        // Case-insensitive command lookup
+        let command_lower = command.to_lowercase();
         let command_str = self
             .commands
-            .get(command)
+            .iter()
+            .find(|(k, _)| k.to_lowercase() == command_lower)
+            .map(|(_, v)| v.as_str())
             .ok_or_else(|| BridgeError::InvalidCommand(format!("Unknown command: {}", command)))?;
 
         let response = self.send_command_and_read_response(command_str).await?;

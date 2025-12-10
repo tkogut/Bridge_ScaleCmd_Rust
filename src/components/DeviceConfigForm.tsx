@@ -37,7 +37,9 @@ import { Switch } from "@/components/ui/switch";
 
 // Schemat walidacji dla konfiguracji urządzenia
 const DeviceConfigSchema = z.object({
-  deviceId: z.string().min(3, "Device ID must be at least 3 characters long").regex(/^[a-z0-9_]+$/, "Device ID must be lowercase alphanumeric or underscore"),
+  deviceId: z.string()
+    .min(3, "Device ID must be at least 3 characters long")
+    .regex(/^[a-zA-Z0-9_]+$/, "Device ID must be alphanumeric or underscore"),
   name: z.string().min(3, "Name is required"),
   manufacturer: z.string().min(1, "Manufacturer is required"),
   model: z.string().min(1, "Model is required"),
@@ -201,51 +203,62 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       enabled,
     } = values;
 
+    // Normalize deviceId to lowercase
+    const normalizedDeviceId = deviceId.toLowerCase().trim();
+
     let connection: DeviceConfig["connection"];
 
     if (connection_type === "Tcp") {
       if (!host || tcp_port === undefined) {
-        throw new Error("TCP connection requires host and port");
+        showError("TCP connection requires host and port");
+        return;
       }
       connection = {
         connection_type: "Tcp",
-        host,
+        host: host.trim(),
         port: tcp_port,
       };
     } else {
       if (!serial_port || baud_rate === undefined) {
-        throw new Error("Serial connection requires port and baud_rate");
+        showError("Serial connection requires port and baud_rate");
+        return;
       }
+      // For Serial, backend has defaults for data_bits, stop_bits, parity, flow_control
+      // So we only need to send port and baud_rate
       connection = {
         connection_type: "Serial",
-        port: serial_port,
+        port: serial_port.trim(),
         baud_rate,
       };
     }
 
     const newConfig: DeviceConfig = {
-      name,
-      manufacturer,
-      model,
-      protocol,
+      name: name.trim(),
+      manufacturer: manufacturer.trim(),
+      model: model.trim(),
+      protocol: protocol.trim(),
       connection,
       timeout_ms,
       commands: {
-        readGross: read_gross_cmd,
-        readNet: read_net_cmd,
-        tare: tare_cmd,
-        zero: zero_cmd,
+        readGross: read_gross_cmd.trim(),
+        readNet: read_net_cmd.trim(),
+        tare: tare_cmd.trim(),
+        zero: zero_cmd.trim(),
       },
       enabled,
     };
 
     try {
-      await saveDeviceConfig(deviceId, newConfig);
+      console.log("Saving device config:", { deviceId: normalizedDeviceId, config: newConfig });
+      await saveDeviceConfig(normalizedDeviceId, newConfig);
       showSuccess(`Device '${name}' configuration saved successfully.`);
       onSaveSuccess();
       onOpenChange(false);
+      form.reset();
     } catch (error) {
-      showError(`Failed to save configuration: ${(error as Error).message}`);
+      console.error("Failed to save device config:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      showError(`Failed to save configuration: ${errorMessage}`);
     }
   };
 

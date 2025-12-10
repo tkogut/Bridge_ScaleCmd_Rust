@@ -15,7 +15,18 @@ fn device_id_strategy() -> impl Strategy<Value = String> {
 }
 
 fn device_name_strategy() -> impl Strategy<Value = String> {
-    "[A-Za-z0-9 -_]{3,50}"
+    // Generate names: start with alphanumeric, then 2-49 more allowed chars
+    // This ensures at least 3 chars total and at least one non-space char
+    (
+        "[A-Za-z0-9]",
+        prop::collection::vec(prop_oneof![
+            "[A-Za-z0-9]",
+            Just(" ".to_string()),
+            Just("-".to_string()),
+            Just("_".to_string())
+        ], 2..=49)
+    )
+        .prop_map(|(first, rest)| format!("{}{}", first, rest.join("")))
 }
 
 fn manufacturer_strategy() -> impl Strategy<Value = String> {
@@ -49,28 +60,42 @@ fn tcp_connection_strategy() -> impl Strategy<Value = ConnectionConfig> {
 }
 
 fn serial_connection_strategy() -> impl Strategy<Value = ConnectionConfig> {
+    let port_strategy = prop::sample::select(vec![
+        "/dev/ttyUSB0".to_string(),
+        "/dev/ttyS0".to_string(),
+        "COM1".to_string(),
+        "COM2".to_string(),
+    ]);
+    let baud_rate_strategy = prop::sample::select(vec![9600u32, 19200, 38400, 115200]);
+    let data_bits_strategy = prop::sample::select(vec![8u8, 7u8]);
+    let stop_bits_strategy = prop::sample::select(vec![StopBits::One, StopBits::Two]);
+    let parity_strategy = prop::sample::select(vec![Parity::None, Parity::Even, Parity::Odd]);
+    let flow_control_strategy = prop::sample::select(vec![
+        FlowControl::None,
+        FlowControl::Hardware,
+        FlowControl::Software,
+    ]);
+
     (
-        prop_oneof!["/dev/ttyUSB0", "/dev/ttyS0", "COM1", "COM2"],
-        prop_oneof![9600u32, 19200, 38400, 115200],
-        prop_oneof![8u8, 7u8],
-        prop_oneof![Just(StopBits::One), Just(StopBits::Two)],
-        prop_oneof![Just(Parity::None), Just(Parity::Even), Just(Parity::Odd)],
-        prop_oneof![
-            Just(FlowControl::None),
-            Just(FlowControl::Hardware),
-            Just(FlowControl::Software)
-        ],
+        port_strategy,
+        baud_rate_strategy,
+        data_bits_strategy,
+        stop_bits_strategy,
+        parity_strategy,
+        flow_control_strategy,
     )
-        .prop_map(|(port, baud_rate, data_bits, stop_bits, parity, flow_control)| {
-            ConnectionConfig::Serial {
-                port: port.to_string(),
-                baud_rate,
-                data_bits,
-                stop_bits,
-                parity,
-                flow_control,
-            }
-        })
+        .prop_map(
+            |(port, baud_rate, data_bits, stop_bits, parity, flow_control)| {
+                ConnectionConfig::Serial {
+                    port,
+                    baud_rate,
+                    data_bits,
+                    stop_bits,
+                    parity,
+                    flow_control,
+                }
+            },
+        )
 }
 
 fn connection_strategy() -> impl Strategy<Value = ConnectionConfig> {
@@ -97,15 +122,17 @@ fn device_config_strategy() -> impl Strategy<Value = DeviceConfig> {
         any::<bool>(),
     )
         .prop_map(
-            |(name, manufacturer, model, protocol, connection, commands, timeout_ms, enabled)| DeviceConfig {
-                name,
-                manufacturer,
-                model,
-                protocol,
-                connection,
-                timeout_ms,
-                commands,
-                enabled,
+            |(name, manufacturer, model, protocol, connection, commands, timeout_ms, enabled)| {
+                DeviceConfig {
+                    name,
+                    manufacturer,
+                    model,
+                    protocol,
+                    connection,
+                    timeout_ms,
+                    commands,
+                    enabled,
+                }
             },
         )
 }
@@ -118,18 +145,23 @@ fn app_config_strategy() -> impl Strategy<Value = AppConfig> {
 fn weight_reading_strategy() -> impl Strategy<Value = WeightReading> {
     (
         0.0f64..=1000.0,
-        0.0f64..=1000.0,
         prop_oneof!["kg", "g", "lb", "oz"].prop_map(|unit| unit.to_string()),
         any::<bool>(),
         any::<i64>().prop_map(|seconds| Utc::now() + Duration::seconds(seconds % 86_400)),
     )
-        .prop_map(|(gross_weight, net_weight, unit, is_stable, timestamp)| WeightReading {
-            gross_weight,
-            net_weight,
-            unit,
-            is_stable,
-            timestamp,
+        .prop_flat_map(|(gross_weight, unit, is_stable, timestamp)| {
+            // Ensure net_weight <= gross_weight
+            (Just(gross_weight), 0.0f64..=gross_weight, Just(unit), Just(is_stable), Just(timestamp))
         })
+        .prop_map(
+            |(gross_weight, net_weight, unit, is_stable, timestamp)| WeightReading {
+                gross_weight,
+                net_weight,
+                unit,
+                is_stable,
+                timestamp,
+            },
+        )
 }
 
 fn scale_command_request_strategy() -> impl Strategy<Value = ScaleCommandRequest> {
@@ -176,8 +208,9 @@ proptest! {
         let json = serde_json::to_string(&reading).unwrap();
         let deserialized: WeightReading = serde_json::from_str(&json).unwrap();
 
-        prop_assert_eq!(reading.gross_weight, deserialized.gross_weight);
-        prop_assert_eq!(reading.net_weight, deserialized.net_weight);
+        // Use approximate comparison for floating point values due to JSON precision
+        prop_assert!((reading.gross_weight - deserialized.gross_weight).abs() < 1e-10);
+        prop_assert!((reading.net_weight - deserialized.net_weight).abs() < 1e-10);
         prop_assert_eq!(reading.unit, deserialized.unit);
         prop_assert_eq!(reading.is_stable, deserialized.is_stable);
     }
@@ -264,9 +297,15 @@ proptest! {
 
     #[test]
     fn prop_device_config_name_constraints(name in device_name_strategy()) {
-        prop_assert!(name.len() >= 3);
-        prop_assert!(name.len() <= 50);
-        prop_assert!(name.chars().all(|c| c.is_ascii_alphanumeric() || " -_".contains(c)));
+        // Verify the strategy generates valid names
+        prop_assert!(name.len() >= 3, "name length should be at least 3, got {}", name.len());
+        prop_assert!(name.len() <= 50, "name length should be at most 50, got {}", name.len());
+        prop_assert!(
+            name.chars().all(|c| c.is_ascii_alphanumeric() || " -_".contains(c)),
+            "name contains invalid characters: '{}'",
+            name
+        );
+        prop_assert!(!name.trim().is_empty(), "name should not be only whitespace: '{}'", name);
     }
 
     #[test]

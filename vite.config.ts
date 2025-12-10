@@ -7,7 +7,7 @@ export default defineConfig(() => ({
   base: "./", // Dodanie względnej ścieżki bazowej dla instalatorów
   server: {
     host: "::",
-    port: 8080,
+    port: 5173,
   },
   plugins: [dyadComponentTagger(), react()],
   resolve: {

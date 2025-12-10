@@ -1,15 +1,16 @@
+use log::{error, info, warn};
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
-use log::{error, info, warn};
-use parking_lot::RwLock;
 
 use crate::adapters::adapter_enum::DeviceAdapterEnum;
 use crate::error::BridgeError;
 use crate::models::device::{AppConfig, DeviceConfig};
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
 
+#[derive(Debug)]
 pub struct DeviceManager {
     config_path: PathBuf,
     devices: RwLock<HashMap<String, DeviceConfig>>,
@@ -193,7 +194,7 @@ impl DeviceManager {
             let protocol = device_config.protocol.to_uppercase();
 
             let connection = device_config.get_connection();
-            
+
             let adapter = match protocol.as_str() {
                 "RINCMD" => DeviceAdapterEnum::new_rinstrum(
                     device_id.clone(),

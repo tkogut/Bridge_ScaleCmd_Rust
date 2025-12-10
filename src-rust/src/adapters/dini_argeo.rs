@@ -146,9 +146,9 @@ impl DiniArgeoAsciiAdapter {
         if let Some(caps) = pattern.captures(response) {
             let mut num_str = caps.get(1).unwrap().as_str().to_string();
             num_str.retain(|c| c != ' '); // remove spaces between sign and digits
-            let value = num_str.parse::<f64>().map_err(|e| {
-                BridgeError::ProtocolError(format!("Failed to parse value: {}", e))
-            })?;
+            let value = num_str
+                .parse::<f64>()
+                .map_err(|e| BridgeError::ProtocolError(format!("Failed to parse value: {}", e)))?;
             let unit = caps.get(2).unwrap().as_str().to_lowercase();
             // Assume Gross for generic parser
             return Ok((value, unit, is_stable));
@@ -211,7 +211,8 @@ impl DiniArgeoAsciiAdapter {
                 self.send_command_tcp(stream, &formatted_command).await
             }
             ConnectionType::Serial { connection, .. } => {
-                self.send_command_serial(connection, &formatted_command).await
+                self.send_command_serial(connection, &formatted_command)
+                    .await
             }
         }
     }
@@ -566,9 +567,16 @@ impl DeviceAdapter for DiniArgeoAsciiAdapter {
             self.connect().await?;
         }
 
-        let command_str = self.commands.get(command).ok_or_else(|| {
-            BridgeError::InvalidCommand(format!("Unknown ASCII command: {}", command))
-        })?;
+        // Case-insensitive command lookup
+        let command_lower = command.to_lowercase();
+        let command_str = self
+            .commands
+            .iter()
+            .find(|(k, _)| k.to_lowercase() == command_lower)
+            .map(|(_, v)| v.as_str())
+            .ok_or_else(|| {
+                BridgeError::InvalidCommand(format!("Unknown ASCII command: {}", command))
+            })?;
 
         let response = self.send_command_and_read_response(command_str).await?;
         let (value, unit, is_stable) = self.parse_weight_from_response(&response)?;
@@ -603,9 +611,7 @@ mod tests {
     #[test]
     fn parses_generic_pattern() {
         let adapter = adapter_for_tests_serial();
-        let (value, unit, is_stable) = adapter
-            .parse_weight_from_response("+123.45 kg")
-            .unwrap();
+        let (value, unit, is_stable) = adapter.parse_weight_from_response("+123.45 kg").unwrap();
         assert_eq!(value, 123.45);
         assert_eq!(unit, "kg");
         assert!(is_stable);
