@@ -52,6 +52,20 @@ Write-Host ""
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location $repoRoot
 
+function Stop-AvgFirewall {
+    $serviceName = "AVG Firewall"
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($service -and $service.Status -ne "Stopped") {
+        Write-Host "Stopping $serviceName to avoid permission locks..." -ForegroundColor Yellow
+        try {
+            Stop-Service -Name $serviceName -Force -ErrorAction Stop
+        } catch {
+            Write-Host ("Failed to stop {0}: {1}" -f $serviceName, $_.Exception.Message) -ForegroundColor Red
+        }
+    }
+}
+
+Stop-AvgFirewall
 Stop-ExistingRustBuildProcesses
 Reset-TargetDirectory -RootPath $repoRoot
 

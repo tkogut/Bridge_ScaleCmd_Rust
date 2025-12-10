@@ -180,6 +180,7 @@ impl RinstrumC320Adapter {
         let connection_clone = connection.clone();
         let device_id = self.device_id.clone();
         let timeout_ms = self.timeout_ms;
+        let command_bytes = full_command.as_bytes().to_vec();
 
         task::spawn_blocking(move || {
             let mut guard = connection_clone.lock();
@@ -190,10 +191,10 @@ impl RinstrumC320Adapter {
             debug!(
                 "Sending Serial command to {}: {}",
                 device_id,
-                full_command.trim()
+                String::from_utf8_lossy(&command_bytes).trim()
             );
 
-            port.write_all(full_command.as_bytes())
+            port.write_all(&command_bytes)
                 .map_err(|e| BridgeError::IoError(e))?;
             port.flush().map_err(|e| BridgeError::IoError(e))?;
 
@@ -600,25 +601,6 @@ mod tests {
         let conn = Connection::Tcp {
             host: "127.0.0.1".to_string(),
             port: 4001,
-            timeout_ms: 1000,
-        };
-        let mut cmd = HashMap::new();
-        cmd.insert("readGross".to_string(), "20050026".to_string());
-        cmd.insert("readNet".to_string(), "20050025".to_string());
-        cmd.insert("tare".to_string(), "21120008:0C".to_string());
-        cmd.insert("zero".to_string(), "21120008:0B".to_string());
-        RinstrumC320Adapter::new("test_device".to_string(), conn, cmd).unwrap()
-    }
-
-    fn make_adapter_serial() -> RinstrumC320Adapter {
-        use crate::models::device::{FlowControl, Parity, StopBits};
-        let conn = Connection::Serial {
-            port: "COM1".to_string(),
-            baud_rate: 9600,
-            data_bits: 8,
-            stop_bits: StopBits::One,
-            parity: Parity::None,
-            flow_control: FlowControl::None,
             timeout_ms: 1000,
         };
         let mut cmd = HashMap::new();

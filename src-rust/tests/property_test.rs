@@ -1,11 +1,12 @@
+use chrono::{Duration, Utc};
 use proptest::prelude::*;
-use serde_json::json;
 use std::collections::HashMap;
 use tempfile::TempDir;
 
 use scaleit_bridge::device_manager::DeviceManager;
-use scaleit_bridge::error::BridgeError;
-use scaleit_bridge::models::device::{AppConfig, ConnectionConfig, DeviceConfig};
+use scaleit_bridge::models::device::{
+    AppConfig, ConnectionConfig, DeviceConfig, FlowControl, Parity, StopBits,
+};
 use scaleit_bridge::models::weight::{ScaleCommandRequest, WeightReading};
 
 // Property-based test strategies
@@ -39,13 +40,11 @@ fn protocol_strategy() -> impl Strategy<Value = String> {
 fn tcp_connection_strategy() -> impl Strategy<Value = ConnectionConfig> {
     (
         prop_oneof!["127.0.0.1", "192.168.1.254", "10.0.0.100"],
-        1024u16..65535,
-        Some(1000u32..30000),
+        1024u16..=65535,
     )
-        .prop_map(|(host, port, timeout)| ConnectionConfig::Tcp {
+        .prop_map(|(host, port)| ConnectionConfig::Tcp {
             host: host.to_string(),
             port,
-            timeout_ms: timeout,
         })
 }
 
@@ -53,12 +52,24 @@ fn serial_connection_strategy() -> impl Strategy<Value = ConnectionConfig> {
     (
         prop_oneof!["/dev/ttyUSB0", "/dev/ttyS0", "COM1", "COM2"],
         prop_oneof![9600u32, 19200, 38400, 115200],
-        Some(500u32..5000),
+        prop_oneof![8u8, 7u8],
+        prop_oneof![Just(StopBits::One), Just(StopBits::Two)],
+        prop_oneof![Just(Parity::None), Just(Parity::Even), Just(Parity::Odd)],
+        prop_oneof![
+            Just(FlowControl::None),
+            Just(FlowControl::Hardware),
+            Just(FlowControl::Software)
+        ],
     )
-        .prop_map(|(port, baud_rate, timeout)| ConnectionConfig::Serial {
-            port: port.to_string(),
-            baud_rate,
-            timeout_ms: timeout,
+        .prop_map(|(port, baud_rate, data_bits, stop_bits, parity, flow_control)| {
+            ConnectionConfig::Serial {
+                port: port.to_string(),
+                baud_rate,
+                data_bits,
+                stop_bits,
+                parity,
+                flow_control,
+            }
         })
 }
 
@@ -82,15 +93,17 @@ fn device_config_strategy() -> impl Strategy<Value = DeviceConfig> {
         protocol_strategy(),
         connection_strategy(),
         commands_strategy(),
+        500u32..=60000,
         any::<bool>(),
     )
         .prop_map(
-            |(name, manufacturer, model, protocol, connection, commands, enabled)| DeviceConfig {
+            |(name, manufacturer, model, protocol, connection, commands, timeout_ms, enabled)| DeviceConfig {
                 name,
                 manufacturer,
                 model,
                 protocol,
                 connection,
+                timeout_ms,
                 commands,
                 enabled,
             },
@@ -104,27 +117,19 @@ fn app_config_strategy() -> impl Strategy<Value = AppConfig> {
 
 fn weight_reading_strategy() -> impl Strategy<Value = WeightReading> {
     (
-        prop::option::of(0.0f64..1000.0),
-        prop::option::of(0.0f64..1000.0),
-        prop::option::of(prop_oneof!["kg", "g", "lb", "oz"]),
-        prop::option::of(any::<bool>()),
-        prop::option::of(chrono::Utc::now()..chrono::Utc::now()),
-        prop::option::of("[A-Z_]{2,20}"),
-        prop::option::of(0.0f64..50.0),
+        0.0f64..=1000.0,
+        0.0f64..=1000.0,
+        prop_oneof!["kg", "g", "lb", "oz"].prop_map(|unit| unit.to_string()),
+        any::<bool>(),
+        any::<i64>().prop_map(|seconds| Utc::now() + Duration::seconds(seconds % 86_400)),
     )
-        .prop_map(
-            |(gross_weight, net_weight, unit, is_stable, timestamp, status, tare_weight)| {
-                WeightReading {
-                    gross_weight,
-                    net_weight,
-                    unit: unit.map(String::from),
-                    is_stable,
-                    timestamp,
-                    status: status.map(String::from),
-                    tare_weight,
-                }
-            },
-        )
+        .prop_map(|(gross_weight, net_weight, unit, is_stable, timestamp)| WeightReading {
+            gross_weight,
+            net_weight,
+            unit,
+            is_stable,
+            timestamp,
+        })
 }
 
 fn scale_command_request_strategy() -> impl Strategy<Value = ScaleCommandRequest> {
@@ -145,10 +150,10 @@ proptest! {
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: DeviceConfig = serde_json::from_str(&json).unwrap();
 
-        prop_assert_eq!(config.name, deserialized.name);
-        prop_assert_eq!(config.manufacturer, deserialized.manufacturer);
-        prop_assert_eq!(config.model, deserialized.model);
-        prop_assert_eq!(config.protocol, deserialized.protocol);
+        prop_assert_eq!(&config.name, &deserialized.name);
+        prop_assert_eq!(&config.manufacturer, &deserialized.manufacturer);
+        prop_assert_eq!(&config.model, &deserialized.model);
+        prop_assert_eq!(&config.protocol, &deserialized.protocol);
         prop_assert_eq!(config.enabled, deserialized.enabled);
     }
 
@@ -161,7 +166,7 @@ proptest! {
 
         for (device_id, original_config) in &app_config.devices {
             let deserialized_config = &deserialized.devices[device_id];
-            prop_assert_eq!(original_config.name, deserialized_config.name);
+            prop_assert_eq!(&original_config.name, &deserialized_config.name);
             prop_assert_eq!(original_config.enabled, deserialized_config.enabled);
         }
     }
@@ -175,7 +180,6 @@ proptest! {
         prop_assert_eq!(reading.net_weight, deserialized.net_weight);
         prop_assert_eq!(reading.unit, deserialized.unit);
         prop_assert_eq!(reading.is_stable, deserialized.is_stable);
-        prop_assert_eq!(reading.tare_weight, deserialized.tare_weight);
     }
 
     #[test]
@@ -225,11 +229,9 @@ proptest! {
     #[test]
     fn prop_tcp_connection_config_invariants(config in tcp_connection_strategy()) {
         match config {
-            ConnectionConfig::Tcp { host, port, timeout_ms } => {
+            ConnectionConfig::Tcp { host, port } => {
                 prop_assert!(!host.is_empty());
                 prop_assert!(port >= 1024 && port <= 65535);
-                prop_assert!(timeout_ms.unwrap_or(1000) >= 1000);
-                prop_assert!(timeout_ms.unwrap_or(1000) <= 30000);
             }
             _ => prop_assert!(false, "Expected TCP connection config"),
         }
@@ -238,11 +240,23 @@ proptest! {
     #[test]
     fn prop_serial_connection_config_invariants(config in serial_connection_strategy()) {
         match config {
-            ConnectionConfig::Serial { port, baud_rate, timeout_ms } => {
+            ConnectionConfig::Serial {
+                port,
+                baud_rate,
+                data_bits,
+                stop_bits,
+                parity,
+                flow_control,
+            } => {
                 prop_assert!(!port.is_empty());
                 prop_assert!([9600, 19200, 38400, 115200].contains(&baud_rate));
-                prop_assert!(timeout_ms.unwrap_or(1000) >= 500);
-                prop_assert!(timeout_ms.unwrap_or(1000) <= 5000);
+                prop_assert!([8u8, 7u8].contains(&data_bits));
+                prop_assert!(matches!(stop_bits, StopBits::One | StopBits::Two));
+                prop_assert!(matches!(parity, Parity::None | Parity::Even | Parity::Odd));
+                prop_assert!(matches!(
+                    flow_control,
+                    FlowControl::None | FlowControl::Hardware | FlowControl::Software
+                ));
             }
             _ => prop_assert!(false, "Expected Serial connection config"),
         }
@@ -265,25 +279,11 @@ proptest! {
 
     #[test]
     fn prop_weight_reading_value_constraints(reading in weight_reading_strategy()) {
-        if let Some(gross) = reading.gross_weight {
-            prop_assert!(gross >= 0.0);
-            prop_assert!(gross <= 1000.0);
-        }
-
-        if let Some(net) = reading.net_weight {
-            prop_assert!(net >= 0.0);
-            prop_assert!(net <= 1000.0);
-        }
-
-        if let Some(tare) = reading.tare_weight {
-            prop_assert!(tare >= 0.0);
-            prop_assert!(tare <= 50.0);
-        }
-
-        // If both gross and net are present, gross should be >= net
-        if let (Some(gross), Some(net)) = (reading.gross_weight, reading.net_weight) {
-            prop_assert!(gross >= net);
-        }
+        prop_assert!(reading.gross_weight >= 0.0);
+        prop_assert!(reading.gross_weight <= 1000.0);
+        prop_assert!(reading.net_weight >= 0.0);
+        prop_assert!(reading.net_weight <= 1000.0);
+        prop_assert!(reading.gross_weight >= reading.net_weight);
     }
 
     #[test]
@@ -325,7 +325,7 @@ mod regression_tests {
             ("127.0.0.1", 65536), // Port too high
         ];
 
-        for (host, port) in invalid_tcp_configs {
+        for (_host, port) in invalid_tcp_configs {
             // These would be invalid in a real system
             assert!(port == 0 || port < 1024 || port > 65535);
         }
@@ -334,22 +334,15 @@ mod regression_tests {
     #[test]
     fn test_weight_consistency_rules() {
         let reading = WeightReading {
-            gross_weight: Some(100.0),
-            net_weight: Some(150.0), // Net > Gross (invalid)
-            unit: Some("kg".to_string()),
-            is_stable: Some(true),
-            timestamp: Some(chrono::Utc::now()),
-            status: None,
-            tare_weight: Some(5.0),
+            gross_weight: 100.0,
+            net_weight: 150.0, // Net > Gross (invalid)
+            unit: "kg".to_string(),
+            is_stable: true,
+            timestamp: chrono::Utc::now(),
         };
 
         // This violates the physical constraint that net weight cannot exceed gross weight
-        if let (Some(gross), Some(net)) = (reading.gross_weight, reading.net_weight) {
-            assert!(
-                gross < net,
-                "Found regression case: net weight exceeds gross weight"
-            );
-        }
+        assert!(reading.gross_weight < reading.net_weight);
     }
 
     #[test]
@@ -412,8 +405,8 @@ mod regression_tests {
                 connection: ConnectionConfig::Tcp {
                     host: "127.0.0.1".to_string(),
                     port: 8080,
-                    timeout_ms: Some(3000),
                 },
+                timeout_ms: 3000,
                 commands: HashMap::new(),
                 enabled: true,
             };

@@ -2,7 +2,7 @@ use crate::adapters::adapter::DeviceAdapter;
 use crate::adapters::dini_argeo::DiniArgeoAsciiAdapter;
 use crate::adapters::rinstrum::RinstrumC320Adapter;
 use crate::error::BridgeError;
-use crate::models::device::{Connection, FlowControl, Parity, StopBits};
+use crate::models::device::Connection;
 use crate::models::weight::WeightReading;
 use std::collections::HashMap;
 use std::sync::Arc;

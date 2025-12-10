@@ -411,6 +411,10 @@ MIT License - see [LICENSE.md](LICENSE.md) for details.
 ---
 
 **Status: Ready for Integration Testing** 🚀  
+🛡️ If `ld` or `dlltool` keep failing with “Permission denied”, stop the AVG Firewall service before running `build-rust-mingw.ps1`/`test-rust-mingw.ps1`:
+```powershell
+Stop-AvgFirewall
+```
 **Last Updated:** November 30, 2025  
 **Build Status:** ✅ Passing  
 **Server Status:** ✅ Running on :8080

@@ -99,10 +99,6 @@ impl DiniArgeoAsciiAdapter {
         })
     }
 
-    fn get_command_terminator(&self) -> &'static str {
-        "\r\n" // Dini Argeo uses CR+LF
-    }
-
     fn format_command(&self, raw: &str) -> Vec<u8> {
         let mut bytes = raw.trim().as_bytes().to_vec();
         if bytes.is_empty() {
@@ -133,6 +129,18 @@ impl DiniArgeoAsciiAdapter {
             ));
         }
 
+        let first_token = response
+            .split(',')
+            .next()
+            .map(str::trim)
+            .unwrap_or("")
+            .to_uppercase();
+        let is_stable = if first_token.starts_with('U') {
+            false
+        } else {
+            true
+        };
+
         // Pattern: ([+-]?\s*\d+\.\d+)\s*(kg|lb|g)
         let pattern = Regex::new(r"([+-]?\s*\d+\.\d+)\s*(kg|lb|g)").unwrap();
         if let Some(caps) = pattern.captures(response) {
@@ -143,19 +151,11 @@ impl DiniArgeoAsciiAdapter {
             })?;
             let unit = caps.get(2).unwrap().as_str().to_lowercase();
             // Assume Gross for generic parser
-            return Ok((value, unit, true));
+            return Ok((value, unit, is_stable));
         }
 
         // Fallback: Dini controllers usually respond with comma separated flags
         // Example: ST,GS,+00023.450kg
-        let first_token = response
-            .split(',')
-            .next()
-            .map(str::trim)
-            .unwrap_or("")
-            .to_uppercase();
-        let is_stable = first_token.starts_with('S') && !first_token.starts_with('U');
-
         let search_space = response
             .split(',')
             .last()
@@ -255,7 +255,7 @@ impl DiniArgeoAsciiAdapter {
 
         let mut buffer = vec![0; 256];
         let mut response = Vec::new();
-        let timeout = TokioDuration::from_millis(self.timeout_ms as u64);
+        let read_timeout = TokioDuration::from_millis(self.timeout_ms as u64);
         let start = std::time::Instant::now();
 
         loop {
@@ -266,7 +266,7 @@ impl DiniArgeoAsciiAdapter {
                 )));
             }
 
-            let bytes_read = match timeout(timeout, conn.read(&mut buffer)).await {
+            let bytes_read = match timeout(read_timeout, conn.read(&mut buffer)).await {
                 Ok(Ok(0)) => continue,
                 Ok(Ok(n)) => n,
                 Ok(Err(e)) => return Err(BridgeError::IoError(e)),
@@ -305,6 +305,7 @@ impl DiniArgeoAsciiAdapter {
         let connection_clone = connection.clone();
         let timeout_ms = self.timeout_ms;
         let device_id = self.device_id.clone();
+        let command_bytes = formatted_command.to_vec();
 
         task::spawn_blocking(move || {
             let mut guard = connection_clone.lock();
@@ -315,10 +316,10 @@ impl DiniArgeoAsciiAdapter {
             debug!(
                 "Sending Serial command to {}: {}",
                 device_id,
-                String::from_utf8_lossy(formatted_command).trim()
+                String::from_utf8_lossy(&command_bytes).trim()
             );
 
-            port.write_all(formatted_command)
+            port.write_all(&command_bytes)
                 .map_err(|e| BridgeError::IoError(e))?;
             port.flush().map_err(|e| BridgeError::IoError(e))?;
 
@@ -588,21 +589,6 @@ mod tests {
             stop_bits: StopBits::One,
             parity: Parity::None,
             flow_control: FlowControl::None,
-            timeout_ms: 1000,
-        };
-        let mut commands = HashMap::new();
-        commands.insert("readGross".to_string(), "READ".to_string());
-        commands.insert("readNet".to_string(), "REXT".to_string());
-        commands.insert("tare".to_string(), "TARE".to_string());
-        commands.insert("zero".to_string(), "ZERO".to_string());
-
-        DiniArgeoAsciiAdapter::new("test".to_string(), connection, commands).unwrap()
-    }
-
-    fn adapter_for_tests_tcp() -> DiniArgeoAsciiAdapter {
-        let connection = Connection::Tcp {
-            host: "127.0.0.1".to_string(),
-            port: 4001,
             timeout_ms: 1000,
         };
         let mut commands = HashMap::new();

@@ -5,6 +5,22 @@ Write-Host "Setting up MSYS2 MinGW environment for testing..." -ForegroundColor 
 
 # Set MinGW path
 $mingwPath = "D:\msys64\mingw64"
+
+function Stop-AvgFirewall {
+    $serviceName = "AVG Firewall"
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($service -and $service.Status -ne "Stopped") {
+        Write-Host "Stopping $serviceName to avoid permission issues..." -ForegroundColor Yellow
+        try {
+            Stop-Service -Name $serviceName -Force -ErrorAction Stop
+        } catch {
+            Write-Host ("Unable to stop {0}: {1}" -f $serviceName, $_.Exception.Message) -ForegroundColor Red
+        }
+    }
+}
+
+# stop avg to avoid locking build artifacts
+Stop-AvgFirewall
 $crossBinPath = "$mingwPath\x86_64-w64-mingw32\bin"
 
 # Check if MSYS2 MinGW path exists

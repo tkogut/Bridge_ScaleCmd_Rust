@@ -7,7 +7,9 @@ use tempfile::TempDir;
 
 // Import the basic types we can test
 use scaleit_bridge::error::BridgeError;
-use scaleit_bridge::models::device::{AppConfig, Connection, DeviceConfig};
+use scaleit_bridge::models::device::{
+    AppConfig, Connection, ConnectionConfig, DeviceConfig, FlowControl, Parity, StopBits,
+};
 use scaleit_bridge::models::weight::{ScaleCommandRequest, ScaleCommandResponse, WeightReading};
 
 #[test]
@@ -104,7 +106,6 @@ fn test_device_config_tcp_serialization() {
     commands.insert("tare".to_string(), "T".to_string());
     commands.insert("zero".to_string(), "Z".to_string());
 
-    use scaleit_bridge::models::device::ConnectionConfig;
     let device_config = DeviceConfig {
         name: "C320 Rinstrum Scale".to_string(),
         manufacturer: "Rinstrum".to_string(),
@@ -151,7 +152,7 @@ fn test_device_config_serial_serialization() {
     commands.insert("zero".to_string(), "Z".to_string());
 
     use scaleit_bridge::models::device::{FlowControl, Parity, StopBits};
-    let serial_connection = Connection::Serial {
+    let _serial_connection = Connection::Serial {
         port: "COM3".to_string(),
         baud_rate: 9600,
         data_bits: 8,
@@ -161,7 +162,6 @@ fn test_device_config_serial_serialization() {
         timeout_ms: 1000,
     };
 
-    use scaleit_bridge::models::device::ConnectionConfig;
     let device_config = DeviceConfig {
         name: "DFW Dini Argeo Scale".to_string(),
         manufacturer: "Dini Argeo".to_string(),
@@ -225,7 +225,6 @@ fn test_app_config_serialization() {
     tcp_commands.insert("readGross".to_string(), "20050026".to_string());
     tcp_commands.insert("readNet".to_string(), "20050025".to_string());
 
-    use scaleit_bridge::models::device::ConnectionConfig;
     let tcp_device = DeviceConfig {
         name: "C320 Rinstrum".to_string(),
         manufacturer: "Rinstrum".to_string(),
@@ -245,7 +244,6 @@ fn test_app_config_serialization() {
     serial_commands.insert("readGross".to_string(), "READ".to_string());
     serial_commands.insert("tare".to_string(), "TARE".to_string());
 
-    use scaleit_bridge::models::device::ConnectionConfig;
     let serial_device = DeviceConfig {
         name: "DFW Dini Argeo".to_string(),
         manufacturer: "Dini Argeo".to_string(),
@@ -298,7 +296,6 @@ fn test_app_config_file_operations() {
     let mut commands = HashMap::new();
     commands.insert("readGross".to_string(), "TEST_CMD".to_string());
 
-    use scaleit_bridge::models::device::ConnectionConfig;
     let test_device = DeviceConfig {
         name: "Test Device".to_string(),
         manufacturer: "Test Corp".to_string(),

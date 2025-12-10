@@ -6,7 +6,7 @@ pub mod models;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::device::{AppConfig, Connection, DeviceConfig};
+    use crate::models::device::{AppConfig, DeviceConfig};
     use crate::models::weight::{ScaleCommandRequest, WeightReading};
     use std::collections::HashMap;
 

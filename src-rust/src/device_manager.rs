@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
 use log::{error, info, warn};
 use parking_lot::RwLock;
 
