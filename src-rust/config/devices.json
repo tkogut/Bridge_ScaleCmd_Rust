@@ -12,35 +12,12 @@
       },
       "timeout_ms": 1000,
       "commands": {
-        "zero": "21120008:0B",
         "tare": "21120008:0C",
-        "readNet": "20050025",
-        "readGross": "20050026"
+        "readGross": "20050026",
+        "zero": "21120008:0B",
+        "readNet": "20050025"
       },
       "enabled": true
-    },
-    "dfw": {
-      "name": "DFW - Dini Argeo",
-      "manufacturer": "Dini Argeo",
-      "model": "DFW",
-      "protocol": "DINI_ARGEO",
-      "connection": {
-        "connection_type": "Serial",
-        "port": "COM4",
-        "baud_rate": 9600,
-        "data_bits": 8,
-        "stop_bits": "one",
-        "parity": "none",
-        "flow_control": "none"
-      },
-      "timeout_ms": 1000,
-      "commands": {
-        "readnet": "REXT",
-        "tare": "TARE",
-        "zero": "ZERO",
-        "readgross": "READ"
-      },
-      "enabled": false
     },
     "c320": {
       "name": "C320 Rinstrum",
@@ -64,6 +41,48 @@
         "readGross": "20050026"
       },
       "enabled": true
+    },
+    "test_device_123": {
+      "name": "Test Device",
+      "manufacturer": "Test Mfg",
+      "model": "Test Model",
+      "protocol": "RINCMD",
+      "connection": {
+        "connection_type": "Tcp",
+        "host": "192.168.1.100",
+        "port": 4001
+      },
+      "timeout_ms": 3000,
+      "commands": {
+        "readNet": "20050025",
+        "readGross": "20050026",
+        "zero": "21120008:0B",
+        "tare": "21120008:0C"
+      },
+      "enabled": true
+    },
+    "dfw": {
+      "name": "DFW - Dini Argeo",
+      "manufacturer": "Dini Argeo",
+      "model": "DFW",
+      "protocol": "DINI_ARGEO",
+      "connection": {
+        "connection_type": "Serial",
+        "port": "COM4",
+        "baud_rate": 9600,
+        "data_bits": 8,
+        "stop_bits": "one",
+        "parity": "none",
+        "flow_control": "none"
+      },
+      "timeout_ms": 1000,
+      "commands": {
+        "tare": "TARE",
+        "readnet": "REXT",
+        "zero": "ZERO",
+        "readgross": "READ"
+      },
+      "enabled": false
     }
   }
 }

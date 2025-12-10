@@ -45,7 +45,7 @@ const DeviceConfigSchema = z.object({
   model: z.string().min(1, "Model is required"),
   protocol: z.string().min(1, "Protocol is required"),
   connection_type: z.enum(["Tcp", "Serial"]),
-  host: z.string().ip({ message: "Invalid IP address format" }).optional(),
+  host: z.string().optional(),
   tcp_port: z.coerce.number().int().min(1).max(65535).optional(),
   serial_port: z.string().min(1, "Port path is required (e.g., COM1 or /dev/ttyUSB0)").optional(),
   baud_rate: z.coerce.number().int().min(1).optional(),
@@ -59,14 +59,24 @@ const DeviceConfigSchema = z.object({
   enabled: z.boolean().default(true),
 }).superRefine((values, ctx) => {
   if (values.connection_type === "Tcp") {
-    if (!values.host) {
+    if (!values.host || values.host.trim() === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["host"],
         message: "Host IP is required for TCP connections",
       });
+    } else {
+      // Validate IP format if provided
+      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      if (!ipRegex.test(values.host.trim())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["host"],
+          message: "Invalid IP address format",
+        });
+      }
     }
-    if (values.tcp_port === undefined) {
+    if (values.tcp_port === undefined || values.tcp_port === null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["tcp_port"],
@@ -74,14 +84,14 @@ const DeviceConfigSchema = z.object({
       });
     }
   } else if (values.connection_type === "Serial") {
-    if (!values.serial_port) {
+    if (!values.serial_port || values.serial_port.trim() === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["serial_port"],
         message: "Serial port path is required",
       });
     }
-    if (values.baud_rate === undefined) {
+    if (values.baud_rate === undefined || values.baud_rate === null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["baud_rate"],
@@ -176,7 +186,11 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
   
   // Resetowanie formularza przy otwarciu/zmianie initialConfig
   React.useEffect(() => {
-    form.reset(getInitialValues());
+    if (open) {
+      const initialValues = getInitialValues();
+      console.log("Resetting form with initial values:", initialValues);
+      form.reset(initialValues);
+    }
   }, [getInitialValues, open, form]);
 
 
@@ -184,6 +198,8 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
   const isSubmitting = form.formState.isSubmitting;
 
   const onSubmit = async (values: DeviceFormValues) => {
+    console.log("Form submitted with values:", values);
+    
     const {
       deviceId,
       name,
@@ -205,6 +221,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
 
     // Normalize deviceId to lowercase
     const normalizedDeviceId = deviceId.toLowerCase().trim();
+    console.log("Normalized deviceId:", normalizedDeviceId);
 
     let connection: DeviceConfig["connection"];
 
@@ -273,7 +290,12 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+          <form onSubmit={(e) => {
+            console.log("Form submit event triggered");
+            console.log("Form errors:", form.formState.errors);
+            console.log("Form values:", form.getValues());
+            form.handleSubmit(onSubmit)(e);
+          }} className="space-y-6 py-4">
             
             {/* General Settings */}
             <div className="grid grid-cols-2 gap-4">
@@ -538,7 +560,15 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                onClick={() => {
+                  console.log("Submit button clicked");
+                  console.log("Form is valid:", form.formState.isValid);
+                  console.log("Form errors:", form.formState.errors);
+                }}
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEdit ? "Save Changes" : "Add Device"}
               </Button>
