@@ -44,7 +44,7 @@ Write-Host "[1/5] Checking prerequisites..." -ForegroundColor Cyan
 
 if (-not (Test-Path $BackendBinary)) {
     Write-Host "ERROR: Backend binary not found at $BackendBinary" -ForegroundColor Red
-    Write-Host "Please run: .\BUILD.bat" -ForegroundColor Yellow
+    Write-Host "Please run: .\build-rust-mingw.ps1 --release" -ForegroundColor Yellow
     exit 1
 }
 Write-Host "  * Backend binary found" -ForegroundColor Green
@@ -105,10 +105,20 @@ if (Test-Path $FrontendDir) {
     Write-Host "  * Frontend files copied" -ForegroundColor Green
 }
 
-# Copy scripts
-Copy-Item (Join-Path $ScriptDir "INSTALL.bat") "$PackageDir\" -Force
-Copy-Item (Join-Path $ScriptDir "START_SERVICE.bat") "$PackageDir\" -Force
-Write-Host "  * Installer scripts copied" -ForegroundColor Green
+# Copy scripts (if they exist)
+$installScript = Join-Path $ScriptDir "INSTALL.bat"
+$startScript = Join-Path $ScriptDir "START_SERVICE.bat"
+if (Test-Path $installScript) {
+    Copy-Item $installScript "$PackageDir\" -Force
+    Write-Host "  * INSTALL.bat copied" -ForegroundColor Green
+}
+if (Test-Path $startScript) {
+    Copy-Item $startScript "$PackageDir\" -Force
+    Write-Host "  * START_SERVICE.bat copied" -ForegroundColor Green
+}
+if (-not (Test-Path $installScript) -and -not (Test-Path $startScript)) {
+    Write-Host "  * Note: INSTALL.bat and START_SERVICE.bat not found (optional)" -ForegroundColor Yellow
+}
 
 # Copy documentation
 $docFiles = @("BUILD_WINDOWS.md", "README.md", "CONTRIBUTING.md", "LICENSE.md")
