@@ -21,11 +21,11 @@ Stworzenie kompletnego, produkcyjnego rozwiązania Windows installer + Windows S
 
 ### ✅ Faza 1: Backend - Statyczne pliki frontendu
 - [x] Analiza wymagań
-- [ ] Dodać `actix-files` do `Cargo.toml`
-- [ ] Dodać serwowanie statycznych plików z `dist/` pod `/`
-- [ ] Zachować API pod `/api/*`, `/health`, `/devices`, `/scalecmd`
-- [ ] Przetestować lokalnie (frontend dostępny przez backend)
-- [ ] Dodać obsługę SPA routing (fallback do index.html)
+- [x] Dodać `actix-files` do `Cargo.toml`
+- [x] Dodać serwowanie statycznych plików z `dist/` pod `/`
+- [x] Zachować API pod `/api/*`, `/health`, `/devices`, `/scalecmd`
+- [x] Dodać obsługę SPA routing (fallback do index.html przez default_handler)
+- [ ] Przetestować lokalnie (frontend dostępny przez backend na http://localhost:8080)
 
 ### ⏳ Faza 2: Struktura katalogów i konfiguracja
 - [ ] Zaprojektować strukturę katalogów:
@@ -158,8 +158,8 @@ C:\ProgramData\ScaleCmdBridge\
 - ✅ ProgramData dla config/logs (standard Windows, łatwiejsze backup)
 
 ### Problemy do rozwiązania:
-- [ ] Jak obsłużyć SPA routing w Actix (fallback do index.html)
-- [ ] Jak przekazać port z instalatora do aplikacji (zmienna środowiskowa?)
+- [x] Jak obsłużyć SPA routing w Actix (fallback do index.html) - ✅ ROZWIĄZANE: default_handler
+- [ ] Jak przekazać port z instalatora do aplikacji (zmienna środowiskowa PORT)
 - [ ] Jak obsłużyć upgrade bez utraty configu
 
 ---
