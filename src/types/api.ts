@@ -29,6 +29,7 @@ export interface DeviceConfig {
   model: string;
   protocol: string;
   connection: TcpConnection | SerialConnection;
+  timeout_ms: number;
   commands: Record<string, string>;
   enabled: boolean;
 }
@@ -37,14 +38,16 @@ export interface TcpConnection {
   connection_type: "Tcp";
   host: string;
   port: number;
-  timeout_ms: number;
 }
 
 export interface SerialConnection {
   connection_type: "Serial";
   port: string;
   baud_rate: number;
-  timeout_ms: number;
+  data_bits?: number;
+  stop_bits?: "one" | "two";
+  parity?: "none" | "even" | "odd";
+  flow_control?: "none" | "software" | "hardware";
 }
 
 export interface DevicesResponse {
@@ -53,7 +56,7 @@ export interface DevicesResponse {
 }
 
 export interface HealthResponse {
-  status: "OK" | "ERROR";
+  status: "OK" | "ERROR" | "STOPPED";
   service: string;
   version: string;
 }

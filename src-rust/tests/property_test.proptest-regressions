@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc b58638bd78b6651c96f9e72b8e45a6bbdae3e6a8d8b482aafbf91530cac425b5 # shrinks to reading = WeightReading { gross_weight: 0.0, net_weight: 349.9751195746, unit: "kg", is_stable: false, timestamp: 2025-12-10T16:33:22.649063700Z }
+cc 7846587a02adb489d3cab2ba780e4cf0544b7b101b10a50cf643c5a411957d2c # shrinks to name = ":aa"
+cc 904b92d19bf19f653326c05eaccf782a9d940203f3b681a42e8ccf9b4227132d # shrinks to reading = WeightReading { gross_weight: 999.7195849989173, net_weight: 0.0, unit: "kg", is_stable: false, timestamp: 2025-12-10T16:33:22.649556300Z }

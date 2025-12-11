@@ -1,3 +1,4 @@
+import React from "react";
 import {
   render,
   screen,
@@ -12,25 +13,19 @@ import { MemoryRouter } from "react-router-dom";
 import { server } from "./setup";
 import { http, HttpResponse } from "msw";
 
-// Mock components and pages
-// Mock components defined inline to avoid hoisting issues
-const MockIndex = () => <div data-testid="index-page">Mock Index Page</div>;
-const MockConfiguration = () => (
-  <div data-testid="configuration-page">Mock Configuration Page</div>
-);
-const MockDiagnostics = () => (
-  <div data-testid="diagnostics-page">Mock Diagnostics Page</div>
-);
-
 // Mock the pages
 vi.mock("../pages/Index", () => ({
-  default: MockIndex,
+  default: () => <div data-testid="index-page">Mock Index Page</div>,
 }));
 vi.mock("../pages/Configuration", () => ({
-  default: MockConfiguration,
+  default: () => (
+    <div data-testid="configuration-page">Mock Configuration Page</div>
+  ),
 }));
 vi.mock("../pages/Diagnostics", () => ({
-  default: MockDiagnostics,
+  default: () => (
+    <div data-testid="diagnostics-page">Mock Diagnostics Page</div>
+  ),
 }));
 
 // Mock UI components

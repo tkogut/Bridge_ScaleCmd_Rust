@@ -22,7 +22,7 @@ const ScaleOperationsPanel = () => {
     staleTime: Infinity,
   });
 
-  const devices = devicesData?.devices || [];
+  const devices = React.useMemo(() => devicesData?.devices || [], [devicesData]);
 
   React.useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {

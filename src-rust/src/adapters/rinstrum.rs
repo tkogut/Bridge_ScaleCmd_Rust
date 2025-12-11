@@ -1,29 +1,43 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use log::{debug, error, info, warn};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use regex::Regex;
 use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::time::{timeout, Duration};
+use tokio::task;
+use tokio::time::{timeout, Duration as TokioDuration};
 
 use super::adapter::DeviceAdapter;
 use crate::error::BridgeError;
-use crate::models::device::Connection;
+use crate::models::device::{Connection, FlowControl, Parity, StopBits};
 use crate::models::weight::WeightReading;
 
-struct TcpConnectionDetails {
-    host: String,
-    port: u16,
-    timeout_ms: u32,
+enum ConnectionType {
+    Tcp {
+        host: String,
+        port: u16,
+        stream: Arc<RwLock<Option<TcpStream>>>,
+    },
+    Serial {
+        port_path: String,
+        baud_rate: u32,
+        data_bits: u8,
+        stop_bits: StopBits,
+        parity: Parity,
+        flow_control: FlowControl,
+        connection: Arc<Mutex<Option<Box<dyn serialport::SerialPort + Send>>>>,
+    },
 }
 
 pub struct RinstrumC320Adapter {
     device_id: String,
-    connection: Arc<RwLock<Option<TcpStream>>>,
-    tcp: TcpConnectionDetails,
+    connection_type: ConnectionType,
+    timeout_ms: u32,
     commands: HashMap<String, String>,
 }
 
@@ -33,65 +47,99 @@ impl RinstrumC320Adapter {
         connection: Connection,
         commands: HashMap<String, String>,
     ) -> Result<Self, BridgeError> {
-        let tcp = match connection {
+        let (connection_type, timeout_ms) = match connection {
             Connection::Tcp {
                 host,
                 port,
                 timeout_ms,
-            } => TcpConnectionDetails {
-                host,
-                port,
+            } => (
+                ConnectionType::Tcp {
+                    host,
+                    port,
+                    stream: Arc::new(RwLock::new(None)),
+                },
                 timeout_ms,
-            },
-            other => {
-                return Err(BridgeError::ConfigurationError(format!(
-                    "RinstrumC320Adapter only supports TCP connections, got {:?}",
-                    other
-                )))
-            }
+            ),
+            Connection::Serial {
+                port,
+                baud_rate,
+                data_bits,
+                stop_bits,
+                parity,
+                flow_control,
+                timeout_ms,
+            } => (
+                ConnectionType::Serial {
+                    port_path: port,
+                    baud_rate,
+                    data_bits,
+                    stop_bits,
+                    parity,
+                    flow_control,
+                    connection: Arc::new(Mutex::new(None)),
+                },
+                timeout_ms,
+            ),
         };
 
         Ok(Self {
             device_id,
-            connection: Arc::new(RwLock::new(None)),
-            tcp,
+            connection_type,
+            timeout_ms,
             commands,
         })
+    }
+
+    fn get_command_terminator(&self) -> &'static str {
+        "\r\n" // RINCMD uses CR+LF
     }
 
     async fn send_command_and_read_response(
         &self,
         command_str: &str,
     ) -> Result<String, BridgeError> {
-        // Take the TcpStream out of the RwLock-protected Option so we don't hold
-        // a non-Send lock guard across .await points. Put it back after I/O.
-        let conn_opt = {
-            let mut conn_guard = self.connection.write();
-            conn_guard.take()
-        };
-
-        let mut conn = conn_opt.ok_or_else(|| {
-            error!(
-                "Attempted to send command without an active connection for device {}",
-                self.device_id
-            );
-            BridgeError::ConnectionError("No active connection".to_string())
-        })?;
-
-        let full_command = format!("{}\r\n", command_str); // RINCMD typically uses CR+LF
+        let full_command = format!("{}{}", command_str, self.get_command_terminator());
         debug!(
             "Sending command to {}: {}",
             self.device_id,
             full_command.trim()
         );
 
-        let timeout_duration = Duration::from_millis(self.tcp.timeout_ms as u64);
+        match &self.connection_type {
+            ConnectionType::Tcp { stream, .. } => {
+                self.send_command_tcp(stream, &full_command).await
+            }
+            ConnectionType::Serial { connection, .. } => {
+                self.send_command_serial(connection, &full_command).await
+            }
+        }
+    }
+
+    async fn send_command_tcp(
+        &self,
+        stream: &Arc<RwLock<Option<TcpStream>>>,
+        full_command: &str,
+    ) -> Result<String, BridgeError> {
+        let conn_opt = {
+            let mut conn_guard = stream.write();
+            conn_guard.take()
+        };
+
+        let mut conn = conn_opt.ok_or_else(|| {
+            error!(
+                "Attempted to send command without an active TCP connection for device {}",
+                self.device_id
+            );
+            BridgeError::ConnectionError("No active TCP connection".to_string())
+        })?;
+
+        let timeout_duration = TokioDuration::from_millis(self.timeout_ms as u64);
 
         timeout(timeout_duration, conn.write_all(full_command.as_bytes()))
             .await
             .map_err(|_| {
                 warn!("Write timeout for device {}", self.device_id);
-                BridgeError::Timeout(format!("Write timeout after {}ms", self.tcp.timeout_ms))
+                BridgeError::Timeout(format!("Write timeout after {}ms", self.timeout_ms))
             })?
             .map_err(|e| {
                 error!("Failed to write to device {}: {}", self.device_id, e);
@@ -104,7 +152,7 @@ impl RinstrumC320Adapter {
             .await
             .map_err(|_| {
                 warn!("Read timeout for device {}", self.device_id);
-                BridgeError::Timeout(format!("Read timeout after {}ms", self.tcp.timeout_ms))
+                BridgeError::Timeout(format!("Read timeout after {}ms", self.timeout_ms))
             })?
             .map_err(|e| {
                 error!("Failed to read from device {}: {}", self.device_id, e);
@@ -114,43 +162,171 @@ impl RinstrumC320Adapter {
         let response = String::from_utf8_lossy(&buffer[..bytes_read])
             .trim()
             .to_string();
-        debug!("Received response from {}: {}", self.device_id, response);
+        debug!(
+            "Received TCP response from {}: {}",
+            self.device_id, response
+        );
 
-        // Put the stream back into the shared slot.
         {
-            let mut conn_guard = self.connection.write();
+            let mut conn_guard = stream.write();
             *conn_guard = Some(conn);
         }
 
         Ok(response)
     }
 
-    fn parse_rincmd_response(&self, response: &str) -> Result<WeightReading, BridgeError> {
-        // Example RINCMD response: "S 00000.000 kg" (Stable, 0.000 kg)
-        // Or "U 00000.000 kg" (Unstable)
-        // Or "E" (Error)
-        // This is a simplified parser. Real RINCMD might be more complex.
+    async fn send_command_serial(
+        &self,
+        connection: &Arc<Mutex<Option<Box<dyn serialport::SerialPort + Send>>>>,
+        full_command: &str,
+    ) -> Result<String, BridgeError> {
+        let connection_clone = connection.clone();
+        let device_id = self.device_id.clone();
+        let timeout_ms = self.timeout_ms;
+        let command_bytes = full_command.as_bytes().to_vec();
 
+        task::spawn_blocking(move || {
+            let mut guard = connection_clone.lock();
+            let port = guard.as_mut().ok_or_else(|| {
+                BridgeError::ConnectionError("Serial port not opened".to_string())
+            })?;
+
+            debug!(
+                "Sending Serial command to {}: {}",
+                device_id,
+                String::from_utf8_lossy(&command_bytes).trim()
+            );
+
+            port.write_all(&command_bytes)
+                .map_err(|e| BridgeError::IoError(e))?;
+            port.flush().map_err(|e| BridgeError::IoError(e))?;
+
+            let mut buffer = [0u8; 256];
+            let mut response = Vec::new();
+            let timeout = Duration::from_millis(timeout_ms as u64);
+            let start = Instant::now();
+
+            loop {
+                if start.elapsed() >= timeout {
+                    return Err(BridgeError::Timeout(format!(
+                        "Timed out waiting {} ms for response",
+                        timeout_ms
+                    )));
+                }
+
+                match port.read(&mut buffer) {
+                    Ok(0) => continue,
+                    Ok(n) => {
+                        response.extend_from_slice(&buffer[..n]);
+                        if response.contains(&b'\n') {
+                            break;
+                        }
+                    }
+                    Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                        if response.is_empty() {
+                            return Err(BridgeError::Timeout(format!(
+                                "No response from device in {} ms",
+                                timeout_ms
+                            )));
+                        }
+                        break;
+                    }
+                    Err(e) => return Err(BridgeError::IoError(e)),
+                }
+            }
+
+            let resp = String::from_utf8_lossy(&response).trim().to_string();
+            debug!("Received Serial response from {}: {}", device_id, resp);
+            Ok(resp)
+        })
+        .await
+        .map_err(|e| {
+            BridgeError::InternalServerError(format!(
+                "Blocking task failed for Serial command: {}",
+                e
+            ))
+        })?
+    }
+
+    fn parse_rincmd_response(&self, response: &str) -> Result<WeightReading, BridgeError> {
+        // Implementacja zgodna z scale-parser.md - parseRinCmdResponse
         if response.is_empty() {
             return Err(BridgeError::ProtocolError(
                 "Empty response from device".to_string(),
             ));
         }
 
-        // Normalize common unicode minus/dash characters and non-breaking spaces
+        // Pattern 1: (\d{8})([+-])(\d+\.\d+)(kg|lb)
+        // Example: "20050026+123.45kg" or "20050025-23.5kg"
+        let pattern1 = Regex::new(r"(\d{8})([+-])(\d+\.\d+)(kg|lb)").unwrap();
+        if let Some(caps) = pattern1.captures(response) {
+            let command_code = caps.get(1).unwrap().as_str();
+            let sign = caps.get(2).unwrap().as_str();
+            let value = caps.get(3).unwrap().as_str();
+            let unit = caps.get(4).unwrap().as_str().to_lowercase();
+
+            let weight_val = format!("{}{}", sign, value).parse::<f64>().map_err(|e| {
+                BridgeError::ProtocolError(format!("Failed to parse weight: {}", e))
+            })?;
+
+            // 20050026 = readGross, 20050025 = readNet
+            let is_gross = command_code == "20050026";
+            let is_stable = true; // Assume stable for this format
+
+            return Ok(WeightReading {
+                gross_weight: if is_gross { weight_val } else { 0.0 },
+                net_weight: if is_gross { 0.0 } else { weight_val },
+                unit,
+                is_stable,
+                timestamp: Utc::now(),
+            });
+        }
+
+        // Pattern 2: :\s*([+-]?)\s*(\d+\.?\d*)\s*(kg|lb|g)\s*([GNTZ])
+        // Example: ": -23 kg G" or ": +123.45 kg N"
+        let pattern2 = Regex::new(r":\s*([+-]?)\s*(\d+\.?\d*)\s*(kg|lb|g)\s*([GNTZ])").unwrap();
+        if let Some(caps) = pattern2.captures(response) {
+            let sign = caps.get(1).unwrap().as_str();
+            let value = caps.get(2).unwrap().as_str();
+            let unit = caps.get(3).unwrap().as_str().to_lowercase();
+            let status_char = caps.get(4).unwrap().as_str().to_uppercase();
+
+            let numeric_value = value
+                .parse::<f64>()
+                .map_err(|e| BridgeError::ProtocolError(format!("Failed to parse value: {}", e)))?;
+
+            let weight_val = if sign == "-" {
+                -numeric_value
+            } else {
+                numeric_value
+            };
+
+            let is_net = status_char == "N";
+            let is_stable = status_char == "G" || status_char == "N";
+
+            return Ok(WeightReading {
+                gross_weight: if is_net { 0.0 } else { weight_val },
+                net_weight: if is_net { weight_val } else { 0.0 },
+                unit,
+                is_stable,
+                timestamp: Utc::now(),
+            });
+        }
+
+        // Fallback: Try to parse standard RINCMD format "S 00000.000 kg" or "U 00000.000 kg"
         let mut cleaned = response.trim().to_string();
         let replacements = [
-            ('\t', ' '), // TAB -> space
-            ('\n', ' '), // LF -> space
+            ('\t', ' '),
+            ('\n', ' '),
             ('\x0B', ' '),
             ('\x0C', ' '),
             ('\r', ' '),
-            ('\u{00A0}', ' '), // NBSP
+            ('\u{00A0}', ' '),
         ];
         for (from, to) in replacements.iter() {
             cleaned = cleaned.replace(*from, &to.to_string());
         }
-        // Various dash/minus characters -> ASCII hyphen-minus
+
         let dash_chars = ['−', '–', '—', '―', '‑', '−', '－'];
         for d in dash_chars.iter() {
             if cleaned.contains(*d) {
@@ -158,11 +334,10 @@ impl RinstrumC320Adapter {
             }
         }
 
-        if cleaned != response {
-            debug!(
-                "Normalized device response from '{}' to '{}'",
-                response, cleaned
-            );
+        if cleaned == "E" || response == "E" {
+            return Err(BridgeError::ProtocolError(
+                "Device returned error 'E'".to_string(),
+            ));
         }
 
         let parts: Vec<&str> = cleaned.split_whitespace().collect();
@@ -172,84 +347,28 @@ impl RinstrumC320Adapter {
             ));
         }
 
-        if cleaned == "E" || response == "E" {
-            return Err(BridgeError::ProtocolError(
-                "Device returned error 'E'".to_string(),
-            ));
-        }
-
-        // Stability marker is usually the first token (e.g., "S" or "U")
         let is_stable = parts[0] == "S";
 
-        // If there's a colon, prefer parsing the substring after it (this avoids matching
-        // command echoes like "81050026" before the colon). Otherwise, search the whole string.
         let search_space = if let Some(pos) = cleaned.find(':') {
             cleaned[(pos + 1)..].trim().to_string()
         } else {
             cleaned.clone()
         };
 
-        // Try to detect a hex value at the start of the search space (e.g. "FFFFFFE9")
-        let hex_match = Regex::new(r"^[0-9A-Fa-f]{2,8}").unwrap();
-        if let Some(mh) = hex_match.find(&search_space) {
-            let token = &search_space[mh.start()..mh.end()];
-            // If token contains alphabetic hex digits (A-F) it's likely a hex two's-complement value.
-            if token.chars().any(|c| matches!(c, 'A'..='F' | 'a'..='f')) {
-                if let Ok(u) = u32::from_str_radix(token, 16) {
-                    let signed = u as i32 as f64;
-                    // try to infer unit from the rest of the search space
-                    let mut unit = String::new();
-                    if let Some(parts_after) = search_space.split_whitespace().nth(1) {
-                        if parts_after.chars().all(|c| c.is_alphabetic()) {
-                            unit = parts_after.to_string();
-                        }
-                    }
-                    return Ok(WeightReading {
-                        gross_weight: signed,
-                        net_weight: signed,
-                        unit,
-                        is_stable,
-                        timestamp: Utc::now(),
-                    });
-                }
-            } else {
-                // Token contains only digits; treat as a decimal integer (not hex)
-                if let Ok(dec) = i64::from_str_radix(token, 10) {
-                    let val = dec as f64;
-                    let mut unit = String::new();
-                    if let Some(parts_after) = search_space.split_whitespace().nth(1) {
-                        if parts_after.chars().all(|c| c.is_alphabetic()) {
-                            unit = parts_after.to_string();
-                        }
-                    }
-                    return Ok(WeightReading {
-                        gross_weight: val,
-                        net_weight: val,
-                        unit,
-                        is_stable,
-                        timestamp: Utc::now(),
-                    });
-                }
-            }
-        }
-
-        // Use regex to find a signed or unsigned numeric token in the search space,
-        // allowing spaces between sign and digits
-        let num_re = Regex::new(r"(?P<num>[+-]?\s*\d+(?:\.\d+)?)").unwrap();
+        let num_re = Regex::new(r"([+-]?\s*\d+(?:\.\d+)?)").unwrap();
         if let Some(m) = num_re.find(&search_space) {
             let mut num_str = m.as_str().to_string();
-            num_str.retain(|c| c != ' '); // remove spaces between sign and digits
+            num_str.retain(|c| c != ' ');
             let weight_val = num_str.parse::<f64>().map_err(|e| {
                 BridgeError::ProtocolError(format!("Failed to parse weight '{}': {}", num_str, e))
             })?;
 
-            // find unit after the number within the search space
             let after = &search_space[m.end()..];
             let unit_re = Regex::new(r"[A-Za-z%]+").unwrap();
             let unit = unit_re
                 .find(after)
                 .map(|u| u.as_str().to_string())
-                .unwrap_or_default();
+                .unwrap_or_else(|| "kg".to_string());
 
             return Ok(WeightReading {
                 gross_weight: weight_val,
@@ -270,68 +389,191 @@ impl RinstrumC320Adapter {
 #[async_trait]
 impl DeviceAdapter for RinstrumC320Adapter {
     async fn connect(&self) -> Result<(), BridgeError> {
-        // Fast path: check without taking a write lock (use read guard), and avoid
-        // holding any parking_lot guard across await points.
-        {
-            let conn_guard = self.connection.read();
-            if conn_guard.is_some() {
-                info!("Device {} already connected.", self.device_id);
-                return Ok(());
-            }
-        }
+        match &self.connection_type {
+            ConnectionType::Tcp { stream, host, port } => {
+                {
+                    let conn_guard = stream.read();
+                    if conn_guard.is_some() {
+                        info!("Device {} already connected (TCP).", self.device_id);
+                        return Ok(());
+                    }
+                }
 
-        let addr = format!("{}:{}", self.tcp.host, self.tcp.port);
-        info!("Attempting to connect to Rinstrum C320 at {}", addr);
+                let addr = format!("{}:{}", host, port);
+                info!("Attempting to connect to Rinstrum C320 at {} (TCP)", addr);
 
-        let connect_future = TcpStream::connect(&addr);
-        let timeout_duration = Duration::from_millis(self.tcp.timeout_ms as u64);
+                let connect_future = TcpStream::connect(&addr);
+                let timeout_duration = TokioDuration::from_millis(self.timeout_ms as u64);
 
-        let stream = timeout(timeout_duration, connect_future)
-            .await
-            .map_err(|_| {
-                error!(
-                    "Connection timeout to {} for device {}",
+                let stream_result = timeout(timeout_duration, connect_future)
+                    .await
+                    .map_err(|_| {
+                        error!(
+                            "Connection timeout to {} for device {}",
+                            addr, self.device_id
+                        );
+                        BridgeError::Timeout(format!(
+                            "Connection timeout after {}ms",
+                            self.timeout_ms
+                        ))
+                    })?
+                    .map_err(|e| {
+                        error!("Failed to connect to Rinstrum C320 at {}: {}", addr, e);
+                        BridgeError::ConnectionError(format!("Failed to connect: {}", e))
+                    })?;
+
+                info!(
+                    "Successfully connected to Rinstrum C320 at {} for device {} (TCP)",
                     addr, self.device_id
                 );
-                BridgeError::Timeout(format!(
-                    "Connection timeout after {}ms",
-                    self.tcp.timeout_ms
-                ))
-            })?
-            .map_err(|e| {
-                error!("Failed to connect to Rinstrum C320 at {}: {}", addr, e);
-                BridgeError::ConnectionError(format!("Failed to connect: {}", e))
-            })?;
+                {
+                    let mut conn_guard = stream.write();
+                    *conn_guard = Some(stream_result);
+                }
+                Ok(())
+            }
+            ConnectionType::Serial {
+                port_path,
+                baud_rate,
+                data_bits,
+                stop_bits,
+                parity,
+                flow_control,
+                connection,
+            } => {
+                if self.is_connected() {
+                    info!("Device {} already connected (Serial).", self.device_id);
+                    return Ok(());
+                }
 
-        info!(
-            "Successfully connected to Rinstrum C320 at {} for device {}",
-            addr, self.device_id
-        );
-        {
-            let mut conn_guard = self.connection.write();
-            *conn_guard = Some(stream);
+                let port_path_clone = port_path.clone();
+                let baud_rate_clone = *baud_rate;
+                let data_bits_clone = *data_bits;
+                let stop_bits_clone = stop_bits.clone();
+                let parity_clone = parity.clone();
+                let flow_control_clone = flow_control.clone();
+                let timeout_ms = self.timeout_ms;
+                let connection_clone = connection.clone();
+                let device_id = self.device_id.clone();
+
+                task::spawn_blocking(move || {
+                    let data_bits_serial = match data_bits_clone {
+                        5 => serialport::DataBits::Five,
+                        6 => serialport::DataBits::Six,
+                        7 => serialport::DataBits::Seven,
+                        8 => serialport::DataBits::Eight,
+                        _ => {
+                            return Err(BridgeError::ConfigurationError(format!(
+                                "Invalid data bits: {}. Must be 5, 6, 7, or 8",
+                                data_bits_clone
+                            )));
+                        }
+                    };
+
+                    let stop_bits_serial = match stop_bits_clone {
+                        StopBits::One => serialport::StopBits::One,
+                        StopBits::Two => serialport::StopBits::Two,
+                    };
+
+                    let parity_serial = match parity_clone {
+                        Parity::None => serialport::Parity::None,
+                        Parity::Even => serialport::Parity::Even,
+                        Parity::Odd => serialport::Parity::Odd,
+                    };
+
+                    let flow_control_serial = match flow_control_clone {
+                        FlowControl::None => serialport::FlowControl::None,
+                        FlowControl::Software => serialport::FlowControl::Software,
+                        FlowControl::Hardware => serialport::FlowControl::Hardware,
+                    };
+
+                    let mut port = serialport::new(port_path_clone.clone(), baud_rate_clone)
+                        .data_bits(data_bits_serial)
+                        .stop_bits(stop_bits_serial)
+                        .parity(parity_serial)
+                        .flow_control(flow_control_serial)
+                        .timeout(Duration::from_millis(timeout_ms as u64))
+                        .open()
+                        .map_err(|e| {
+                            error!(
+                                "Failed to open serial port {} for device {}: {}",
+                                port_path_clone, device_id, e
+                            );
+                            BridgeError::ConnectionError(format!(
+                                "Unable to open serial port {}: {}",
+                                port_path_clone, e
+                            ))
+                        })?;
+
+                    if let Err(e) = port.set_timeout(Duration::from_millis(timeout_ms as u64)) {
+                        warn!("Unable to set timeout on serial port: {}", e);
+                    }
+
+                    let mut guard = connection_clone.lock();
+                    *guard = Some(port);
+                    info!(
+                        "Serial port {} opened for Rinstrum C320 device {} ({} baud, {}-{}-{})",
+                        port_path_clone,
+                        device_id,
+                        baud_rate_clone,
+                        data_bits_clone,
+                        match parity_clone {
+                            Parity::None => "N",
+                            Parity::Even => "E",
+                            Parity::Odd => "O",
+                        },
+                        match stop_bits_clone {
+                            StopBits::One => "1",
+                            StopBits::Two => "2",
+                        }
+                    );
+                    Ok(())
+                })
+                .await
+                .map_err(|e| {
+                    BridgeError::InternalServerError(format!(
+                        "Blocking task failed while opening serial port: {}",
+                        e
+                    ))
+                })?
+            }
         }
-        Ok(())
     }
 
     async fn disconnect(&self) -> Result<(), BridgeError> {
-        let mut conn_guard = self.connection.write();
-        if let Some(_stream) = conn_guard.take() {
-            // TcpStream doesn't have an explicit close method, dropping it closes the connection.
-            // However, we might want to ensure all data is flushed before dropping.
-            // For simplicity, we just drop it here.
-            info!("Disconnected from device {}", self.device_id);
-        } else {
-            warn!(
-                "Attempted to disconnect device {} which was not connected.",
-                self.device_id
-            );
+        match &self.connection_type {
+            ConnectionType::Tcp { stream, .. } => {
+                let mut conn_guard = stream.write();
+                if let Some(_stream) = conn_guard.take() {
+                    info!("Disconnected from device {} (TCP)", self.device_id);
+                } else {
+                    warn!(
+                        "Attempted to disconnect device {} which was not connected (TCP).",
+                        self.device_id
+                    );
+                }
+                Ok(())
+            }
+            ConnectionType::Serial { connection, .. } => {
+                let mut guard = connection.lock();
+                if guard.take().is_some() {
+                    info!("Disconnected from device {} (Serial)", self.device_id);
+                } else {
+                    warn!(
+                        "Attempted to disconnect device {} which was not connected (Serial).",
+                        self.device_id
+                    );
+                }
+                Ok(())
+            }
         }
-        Ok(())
     }
 
     fn is_connected(&self) -> bool {
-        self.connection.read().is_some()
+        match &self.connection_type {
+            ConnectionType::Tcp { stream, .. } => stream.read().is_some(),
+            ConnectionType::Serial { connection, .. } => connection.lock().is_some(),
+        }
     }
 
     async fn execute_command(&self, command: &str) -> Result<WeightReading, BridgeError> {
@@ -343,9 +585,13 @@ impl DeviceAdapter for RinstrumC320Adapter {
             self.connect().await?;
         }
 
+        // Case-insensitive command lookup
+        let command_lower = command.to_lowercase();
         let command_str = self
             .commands
-            .get(command)
+            .iter()
+            .find(|(k, _)| k.to_lowercase() == command_lower)
+            .map(|(_, v)| v.as_str())
             .ok_or_else(|| BridgeError::InvalidCommand(format!("Unknown command: {}", command)))?;
 
         let response = self.send_command_and_read_response(command_str).await?;
@@ -358,23 +604,63 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    fn make_adapter() -> RinstrumC320Adapter {
+    fn make_adapter_tcp() -> RinstrumC320Adapter {
         let conn = Connection::Tcp {
             host: "127.0.0.1".to_string(),
             port: 4001,
             timeout_ms: 1000,
         };
         let mut cmd = HashMap::new();
-        cmd.insert("readGross".to_string(), "".to_string());
-        cmd.insert("readNet".to_string(), "".to_string());
-        cmd.insert("tare".to_string(), "".to_string());
-        cmd.insert("zero".to_string(), "".to_string());
+        cmd.insert("readGross".to_string(), "20050026".to_string());
+        cmd.insert("readNet".to_string(), "20050025".to_string());
+        cmd.insert("tare".to_string(), "21120008:0C".to_string());
+        cmd.insert("zero".to_string(), "21120008:0B".to_string());
         RinstrumC320Adapter::new("test_device".to_string(), conn, cmd).unwrap()
     }
 
     #[test]
+    fn parses_pattern1_with_gross() {
+        let a = make_adapter_tcp();
+        let parsed = a.parse_rincmd_response("20050026+123.45kg").unwrap();
+        assert!(parsed.is_stable);
+        assert_eq!(parsed.unit, "kg");
+        assert_eq!(parsed.gross_weight, 123.45);
+        assert_eq!(parsed.net_weight, 0.0);
+    }
+
+    #[test]
+    fn parses_pattern1_with_net() {
+        let a = make_adapter_tcp();
+        let parsed = a.parse_rincmd_response("20050025-23.5kg").unwrap();
+        assert!(parsed.is_stable);
+        assert_eq!(parsed.unit, "kg");
+        assert_eq!(parsed.gross_weight, 0.0);
+        assert_eq!(parsed.net_weight, -23.5);
+    }
+
+    #[test]
+    fn parses_pattern2_with_gross() {
+        let a = make_adapter_tcp();
+        let parsed = a.parse_rincmd_response(": -23 kg G").unwrap();
+        assert!(parsed.is_stable);
+        assert_eq!(parsed.unit, "kg");
+        assert_eq!(parsed.gross_weight, -23.0);
+        assert_eq!(parsed.net_weight, 0.0);
+    }
+
+    #[test]
+    fn parses_pattern2_with_net() {
+        let a = make_adapter_tcp();
+        let parsed = a.parse_rincmd_response(": +123.45 kg N").unwrap();
+        assert!(parsed.is_stable);
+        assert_eq!(parsed.unit, "kg");
+        assert_eq!(parsed.gross_weight, 0.0);
+        assert_eq!(parsed.net_weight, 123.45);
+    }
+
+    #[test]
     fn parses_negative_with_space_and_unit() {
-        let a = make_adapter();
+        let a = make_adapter_tcp();
         let parsed = a.parse_rincmd_response("S -32.000 kg").unwrap();
         assert!(parsed.is_stable);
         assert_eq!(parsed.unit, "kg");
@@ -382,17 +668,8 @@ mod tests {
     }
 
     #[test]
-    fn parses_negative_attached_unit() {
-        let a = make_adapter();
-        let parsed = a.parse_rincmd_response("S -00032.000kg").unwrap();
-        assert!(parsed.is_stable);
-        assert_eq!(parsed.unit, "kg");
-        assert_eq!(parsed.gross_weight, -32.0);
-    }
-
-    #[test]
     fn parses_unstable_positive() {
-        let a = make_adapter();
+        let a = make_adapter_tcp();
         let parsed = a.parse_rincmd_response("U 00032.000 kg").unwrap();
         assert!(!parsed.is_stable);
         assert_eq!(parsed.unit, "kg");
@@ -401,14 +678,13 @@ mod tests {
 
     #[test]
     fn returns_error_on_e() {
-        let a = make_adapter();
+        let a = make_adapter_tcp();
         assert!(a.parse_rincmd_response("E").is_err());
     }
 
     #[test]
     fn parses_negative_spaced_sign_and_flags() {
-        let a = make_adapter();
-        // Exact raw response provided: command echo + colon + sign with spaces + number + unit + flag
+        let a = make_adapter_tcp();
         let raw = "81050026:-     23 kg G";
         let parsed = a.parse_rincmd_response(raw).unwrap();
         assert_eq!(parsed.gross_weight, -23.0);

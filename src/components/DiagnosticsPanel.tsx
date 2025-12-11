@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getDevices, getAllDeviceConfigs, DeviceConfig, DeviceId } from "@/services/bridge-api";
+import { getDevices, getAllDeviceConfigs, getHealth, DeviceConfig, DeviceId } from "@/services/bridge-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -24,7 +24,26 @@ const DiagnosticsPanel = () => {
     staleTime: Infinity,
   });
 
-  const devices = devicesData?.devices || [];
+  // 3. Sprawdzanie statusu serwera
+  const { data: healthData, isLoading: isLoadingHealth } = useQuery({
+    queryKey: ["bridgeHealth"],
+    queryFn: getHealth,
+    refetchInterval: 5000, // Odświeżanie co 5 sekund
+  });
+
+  const devices = React.useMemo(() => devicesData?.devices || [], [devicesData]);
+  
+  // Sprawdź czy serwer działa
+  const isServerRunning = healthData?.status === "OK";
+  
+  // Sprawdź czy wybrane urządzenie jest w liście aktywnych urządzeń
+  const isDeviceActive = useMemo(() => {
+    if (!selectedDeviceId || !devices.length) return false;
+    return devices.some(([id]) => id === selectedDeviceId);
+  }, [selectedDeviceId, devices]);
+  
+  // Urządzenie jest połączone jeśli serwer działa i urządzenie jest aktywne
+  const isDeviceConnected = isServerRunning && isDeviceActive;
 
   React.useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {
@@ -65,7 +84,7 @@ const DiagnosticsPanel = () => {
               <DetailItem label="Baud Rate" value={conn.baud_rate?.toString() || 'N/A'} />
             </>
           )}
-          <DetailItem label="Timeout (ms)" value={conn.timeout_ms.toString()} />
+          <DetailItem label="Timeout (ms)" value={config.timeout_ms.toString()} />
         </div>
       </div>
     );
@@ -81,18 +100,20 @@ const DiagnosticsPanel = () => {
         </div>
         
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <DetailItem label="Read Gross Cmd" value={cmds.read_gross} />
-          <DetailItem label="Read Net Cmd" value={cmds.read_net} />
-          <DetailItem label="Tare Cmd" value={cmds.tare} />
-          <DetailItem label="Zero Cmd" value={cmds.zero} />
+          <DetailItem label="Read Gross Cmd" value={cmds["readGross"] || "N/A"} />
+          <DetailItem label="Read Net Cmd" value={cmds["readNet"] || "N/A"} />
+          <DetailItem label="Tare Cmd" value={cmds["tare"] || "N/A"} />
+          <DetailItem label="Zero Cmd" value={cmds["zero"] || "N/A"} />
         </div>
       </div>
     );
   };
 
   const renderStatus = () => {
-    // Symulacja statusu połączenia
-    const isConnected = selectedDeviceId === "C320"; // Symulacja, że tylko C320 jest 'online'
+    // Rzeczywisty status połączenia
+    const connectionStatus = isDeviceConnected ? "Online" : "Offline";
+    const healthStatus = isDeviceConnected ? "Responsive" : "Unresponsive";
+    const lastCheckTime = new Date().toLocaleTimeString();
     
     return (
       <div className="space-y-3">
@@ -102,16 +123,32 @@ const DiagnosticsPanel = () => {
         </div>
         
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <DetailItem label="Connection Status" value={isConnected ? "Online" : "Offline"} status={isConnected ? "success" : "error"} />
-          <DetailItem label="Last Check" value={new Date().toLocaleTimeString()} icon={Clock} />
-          <DetailItem label="Device Health" value={isConnected ? "Healthy" : "Unresponsive"} status={isConnected ? "success" : "error"} />
-          <DetailItem label="Protocol Version" value={selectedConfig?.protocol || 'N/A'} />
+          <DetailItem 
+            label="Connection Status" 
+            value={connectionStatus} 
+            status={isDeviceConnected ? "success" : "error"} 
+          />
+          <DetailItem 
+            label="Last Check" 
+            value={lastCheckTime} 
+            icon={Clock} 
+          />
+          <DetailItem 
+            label="Device Health" 
+            value={healthStatus} 
+            status={isDeviceConnected ? "success" : "error"} 
+          />
+          <DetailItem 
+            label="Server Status" 
+            value={isServerRunning ? "Running" : (healthData?.status === "STOPPED" ? "Stopped" : "Unknown")} 
+            status={isServerRunning ? "success" : "error"} 
+          />
         </div>
       </div>
     );
   };
 
-  if (isLoadingDevices || isLoadingConfigs) {
+  if (isLoadingDevices || isLoadingConfigs || isLoadingHealth) {
     return (
       <Card className="p-8 flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

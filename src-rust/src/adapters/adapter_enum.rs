@@ -3,6 +3,8 @@ use crate::adapters::dini_argeo::DiniArgeoAsciiAdapter;
 use crate::adapters::rinstrum::RinstrumC320Adapter;
 use crate::error::BridgeError;
 use crate::models::device::Connection;
+#[cfg(test)]
+use crate::models::device::{FlowControl, Parity, StopBits};
 use crate::models::weight::WeightReading;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -13,6 +15,15 @@ use std::sync::Arc;
 pub enum DeviceAdapterEnum {
     DiniArgeo(Arc<DiniArgeoAsciiAdapter>),
     Rinstrum(Arc<RinstrumC320Adapter>),
+}
+
+impl std::fmt::Debug for DeviceAdapterEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DiniArgeo(_) => f.debug_tuple("DiniArgeo").field(&self.adapter_type()).finish(),
+            Self::Rinstrum(_) => f.debug_tuple("Rinstrum").field(&self.adapter_type()).finish(),
+        }
+    }
 }
 
 impl DeviceAdapterEnum {
@@ -117,6 +128,10 @@ mod tests {
         let serial_connection = Connection::Serial {
             port: "COM1".to_string(),
             baud_rate: 9600,
+            data_bits: 8,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
             timeout_ms: 1000,
         };
         let tcp_connection = Connection::Tcp {
@@ -147,6 +162,10 @@ mod tests {
         let serial_connection = Connection::Serial {
             port: "COM1".to_string(),
             baud_rate: 9600,
+            data_bits: 8,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
             timeout_ms: 1000,
         };
         let tcp_connection = Connection::Tcp {
@@ -188,6 +207,10 @@ mod tests {
         let serial_connection = Connection::Serial {
             port: "COM1".to_string(),
             baud_rate: 9600,
+            data_bits: 8,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
             timeout_ms: 1000,
         };
         let commands = HashMap::new();

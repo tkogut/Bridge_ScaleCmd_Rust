@@ -2,6 +2,7 @@
 // Comprehensive API client for ScaleIT Bridge backend
 
 const API_BASE_URL =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (import.meta as any).env?.VITE_API_URL || "http://localhost:8080";
 
 // Types
@@ -43,8 +44,11 @@ export interface ConnectionConfig {
   connection_type: "Tcp" | "Serial";
   host?: string;
   port?: number;
-  timeout_ms?: number;
   baud_rate?: number;
+  data_bits?: number;
+  stop_bits?: "one" | "two";
+  parity?: "none" | "even" | "odd";
+  flow_control?: "none" | "software" | "hardware";
 }
 
 export interface DeviceConfig {
@@ -53,6 +57,7 @@ export interface DeviceConfig {
   model: string;
   protocol: string;
   connection: ConnectionConfig;
+  timeout_ms: number;
   commands: Record<string, string>;
   enabled: boolean;
 }
@@ -115,7 +120,11 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
   }
 };
 
-const validateRequest = (request: any, requiredFields: string[]) => {
+const validateRequest = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  request: any,
+  requiredFields: string[],
+) => {
   for (const field of requiredFields) {
     if (
       !request[field] ||

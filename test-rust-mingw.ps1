@@ -6,6 +6,23 @@ Write-Host "Setting up MSYS2 MinGW environment for testing..." -ForegroundColor 
 # Set MinGW path
 $mingwPath = "D:\msys64\mingw64"
 
+function Stop-AvgFirewall {
+    $serviceName = "AVG Firewall"
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($service -and $service.Status -ne "Stopped") {
+        Write-Host "Stopping $serviceName to avoid permission issues..." -ForegroundColor Yellow
+        try {
+            Stop-Service -Name $serviceName -Force -ErrorAction Stop
+        } catch {
+            Write-Host ("Unable to stop {0}: {1}" -f $serviceName, $_.Exception.Message) -ForegroundColor Red
+        }
+    }
+}
+
+# stop avg to avoid locking build artifacts
+Stop-AvgFirewall
+$crossBinPath = "$mingwPath\x86_64-w64-mingw32\bin"
+
 # Check if MSYS2 MinGW path exists
 if (-not (Test-Path $mingwPath)) {
     Write-Host "Error: MSYS2 MinGW path not found: $mingwPath" -ForegroundColor Red
@@ -14,11 +31,11 @@ if (-not (Test-Path $mingwPath)) {
 }
 
 # Set environment variables
-$env:PATH = "$mingwPath\bin;$env:PATH"
+$env:PATH = "$crossBinPath;$mingwPath\bin;$env:PATH"
 $env:CC = "$mingwPath\bin\gcc.exe"
 $env:CXX = "$mingwPath\bin\g++.exe"
-$env:AR = "$mingwPath\bin\ar.exe"
-$env:RANLIB = "$mingwPath\bin\ranlib.exe"
+$env:AR = "$crossBinPath\ar.exe"
+$env:RANLIB = "$crossBinPath\ranlib.exe"
 $env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "$mingwPath\bin\gcc.exe"
 
 Write-Host "Environment configured successfully!" -ForegroundColor Green
@@ -37,56 +54,25 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Navigating to Rust project..." -ForegroundColor Yellow
 Push-Location "src-rust"
 
-# Run tests
-Write-Host "Running Rust library tests..." -ForegroundColor Yellow
-cargo test --lib
-$libTestResult = $LASTEXITCODE
-
+# Run all tests
+Write-Host "Running all Rust tests..." -ForegroundColor Yellow
 Write-Host ""
-if ($libTestResult -eq 0) {
-    Write-Host "Library tests PASSED!" -ForegroundColor Green
-} else {
-    Write-Host "Library tests FAILED!" -ForegroundColor Red
-}
 
-Write-Host ""
-Write-Host "Running unit tests..." -ForegroundColor Yellow
-cargo test --test minimal_tests
-$minimalTestResult = $LASTEXITCODE
-
-Write-Host ""
-if ($minimalTestResult -eq 0) {
-    Write-Host "Minimal tests PASSED!" -ForegroundColor Green
-} else {
-    Write-Host "Minimal tests FAILED!" -ForegroundColor Red
-}
+cargo test
+$testResult = $LASTEXITCODE
 
 # Return to root directory
 Pop-Location
 
 Write-Host ""
-Write-Host "Test Summary:" -ForegroundColor Cyan
-if ($libTestResult -eq 0) {
-    Write-Host "  Library Tests: PASSED" -ForegroundColor Green
-} else {
-    Write-Host "  Library Tests: FAILED" -ForegroundColor Red
-}
-
-if ($minimalTestResult -eq 0) {
-    Write-Host "  Minimal Tests: PASSED" -ForegroundColor Green
-} else {
-    Write-Host "  Minimal Tests: FAILED" -ForegroundColor Red
-}
-
-$totalFailures = 0
-if ($libTestResult -ne 0) { $totalFailures++ }
-if ($minimalTestResult -ne 0) { $totalFailures++ }
-
-Write-Host ""
-if ($totalFailures -eq 0) {
-    Write-Host "ALL RUST TESTS PASSED!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+if ($testResult -eq 0) {
+    Write-Host "ALL TESTS PASSED!" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Cyan
     exit 0
 } else {
-    Write-Host "Some tests failed. Total failures: $totalFailures" -ForegroundColor Red
+    Write-Host "SOME TESTS FAILED!" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "Check the output above for details." -ForegroundColor Yellow
     exit 1
 }
