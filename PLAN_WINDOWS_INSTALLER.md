@@ -62,16 +62,17 @@ Stworzenie kompletnego, produkcyjnego rozwiązania Windows installer + Windows S
 - [ ] Dodać ikony i branding
 - [ ] Przetestować instalację na czystym systemie
 
-### ⏳ Faza 5: Build Pipeline
-- [ ] Stworzyć `scripts/Build-WindowsInstaller.ps1`:
-  1. Build Rust release (`scaleit-bridge.exe` → `ScaleCmdBridge.exe`)
+### ✅ Faza 5: Build Pipeline
+- [x] Stworzyć `scripts/Build-WindowsInstaller.ps1`:
+  1. Build Rust release (`scaleit-bridge.exe`)
   2. Build React (`npm run build` → `dist/`)
-  3. Pobranie/kopiowanie NSSM
-  4. Przygotowanie struktury katalogów
-  5. Uruchomienie Inno Setup Compiler
-  6. Wygenerowanie `ScaleCmdBridge-Setup-x64.exe`
-- [ ] Dodać weryfikację wymagań (Inno Setup zainstalowany)
-- [ ] Dodać informacje o wersji z Cargo.toml
+  3. Pobranie/setup NSSM automatycznie
+  4. Kompilacja Inno Setup Compiler
+  5. Wygenerowanie `ScaleCmdBridge-Setup-x64.exe`
+- [x] Auto-detekcja Inno Setup Compiler
+- [x] Auto-detekcja wersji z Cargo.toml
+- [x] Walidacja i error handling na każdym kroku
+- [ ] Przetestować pełny build pipeline
 
 ### ⏳ Faza 6: EventLog i logi
 - [ ] Dodać obsługę Windows EventLog w Rust
