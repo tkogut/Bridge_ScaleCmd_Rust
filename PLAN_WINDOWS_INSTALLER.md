@@ -48,16 +48,17 @@ Stworzenie kompletnego, produkcyjnego rozwiązania Windows installer + Windows S
 - [ ] Pobrać NSSM (nssm.exe) - dodać do repo lub pobierać podczas builda
 - [ ] Dodać EventLog support (wymaga dodatkowej biblioteki w Rust)
 
-### ⏳ Faza 4: Inno Setup Installer
-- [ ] Stworzyć skrypt Inno Setup (.iss):
+### ✅ Faza 4: Inno Setup Installer
+- [x] Stworzyć skrypt Inno Setup (.iss):
   - GUI z wyborem portu (domyślnie 8080)
-  - Wykrywanie konfliktu portu 8080
+  - Wykrywanie konfliktu portu
   - Kopiowanie plików do Program Files
-  - Tworzenie katalogów w ProgramData
-  - Instalacja NSSM service
+  - Instalacja NSSM service (przez INSTALL-SERVICE.bat)
   - Konfiguracja firewall (netsh advfirewall)
   - Skróty Start Menu (opcjonalnie Desktop)
   - Uruchomienie usługi po instalacji
+  - Uninstaller z usuwaniem serwisu
+- [x] Dokumentacja instalatora
 - [ ] Dodać ikony i branding
 - [ ] Przetestować instalację na czystym systemie
 
