@@ -27,23 +27,26 @@ Stworzenie kompletnego, produkcyjnego rozwiązania Windows installer + Windows S
 - [x] Dodać obsługę SPA routing (fallback do index.html przez default_handler)
 - [ ] Przetestować lokalnie (frontend dostępny przez backend na http://localhost:8080)
 
-### ⏳ Faza 2: Struktura katalogów i konfiguracja
-- [ ] Zaprojektować strukturę katalogów:
+### ✅ Faza 2: Struktura katalogów i konfiguracja
+- [x] Zaprojektować strukturę katalogów:
   - `C:\Program Files\ScaleCmdBridge\` - binarki, nssm.exe, web/
   - `C:\ProgramData\ScaleCmdBridge\` - config/, logs/
-- [ ] Dodać zmienne środowiskowe dla ścieżek konfiguracji
-- [ ] Zaktualizować `DeviceManager` do używania ścieżek z ProgramData
-- [ ] Dodać obsługę logów do pliku w ProgramData/logs/
+- [x] Dodać auto-detekcję ścieżek (ProgramData dla config, ProgramFiles dla web)
+- [x] Zaktualizować `main.rs` do używania ścieżek z ProgramData/ProgramFiles
+- [x] Dodać tworzenie katalogu logs w ProgramData
+- [ ] Dodać obsługę logów do pliku (wymaga dodatkowej biblioteki)
 
-### ⏳ Faza 3: Windows Service (NSSM)
-- [ ] Pobrać NSSM (nssm.exe) - dodać do repo lub pobierać podczas builda
-- [ ] Stworzyć `INSTALL-SERVICE.bat` - instalacja usługi przez NSSM
-- [ ] Stworzyć `UNINSTALL-SERVICE.bat` - odinstalowanie usługi
-- [ ] Stworzyć `START-SERVICE.bat` / `STOP-SERVICE.bat` - zarządzanie
-- [ ] Skonfigurować NSSM:
+### ✅ Faza 3: Windows Service (NSSM)
+- [x] Stworzyć `INSTALL-SERVICE.bat` - instalacja usługi przez NSSM
+- [x] Stworzyć `UNINSTALL-SERVICE.bat` - odinstalowanie usługi
+- [x] Stworzyć `START-SERVICE.bat` / `STOP-SERVICE.bat` - zarządzanie
+- [x] Skonfigurować NSSM:
   - AppDirectory: `C:\Program Files\ScaleCmdBridge\`
   - StartType: SERVICE_AUTO_START
-  - Logowanie do pliku i EventLog
+  - Logowanie do pliku (stdout/stderr)
+  - Rotacja logów (dziennie, 10MB max)
+- [ ] Pobrać NSSM (nssm.exe) - dodać do repo lub pobierać podczas builda
+- [ ] Dodać EventLog support (wymaga dodatkowej biblioteki w Rust)
 
 ### ⏳ Faza 4: Inno Setup Installer
 - [ ] Stworzyć skrypt Inno Setup (.iss):
