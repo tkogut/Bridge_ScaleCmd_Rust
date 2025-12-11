@@ -1,4 +1,5 @@
 use actix_cors::Cors;
+use actix_files::Files;
 use actix_web::{
     delete, get, post,
     web::{self, Data},
@@ -275,6 +276,28 @@ async fn start_server() -> impl Responder {
     }
 }
 
+// Default handler for SPA routing - serves index.html for non-API routes
+async fn default_handler() -> impl Responder {
+    let web_path = std::env::var("WEB_PATH")
+        .unwrap_or_else(|_| "dist".to_string());
+    let index_path = std::path::Path::new(&web_path).join("index.html");
+    
+    if index_path.exists() {
+        match std::fs::read_to_string(&index_path) {
+            Ok(content) => HttpResponse::Ok()
+                .content_type("text/html")
+                .body(content),
+            Err(_) => HttpResponse::NotFound().json(json!({
+                "error": "index.html not found"
+            })),
+        }
+    } else {
+        HttpResponse::NotFound().json(json!({
+            "error": "Frontend not found. Please build the frontend first."
+        }))
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
@@ -318,9 +341,17 @@ async fn main() -> std::io::Result<()> {
     dm.connect_all_devices().await;
 
     let host = "0.0.0.0";
-    let port = 8080;
-
+    let port = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(8080);
+    
+    // Path to static files (frontend dist/)
+    let web_path = std::env::var("WEB_PATH")
+        .unwrap_or_else(|_| "dist".to_string());
+    
     info!("Server running on http://{}:{}", host, port);
+    info!("Serving static files from: {}", web_path);
 
     let dm_for_shutdown = dm.clone();
     ctrlc::set_handler(move || {
@@ -337,6 +368,7 @@ async fn main() -> std::io::Result<()> {
     })
     .expect("Error setting Ctrl-C handler");
 
+    let web_path_clone = web_path.clone();
     HttpServer::new(move || {
         let state = AppState::new(dm.clone());
         let cors = Cors::default()
@@ -346,9 +378,10 @@ async fn main() -> std::io::Result<()> {
             .supports_credentials()
             .max_age(3600);
         
-        App::new()
+        let mut app = App::new()
             .wrap(cors)
             .app_data(Data::new(state))
+            // API endpoints - must be registered before static files
             .service(health_check)
             .service(list_devices)
             .service(handle_scalecmd)
@@ -356,7 +389,19 @@ async fn main() -> std::io::Result<()> {
             .service(save_device_config)
             .service(delete_device_config)
             .service(shutdown_server)
-            .service(start_server)
+            .service(start_server);
+        
+        // Serve static files if directory exists
+        // Check if web directory exists
+        if std::path::Path::new(&web_path_clone).exists() {
+            app = app.service(
+                Files::new("/", &web_path_clone)
+                    .index_file("index.html")
+                    .default_handler(web::route().to(default_handler))
+            );
+        }
+        
+        app
     })
     .bind(format!("{}:{}", host, port))?
     .run()
