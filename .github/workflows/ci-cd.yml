@@ -166,16 +166,21 @@ jobs:
         run: npm run build
 
       - name: Build backend
-        run: cd src-rust && cargo build --release
+        run: |
+          cd src-rust
+          cargo build --release --target x86_64-unknown-linux-gnu
 
       - name: Create test config
         run: |
-          mkdir -p config
-          cp src-rust/config/devices.json config/devices.json
+          mkdir -p src-rust/config
+          if [ ! -f src-rust/config/devices.json ]; then
+            echo '{"devices":[]}' > src-rust/config/devices.json
+          fi
 
       - name: Start backend server
         run: |
-          cd src-rust && cargo run &
+          cd src-rust
+          cargo run --release &
           sleep 10
         env:
           RUST_LOG: info
