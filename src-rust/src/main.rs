@@ -7,7 +7,7 @@ use actix_web::{
 };
 use config::Config;
 use env_logger::{Builder, Env};
-use log::{error, info};
+use log::{error, info, warn};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -301,12 +301,37 @@ async fn default_handler() -> impl Responder {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
-    Builder::from_env(Env::default().default_filter_or("info")).init();
+    
+    // Setup logging - to both console and file (if log_file_path is set)
+    let mut builder = Builder::from_env(Env::default().default_filter_or("info"));
+    
+    // Add file logging if log file path is available (will be set after determining paths)
+    // For now, just console logging - file logging will be added after path determination
+    
+    builder.init();
 
     info!("Starting ScaleIT Bridge v{}", env!("CARGO_PKG_VERSION"));
 
-    let config_path =
-        std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/devices.json".to_string());
+    // Determine config path - use ProgramData on Windows if available, otherwise use CONFIG_PATH or default
+    let config_path = if cfg!(windows) {
+        // Try ProgramData first (production installation)
+        let program_data = std::env::var("ProgramData").unwrap_or_else(|_| String::new());
+        if !program_data.is_empty() {
+            let program_data_config = format!("{}\\ScaleCmdBridge\\config\\devices.json", program_data);
+            if std::path::Path::new(&program_data_config).exists() {
+                program_data_config
+            } else {
+                // Fallback to CONFIG_PATH or default
+                std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/devices.json".to_string())
+            }
+        } else {
+            std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/devices.json".to_string())
+        }
+    } else {
+        std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/devices.json".to_string())
+    };
+    
+    info!("Using config path: {}", config_path);
     let settings = Config::builder()
         .add_source(config::File::with_name(&config_path))
         .build()
@@ -347,11 +372,49 @@ async fn main() -> std::io::Result<()> {
         .unwrap_or(8080);
     
     // Path to static files (frontend dist/)
-    let web_path = std::env::var("WEB_PATH")
-        .unwrap_or_else(|_| "dist".to_string());
+    // On Windows, try Program Files first (production), then WEB_PATH, then default
+    let web_path = if cfg!(windows) {
+        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| String::new());
+        if !program_files.is_empty() {
+            let program_files_web = format!("{}\\ScaleCmdBridge\\web", program_files);
+            if std::path::Path::new(&program_files_web).exists() {
+                program_files_web
+            } else {
+                std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
+            }
+        } else {
+            std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
+        }
+    } else {
+        std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
+    };
     
     info!("Server running on http://{}:{}", host, port);
     info!("Serving static files from: {}", web_path);
+    
+    // Setup log file path (ProgramData on Windows)
+    let log_file_path = if cfg!(windows) {
+        let program_data = std::env::var("ProgramData").unwrap_or_else(|_| String::new());
+        if !program_data.is_empty() {
+            let logs_dir = format!("{}\\ScaleCmdBridge\\logs", program_data);
+            // Create logs directory if it doesn't exist
+            if let Err(e) = std::fs::create_dir_all(&logs_dir) {
+                warn!("Failed to create logs directory {}: {}", logs_dir, e);
+            }
+            Some(format!("{}\\scaleit-bridge.log", logs_dir))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    if let Some(ref log_path) = log_file_path {
+        info!("Log file: {}", log_path);
+        // Note: env_logger doesn't support file output directly
+        // We'll use a custom logger or add file appender later if needed
+        // For now, logs go to console/EventLog
+    }
 
     let dm_for_shutdown = dm.clone();
     ctrlc::set_handler(move || {
