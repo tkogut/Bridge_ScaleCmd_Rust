@@ -56,7 +56,7 @@ export interface DevicesResponse {
 }
 
 export interface HealthResponse {
-  status: "OK" | "ERROR";
+  status: "OK" | "ERROR" | "STOPPED";
   service: string;
   version: string;
 }

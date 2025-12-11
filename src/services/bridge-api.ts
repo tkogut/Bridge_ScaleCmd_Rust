@@ -45,18 +45,50 @@ export async function getDevices(): Promise<DevicesResponse> {
  * Sprawdza stan zdrowia usługi Bridge.
  */
 export async function getHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${BRIDGE_URL}/health`);
+  try {
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-  if (!response.ok) {
-    // Symulacja błędu połączenia, jeśli Bridge nie działa
+    const response = await fetch(`${BRIDGE_URL}/health`, {
+      method: "GET",
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      // Server responded but with error status
+      return {
+        status: "ERROR",
+        service: "ScaleIT Bridge",
+        version: "N/A",
+      };
+    }
+
+    return response.json();
+  } catch (error) {
+    // Network error or timeout - server is likely stopped
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" ||
+        error.message.includes("Failed to fetch") ||
+        error.message.includes("NetworkError") ||
+        error.message.includes("Network request failed"))
+    ) {
+      return {
+        status: "STOPPED",
+        service: "ScaleIT Bridge",
+        version: "N/A",
+      };
+    }
+    // Other errors
     return {
       status: "ERROR",
       service: "ScaleIT Bridge",
-      version: "3.1.0",
+      version: "N/A",
     };
   }
-
-  return response.json();
 }
 
 // --- Konfiguracja Urządzeń (Symulowane API) ---
@@ -127,5 +159,72 @@ export async function deleteDeviceConfig(deviceId: DeviceId): Promise<void> {
   if (!response.ok) {
     const message = await response.text();
     throw new Error(message || `Failed to delete configuration (${response.status})`);
+  }
+}
+
+/**
+ * Zatrzymuje serwer Bridge (graceful shutdown).
+ */
+export async function shutdownServer(): Promise<void> {
+  try {
+    const response = await fetch(`${BRIDGE_URL}/api/shutdown`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || `Failed to shutdown server (${response.status})`);
+    }
+
+    // Server will shutdown, so we don't wait for response
+    // Give it a moment to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+  } catch (error) {
+    // If server is already shutting down, connection will fail
+    // This is expected, so we don't throw
+    if (error instanceof Error && !error.message.includes("Failed to fetch")) {
+      throw error;
+    }
+  }
+}
+
+/**
+ * Uruchamia serwer Bridge (tylko jeśli serwer już działa - paradoks, ale próbuje uruchomić w tle).
+ * Uwaga: Jeśli serwer jest zatrzymany, ten endpoint nie zadziała. Użyj ręcznego uruchomienia.
+ */
+export async function startServer(): Promise<void> {
+  try {
+    const response = await fetch(`${BRIDGE_URL}/api/start`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Failed to start server (${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch {
+        const text = await response.text();
+        if (text) {
+          errorMessage = text;
+        }
+      }
+      throw new Error(errorMessage);
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Network error: ${String(error)}`);
   }
 }

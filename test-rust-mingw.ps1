@@ -54,56 +54,25 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Navigating to Rust project..." -ForegroundColor Yellow
 Push-Location "src-rust"
 
-# Run tests
-Write-Host "Running Rust library tests..." -ForegroundColor Yellow
-cargo test --lib
-$libTestResult = $LASTEXITCODE
-
+# Run all tests
+Write-Host "Running all Rust tests..." -ForegroundColor Yellow
 Write-Host ""
-if ($libTestResult -eq 0) {
-    Write-Host "Library tests PASSED!" -ForegroundColor Green
-} else {
-    Write-Host "Library tests FAILED!" -ForegroundColor Red
-}
 
-Write-Host ""
-Write-Host "Running unit tests..." -ForegroundColor Yellow
-cargo test --test minimal_tests
-$minimalTestResult = $LASTEXITCODE
-
-Write-Host ""
-if ($minimalTestResult -eq 0) {
-    Write-Host "Minimal tests PASSED!" -ForegroundColor Green
-} else {
-    Write-Host "Minimal tests FAILED!" -ForegroundColor Red
-}
+cargo test
+$testResult = $LASTEXITCODE
 
 # Return to root directory
 Pop-Location
 
 Write-Host ""
-Write-Host "Test Summary:" -ForegroundColor Cyan
-if ($libTestResult -eq 0) {
-    Write-Host "  Library Tests: PASSED" -ForegroundColor Green
-} else {
-    Write-Host "  Library Tests: FAILED" -ForegroundColor Red
-}
-
-if ($minimalTestResult -eq 0) {
-    Write-Host "  Minimal Tests: PASSED" -ForegroundColor Green
-} else {
-    Write-Host "  Minimal Tests: FAILED" -ForegroundColor Red
-}
-
-$totalFailures = 0
-if ($libTestResult -ne 0) { $totalFailures++ }
-if ($minimalTestResult -ne 0) { $totalFailures++ }
-
-Write-Host ""
-if ($totalFailures -eq 0) {
-    Write-Host "ALL RUST TESTS PASSED!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+if ($testResult -eq 0) {
+    Write-Host "ALL TESTS PASSED!" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Cyan
     exit 0
 } else {
-    Write-Host "Some tests failed. Total failures: $totalFailures" -ForegroundColor Red
+    Write-Host "SOME TESTS FAILED!" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "Check the output above for details." -ForegroundColor Yellow
     exit 1
 }

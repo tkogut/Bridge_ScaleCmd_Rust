@@ -264,7 +264,7 @@ proptest! {
         match config {
             ConnectionConfig::Tcp { host, port } => {
                 prop_assert!(!host.is_empty());
-                prop_assert!(port >= 1024 && port <= 65535);
+                prop_assert!(port >= 1024); // port is u16, so max is 65535 by type
             }
             _ => prop_assert!(false, "Expected TCP connection config"),
         }

@@ -8,7 +8,7 @@ use scaleit_bridge::error::BridgeError;
 use scaleit_bridge::models::device::{
     AppConfig, ConnectionConfig, DeviceConfig, FlowControl, Parity, StopBits,
 };
-use scaleit_bridge::models::weight::{ScaleCommandRequest, WeightReading};
+use scaleit_bridge::models::weight::ScaleCommandRequest;
 
 async fn create_test_device_manager() -> (DeviceManager, TempDir) {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");

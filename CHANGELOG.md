@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.0] - 2025-12-11
+
+### Added
+- 🛑 **Server Control API**:
+  - POST `/api/shutdown` endpoint for controlled server shutdown
+    - Disconnects all devices before stopping
+    - Frontend "Stop" button now fully functional
+    - Proper cleanup of resources on shutdown
+  - POST `/api/start` endpoint for server startup (works when server is running, shows manual instructions when stopped)
+  - Frontend status detection (Running/Stopped/Error) with automatic refresh
+  - Real-time server health monitoring
+  
+- 🔧 **Device Configuration Management**:
+  - Enhanced device configuration form with better validation
+  - Case-insensitive command matching (readGross/readgross both work)
+  - Automatic device ID normalization (lowercase)
+  - Duplicate device ID detection before saving
+  - Improved error messages and logging
+  
+- ✅ **Test Suite Improvements**:
+  - All tests now pass 100%
+  - Fixed property-based tests for weight readings
+  - Improved integration test timeouts
+  - Better floating-point comparison handling
+  - Enhanced device name validation strategies
+
+- 🌐 **Frontend Enhancements**:
+  - Better error handling in API calls
+  - Improved form validation with Zod
+  - Connection type-specific field validation (TCP vs Serial)
+  - Real-time form error display
+  - Automatic form reset after successful save
+  - **Diagnostics Panel Improvements**:
+    - Real-time connection status detection (Online/Offline)
+    - Actual device health monitoring (Responsive/Unresponsive)
+    - Server status display (Running/Stopped/Unknown)
+    - Automatic status refresh every 5 seconds
+    - Removed hardcoded device status simulation
+
+### Changed
+- ⬆️ Updated build script (`build-rust-mingw.ps1`):
+  - Added `--release` flag support for optimized builds
+  - Better error messages and troubleshooting tips
+  - Improved build status reporting
+  - Enhanced test result display
+  
+- 🔄 **Command Handling**:
+  - Commands are now case-insensitive (readGross, readgross, READGROSS all work)
+  - Improved command lookup in both Rinstrum and Dini Argeo adapters
+  
+- 📝 **Documentation**:
+  - Updated README with latest build instructions
+  - Added troubleshooting section for common issues
+  - Enhanced API documentation
+
+### Fixed
+- 🐛 Fixed form validation errors when switching between TCP and Serial connection types
+- 🐛 Fixed "Add Device" button not working due to validation issues
+- 🐛 Fixed serial_port validation triggering for TCP connections
+- 🐛 Fixed device ID case sensitivity issues
+- 🐛 Fixed CORS configuration for frontend-backend communication
+- 🐛 Fixed frontend port conflict (changed from 8080 to 5173)
+- 🐛 Fixed test timeouts in integration tests
+- 🐛 Fixed property test failures for weight reading constraints
+- 🐛 Fixed API error response parsing in frontend
+- 🐛 Fixed Diagnostics panel showing hardcoded "Offline" status
+- 🐛 Fixed server status not updating after shutdown
+- 🐛 Fixed "Stop" button not reflecting actual server state
+
+### Performance
+- ⚡ Improved build script execution time
+- ⚡ Better error recovery in device connections
+- ⚡ Optimized form validation performance
+
+---
+
 ## [3.1.0] - 2025-11-23
 
 ### Added

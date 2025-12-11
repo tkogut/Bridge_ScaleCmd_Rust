@@ -142,6 +142,139 @@ async fn delete_device_config(
     }))
 }
 
+#[post("/api/shutdown")]
+async fn shutdown_server(state: Data<AppState>) -> impl Responder {
+    info!("Shutdown request received");
+    let dm = state.device_manager.clone();
+    
+    // Spawn task to handle graceful shutdown
+    actix_web::rt::spawn(async move {
+        info!("Initiating graceful shutdown...");
+        dm.disconnect_all_devices().await;
+        info!("All devices disconnected. Exiting.");
+        // Exit the process gracefully
+        std::process::exit(0);
+    });
+
+    HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": "Shutdown initiated. Server will stop after disconnecting all devices."
+    }))
+}
+
+#[post("/api/start")]
+async fn start_server() -> impl Responder {
+    info!("Start server request received");
+    
+    // Get the current executable directory
+    let exe_path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    
+    // Try to find the run script or executable
+    let project_root = exe_path
+        .parent()
+        .and_then(|p| p.parent())
+        .unwrap_or_else(|| exe_path.as_path());
+    
+    let run_script = project_root.join("run-backend.ps1");
+    let release_exe = exe_path.join("target").join("release").join("scaleit-bridge.exe");
+    let debug_exe = exe_path.join("target").join("debug").join("scaleit-bridge.exe");
+    
+    // Determine what to run
+    let command = if run_script.exists() {
+        // Use PowerShell script
+        format!(
+            "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{}\"",
+            run_script.display()
+        )
+    } else if release_exe.exists() {
+        // Use release executable
+        format!("\"{}\"", release_exe.display())
+    } else if debug_exe.exists() {
+        // Use debug executable
+        format!("\"{}\"", debug_exe.display())
+    } else {
+        // Fallback: try cargo run from src-rust
+        let src_rust = project_root.join("src-rust");
+        if src_rust.exists() {
+            format!(
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"cd '{}'; cargo run\"",
+                src_rust.display()
+            )
+        } else {
+            return HttpResponse::BadRequest().json(json!({
+                "success": false,
+                "error": "Could not find server executable or run script. Please start the server manually."
+            }));
+        }
+    };
+    
+        // Start the server in background
+        #[cfg(windows)]
+        {
+            use std::process::Command;
+            
+            let result = if run_script.exists() {
+                // Use PowerShell script directly
+                Command::new("powershell.exe")
+                    .args(&[
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        &run_script.to_string_lossy(),
+                    ])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .spawn()
+            } else if command.contains("powershell.exe") {
+                // For PowerShell commands
+                Command::new("powershell.exe")
+                    .args(&[
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-Command",
+                        &format!("Start-Process -FilePath '{}' -WindowStyle Hidden", command),
+                    ])
+                    .spawn()
+            } else {
+                // For direct executable
+                Command::new("cmd")
+                    .args(&["/C", "start", "/B", &command])
+                    .spawn()
+            };
+        
+        match result {
+            Ok(_) => {
+                info!("Server start command executed successfully");
+                HttpResponse::Ok().json(json!({
+                    "success": true,
+                    "message": "Server start command executed. Please wait a few seconds and check the status."
+                }))
+            }
+            Err(e) => {
+                error!("Failed to start server: {}", e);
+                HttpResponse::InternalServerError().json(json!({
+                    "success": false,
+                    "error": format!("Failed to start server: {}", e)
+                }))
+            }
+        }
+    }
+    
+    #[cfg(not(windows))]
+    {
+        // For non-Windows, use different approach
+        HttpResponse::NotImplemented().json(json!({
+            "success": false,
+            "error": "Server start is only supported on Windows. Please start the server manually."
+        }))
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
@@ -222,6 +355,8 @@ async fn main() -> std::io::Result<()> {
             .service(get_device_configs)
             .service(save_device_config)
             .service(delete_device_config)
+            .service(shutdown_server)
+            .service(start_server)
     })
     .bind(format!("{}:{}", host, port))?
     .run()

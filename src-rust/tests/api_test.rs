@@ -1,4 +1,4 @@
-use actix_web::{http::Method, test, web, App, HttpResponse, Responder};
+use actix_web::{test, web, App, HttpResponse, Responder};
 use serde_json::json;
 use std::collections::HashMap;
 use tempfile::TempDir;
@@ -70,7 +70,7 @@ impl TestApp {
             InitError = (),
         >,
     > {
-        use actix_web::{delete, get, post};
+        // Route handlers defined below
 
         #[actix_web::get("/health")]
         async fn health_check() -> impl Responder {
@@ -92,7 +92,7 @@ impl TestApp {
         #[actix_web::post("/scalecmd")]
         async fn handle_scalecmd(
             req_body: web::Json<ScaleCommandRequest>,
-            state: web::Data<std::sync::Arc<DeviceManager>>,
+            _state: web::Data<std::sync::Arc<DeviceManager>>,
         ) -> impl Responder {
             let request = req_body.into_inner();
 

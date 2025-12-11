@@ -27,13 +27,55 @@ powershell.exe -ExecutionPolicy Bypass -File "Setup-MinGW.ps1"
 
 ### Build & Run Backend
 ```powershell
-# Build the Rust backend
-powershell.exe -ExecutionPolicy Bypass -File "build-rust-mingw.ps1"
+# Method 1: Direct execution in PowerShell (recommended)
+.\build-rust-mingw.ps1              # Debug build (faster compilation)
+.\build-rust-mingw.ps1 --release    # Release build (optimized)
 
-# Run the server
-powershell.exe -ExecutionPolicy Bypass -File "run-backend.ps1"
+# Method 2: Using powershell.exe (from CMD or anywhere)
+powershell.exe -ExecutionPolicy Bypass -File "build-rust-mingw.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "build-rust-mingw.ps1" --release
+
+# Run the server (from project root directory)
+.\run-backend.ps1
+# Or: powershell.exe -ExecutionPolicy Bypass -File "run-backend.ps1"
+
+# Alternative: Run directly with cargo (from src-rust directory)
+cd src-rust
+cargo run                    # Debug build
+cargo run --release          # Release build (optimized)
+
+# Or run the compiled executable directly (from src-rust directory)
+.\target\release\scaleit-bridge.exe    # Release version
+.\target\debug\scaleit-bridge.exe      # Debug version
+
 # Server available at: http://localhost:8080
 ```
+
+**Important:** In PowerShell, always use `.\` prefix before script name:
+- ✅ Correct: `.\build-rust-mingw.ps1 --release`
+- ❌ Wrong: `build-rust-mingw.ps1 --release`
+
+**Build Script Features:**
+- ✅ Automatic MinGW toolchain configuration
+- ✅ Cleans previous builds for fresh start
+- ✅ Runs full test suite after build
+- ✅ Stops interfering processes (AVG Firewall, etc.)
+- ✅ Detailed error messages and troubleshooting tips
+- ✅ Supports both debug and release builds
+
+### Quick Start Scripts (Windows Batch Files)
+
+For convenience, use these batch files to start development:
+
+```batch
+# Start both backend and frontend servers
+start-dev.bat
+
+# Run all tests with MinGW environment
+run-tests.bat
+```
+
+**Note:** These batch files automatically configure MinGW environment and start servers in separate windows.
 
 ### Run Frontend
 ```bash
@@ -42,6 +84,25 @@ npm install
 npm run dev
 # Frontend available at: http://localhost:5173
 ```
+
+### Run Tests
+```powershell
+# Method 1: Using batch file (easiest)
+.\run-tests.bat
+
+# Method 2: Using PowerShell script directly
+.\test-rust-mingw.ps1
+# Or: powershell.exe -ExecutionPolicy Bypass -File "test-rust-mingw.ps1"
+
+# Method 3: Manual setup (requires MinGW environment)
+# First setup MinGW environment:
+.\Setup-MinGW.ps1
+# Then run tests:
+cd src-rust
+cargo test
+```
+
+**Important:** Tests require MinGW environment to be configured. The `test-rust-mingw.ps1` script and `run-tests.bat` automatically configure the MinGW environment for you. If running tests manually with `cargo test`, first run `Setup-MinGW.ps1` to configure the environment.
 
 ### Package Installer
 ```powershell
@@ -92,7 +153,21 @@ rustup default stable-x86_64-pc-windows-gnu
 ✅ Dini Argeo adapter (configurable, currently disabled)
 ✅ Health check endpoints responding
 ✅ Configuration loading from JSON files
-✅ Graceful shutdown handling
+✅ Graceful shutdown handling (API endpoint + Ctrl-C)
+✅ Server control API: POST /api/shutdown, POST /api/start
+✅ Case-insensitive command matching
+✅ All tests passing 100%
+```
+
+### Frontend (React) - ✅ WORKING
+```
+✅ Real-time server status monitoring (Running/Stopped/Error)
+✅ Device configuration management with validation
+✅ Diagnostics panel with live connection status
+✅ Scale operations panel for weight commands
+✅ Service control (Start/Stop/Restart) with status updates
+✅ Automatic status refresh every 5 seconds
+✅ Error handling and user-friendly messages
 ```
 
 ### Device Operations
@@ -112,6 +187,16 @@ Supported Commands:
 ⚪ dwf (Dini Argeo): Configured but disabled
 ```
 
+### Diagnostics & Monitoring
+```
+✅ Real-time connection status detection (Online/Offline)
+✅ Device health monitoring (Responsive/Unresponsive)
+✅ Server status display (Running/Stopped/Error)
+✅ Automatic status refresh every 5 seconds
+✅ Live diagnostics panel with actual device state
+✅ Removed hardcoded status simulation
+```
+
 ---
 
 ## 🔌 API Testing
@@ -119,11 +204,12 @@ Supported Commands:
 ### Health Check
 ```bash
 curl http://localhost:8080/health
-# Response: {"status": "OK", "service": "ScaleIT Bridge"}
+# Response: {"status": "OK", "service": "ScaleIT Bridge", "version": "0.1.0"}
 ```
 
 ### Read Weight from Scale
 ```bash
+# Commands are case-insensitive: readGross, readgross, READGROSS all work
 curl -X POST http://localhost:8080/scalecmd \
   -H "Content-Type: application/json" \
   -d '{
@@ -136,6 +222,48 @@ curl -X POST http://localhost:8080/scalecmd \
 ```bash
 curl http://localhost:8080/devices
 # Shows configured devices and their status
+```
+
+### Shutdown Server (Graceful)
+```bash
+curl -X POST http://localhost:8080/api/shutdown
+# Response: {"success": true, "message": "Shutdown initiated..."}
+# Server will disconnect all devices and stop gracefully
+```
+
+### Device Configuration Management
+```bash
+# Get all device configs
+curl http://localhost:8080/api/config
+
+# Save device config
+curl -X POST http://localhost:8080/api/config/save \
+  -H "Content-Type: application/json" \
+  -d '{
+    "device_id": "new_device",
+    "config": {
+      "name": "New Device",
+      "manufacturer": "Manufacturer",
+      "model": "Model",
+      "protocol": "RINCMD",
+      "connection": {
+        "connection_type": "Tcp",
+        "host": "192.168.1.100",
+        "port": 4001
+      },
+      "timeout_ms": 3000,
+      "commands": {
+        "readGross": "20050026",
+        "readNet": "20050025",
+        "tare": "21120008:0C",
+        "zero": "21120008:0B"
+      },
+      "enabled": true
+    }
+  }'
+
+# Delete device config
+curl -X DELETE http://localhost:8080/api/config/new_device
 ```
 
 ---

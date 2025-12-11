@@ -152,13 +152,27 @@ Write-Host "Changed to src-rust directory" -ForegroundColor Gray
 Write-Host "Cleaning previous build..." -ForegroundColor Yellow
 cargo clean
 
-# Build the project
+# Check for release build flag
+$buildMode = "debug"
+if ($args -contains "--release" -or $args -contains "-r") {
+    $buildMode = "release"
+    Write-Host "Building in RELEASE mode (optimized)" -ForegroundColor Cyan
+} else {
+    Write-Host "Building in DEBUG mode (faster compilation)" -ForegroundColor Cyan
+}
 Write-Host ""
+
+# Build the project
 Write-Host "Building Rust project..." -ForegroundColor Yellow
 Write-Host "This may take a few minutes on first build..." -ForegroundColor Gray
 Write-Host ""
 
-$buildResult = cargo build
+if ($buildMode -eq "release") {
+    cargo build --release | Out-Null
+} else {
+    cargo build | Out-Null
+}
+
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "Build failed!" -ForegroundColor Red
@@ -168,6 +182,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "1. Ensure MSYS2 MinGW64 is fully installed" -ForegroundColor White
     Write-Host "2. Run: pacman -S mingw-w64-x86_64-toolchain" -ForegroundColor White
     Write-Host "3. Check that no antivirus is blocking build files" -ForegroundColor White
+    Write-Host "4. Try stopping AVG Firewall: .\AVG_OFF.bat" -ForegroundColor White
     exit 1
 }
 
@@ -177,21 +192,41 @@ Write-Host ""
 
 # Run tests
 Write-Host "Running tests..." -ForegroundColor Yellow
-$testResult = cargo test
+cargo test | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "Some tests failed, but build is complete." -ForegroundColor Yellow
+    Write-Host "Review test output above for details." -ForegroundColor Yellow
 } else {
     Write-Host ""
-    Write-Host "All tests passed!" -ForegroundColor Green
+    Write-Host "All tests passed! ✅" -ForegroundColor Green
 }
 
 Write-Host ""
+Write-Host "════════════════════════════════════════" -ForegroundColor Green
 Write-Host "Build complete!" -ForegroundColor Green
+Write-Host "════════════════════════════════════════" -ForegroundColor Green
 Write-Host ""
-Write-Host "You can now:" -ForegroundColor Cyan
-Write-Host "  - Run the server: cargo run" -ForegroundColor White
-Write-Host "  - Build release version: cargo build --release" -ForegroundColor White
-Write-Host "  - Run tests: cargo test" -ForegroundColor White
+
+if ($buildMode -eq "release") {
+    $exePath = "target\release\scaleit-bridge.exe"
+} else {
+    $exePath = "target\debug\scaleit-bridge.exe"
+}
+
+if (Test-Path $exePath) {
+    $fileInfo = Get-Item $exePath
+    Write-Host "Executable: $exePath" -ForegroundColor Cyan
+    Write-Host "Size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB" -ForegroundColor Cyan
+    Write-Host ""
+}
+
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  • Run server: cargo run" -ForegroundColor White
+Write-Host "  • Run with script: ..\run-backend.ps1" -ForegroundColor White
+if ($buildMode -ne "release") {
+    Write-Host "  • Build release: .\build-rust-mingw.ps1 --release" -ForegroundColor White
+}
 Write-Host ""
 Write-Host "Server will be available at: http://localhost:8080" -ForegroundColor Yellow
+Write-Host ""
