@@ -165,6 +165,25 @@ begin
     DeleteFile(TmpFile);
 end;
 
+function ServiceExists(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := Exec('sc.exe', 'query "{#MyServiceName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+end;
+
+function FirewallRuleNotExists(): Boolean;
+var
+  TmpFile: String;
+  ResultCode: Integer;
+begin
+  TmpFile := ExpandConstant('{tmp}\firewallcheck.txt');
+  Exec('netsh.exe', 'advfirewall firewall show rule name="{#MyAppName}" > "' + TmpFile + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := not (FileExists(TmpFile) and (GetFileSize(TmpFile) > 0));
+  if FileExists(TmpFile) then
+    DeleteFile(TmpFile);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ConfigFile: String;
