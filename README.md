@@ -14,7 +14,67 @@
 
 ---
 
-## 🚀 Quick Start (Windows)
+## 📦 Windows Production Installation
+
+For production deployment on Windows, use the automated installer:
+
+### Building the Installer
+
+```powershell
+# Build complete Windows installer
+.\scripts\Build-WindowsInstaller.ps1
+
+# The installer will be created in: release\ScaleCmdBridge-Setup-x64.exe
+```
+
+**Prerequisites:**
+- Inno Setup Compiler installed (auto-detected)
+- Rust backend built (release)
+- React frontend built (production)
+- NSSM will be downloaded automatically
+
+### Installing ScaleCmdBridge
+
+1. **Download** `ScaleCmdBridge-Setup-x64.exe`
+2. **Run as Administrator**
+3. **Follow the wizard:**
+   - Select installation directory (default: `C:\Program Files\ScaleCmdBridge`)
+   - Choose port (default: 8080)
+   - Select optional components (desktop shortcut, etc.)
+4. **Service is automatically installed and started**
+
+### Service Management
+
+After installation, manage the service using:
+
+```powershell
+# Start/Stop service
+net start ScaleCmdBridge
+net stop ScaleCmdBridge
+
+# Or use provided scripts (in installation directory)
+cd "C:\Program Files\ScaleCmdBridge"
+.\START-SERVICE.bat
+.\STOP-SERVICE.bat
+.\INSTALL-SERVICE.bat    # Reinstall service
+.\UNINSTALL-SERVICE.bat  # Remove service
+```
+
+### Configuration
+
+- **Configuration file:** `C:\ProgramData\ScaleCmdBridge\config\devices.json`
+- **Logs:** `C:\ProgramData\ScaleCmdBridge\logs\`
+- **Web UI:** `http://localhost:8080` (or your configured port)
+
+### Updating
+
+Simply run the new installer over the existing installation. Configuration and logs are automatically preserved.
+
+For detailed update procedures, see: [docs/UPDATE_STRATEGY.md](docs/UPDATE_STRATEGY.md)
+
+---
+
+## 🚀 Quick Start (Windows Development)
 
 ### Prerequisites Setup
 The project now uses **MinGW/MSYS2** toolchain for Windows builds (GNU instead of MSVC):
