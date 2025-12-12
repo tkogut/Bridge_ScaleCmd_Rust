@@ -92,12 +92,17 @@ function CheckPortInUse(PortNum: Integer): Boolean;
 var
   TmpFile: String;
   ResultCode: Integer;
+  FileContent: AnsiString;
 begin
   TmpFile := ExpandConstant('{tmp}\portcheck.txt');
   Exec('cmd.exe', '/c netstat -an | findstr ":' + IntToStr(PortNum) + '" > "' + TmpFile + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Result := FileExists(TmpFile) and (GetFileSize(TmpFile) > 0);
   if FileExists(TmpFile) then
+  begin
+    LoadStringFromFile(TmpFile, FileContent);
+    Result := Length(FileContent) > 0;
     DeleteFile(TmpFile);
+  end else
+    Result := False;
 end;
 
 function ServiceExists(): Boolean;
@@ -111,12 +116,17 @@ function FirewallRuleNotExists(): Boolean;
 var
   TmpFile: String;
   ResultCode: Integer;
+  FileContent: AnsiString;
 begin
   TmpFile := ExpandConstant('{tmp}\firewallcheck.txt');
   Exec('netsh.exe', 'advfirewall firewall show rule name="{#MyAppName}" > "' + TmpFile + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Result := not (FileExists(TmpFile) and (GetFileSize(TmpFile) > 0));
   if FileExists(TmpFile) then
+  begin
+    LoadStringFromFile(TmpFile, FileContent);
+    Result := Length(FileContent) = 0;
     DeleteFile(TmpFile);
+  end else
+    Result := True;
 end;
 
 function InitializeSetup(): Boolean;
