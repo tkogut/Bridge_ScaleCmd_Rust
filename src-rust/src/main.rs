@@ -332,35 +332,28 @@ async fn main() -> std::io::Result<()> {
     };
     
     info!("Using config path: {}", config_path);
-    let settings = Config::builder()
-        .add_source(config::File::with_name(&config_path))
-        .build()
-        .map_err(|e| {
-            error!("Failed to load configuration: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, format!("Config error: {}", e))
-        })?;
-
-    let app_config: AppConfig = settings.try_deserialize().map_err(|e| {
-        error!("Failed to deserialize configuration: {}", e);
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Deserialization error: {}", e),
-        )
-    })?;
-
-    info!(
-        "Configuration loaded successfully. Devices: {:?}",
-        app_config.devices.keys()
-    );
-
+    
+    // Ensure config file exists (DeviceManager will create it if missing)
+    // We need to do this before using the config crate
+    let config_path_buf = std::path::PathBuf::from(&config_path);
+    if !config_path_buf.exists() {
+        info!("Config file does not exist, DeviceManager will create default configuration");
+    }
+    
+    // Use DeviceManager::from_path which handles missing files automatically
     let dm = Arc::new(
-        DeviceManager::from_config(&config_path, app_config).map_err(|e| {
+        DeviceManager::from_path(&config_path).map_err(|e| {
             error!("Failed to initialize DeviceManager: {}", e);
             std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("DeviceManager init error: {}", e),
             )
         })?,
+    );
+    
+    info!(
+        "Configuration loaded successfully. Devices: {:?}",
+        dm.list_configs().keys()
     );
 
     dm.connect_all_devices().await;
