@@ -123,7 +123,8 @@ begin
     PortStr := PortPage.Values[0];
     
     // Validate port number
-    if not TryStrToInt(PortStr, PortNum) then
+    PortNum := StrToIntDef(PortStr, 0);
+    if PortNum = 0 then
     begin
       MsgBox('Invalid port number. Please enter a number between 1024 and 65535.', mbError, MB_OK);
       Result := False;
