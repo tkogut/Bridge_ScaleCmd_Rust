@@ -10,6 +10,7 @@ Kompletny przewodnik krok po kroku jak przygotować plik instalacyjny `ScaleCmdB
   - Download: https://jrsoftware.org/isdl.php
   - Instalacja: Standardowa instalacja Windows
   - Lokalizacja: `C:\Program Files (x86)\Inno Setup 6\` (domyślnie)
+  - Kompilator: `ISCC.exe` (command-line) lub `Compil32.exe` (GUI)
 
 - **Rust** (z MinGW toolchain)
   - Toolchain: `stable-x86_64-pc-windows-gnu`
@@ -55,10 +56,13 @@ cd C:\Users\tkogut\.cursor\Bridge_ScaleCmd_Rust
 # Sprawdź czy wszystkie wymagania są spełnione
 Write-Host "Sprawdzanie wymagań..." -ForegroundColor Cyan
 
-# 1. Inno Setup
+# 1. Inno Setup (sprawdź oba kompilatory)
 $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+$compil32 = "C:\Program Files (x86)\Inno Setup 6\Compil32.exe"
 if (Test-Path $iscc) {
-    Write-Host "✅ Inno Setup: OK" -ForegroundColor Green
+    Write-Host "✅ Inno Setup (ISCC.exe): OK" -ForegroundColor Green
+} elseif (Test-Path $compil32) {
+    Write-Host "✅ Inno Setup (Compil32.exe): OK" -ForegroundColor Green
 } else {
     Write-Host "❌ Inno Setup: BRAK - zainstaluj z https://jrsoftware.org/isdl.php" -ForegroundColor Red
     exit 1
@@ -221,14 +225,21 @@ if (Test-Path $issFile) {
 **Opcja B: Przez wiersz poleceń**
 
 ```powershell
-# Znajdź ISCC.exe
+# Znajdź kompilator (ISCC.exe lub Compil32.exe)
 $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-if (-not (Test-Path $iscc)) {
-    $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe"
+$compil32 = "C:\Program Files (x86)\Inno Setup 6\Compil32.exe"
+
+if (Test-Path $iscc) {
+    $compiler = $iscc
+} elseif (Test-Path $compil32) {
+    $compiler = $compil32
+} else {
+    Write-Host "Inno Setup Compiler nie znaleziony!" -ForegroundColor Red
+    exit 1
 }
 
 # Skompiluj
-& $iscc "installer\ScaleCmdBridge.iss"
+& $compiler "installer\ScaleCmdBridge.iss"
 
 # Sprawdź wynik
 if ($LASTEXITCODE -eq 0) {
@@ -304,8 +315,13 @@ sc query ScaleCmdBridge
 
 **Rozwiązanie:**
 ```powershell
-# Sprawdź lokalizację
+# Sprawdź lokalizację (oba kompilatory)
 Get-ChildItem "C:\Program Files*" -Recurse -Filter "ISCC.exe" -ErrorAction SilentlyContinue
+Get-ChildItem "C:\Program Files*" -Recurse -Filter "Compil32.exe" -ErrorAction SilentlyContinue
+
+# Sprawdź standardową lokalizację
+Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+Test-Path "C:\Program Files (x86)\Inno Setup 6\Compil32.exe"
 
 # Lub zainstaluj Inno Setup:
 # https://jrsoftware.org/isdl.php

@@ -213,12 +213,16 @@ if (-not $SkipInstaller) {
         exit 1
     }
     
-    # Find Inno Setup Compiler
+    # Find Inno Setup Compiler (try both ISCC.exe and Compil32.exe)
     $innoSetupPaths = @(
         "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+        "C:\Program Files (x86)\Inno Setup 6\Compil32.exe",
         "C:\Program Files\Inno Setup 6\ISCC.exe",
+        "C:\Program Files\Inno Setup 6\Compil32.exe",
         "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-        "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+        "${env:ProgramFiles(x86)}\Inno Setup 6\Compil32.exe",
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+        "$env:ProgramFiles\Inno Setup 6\Compil32.exe"
     )
     
     $iscc = $null
