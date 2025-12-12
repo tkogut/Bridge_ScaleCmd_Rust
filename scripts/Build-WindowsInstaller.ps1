@@ -184,7 +184,7 @@ if (-not $SkipNSSM) {
         } catch {
             Write-Host "ERROR: Failed to download NSSM: $_" -ForegroundColor Red
             Write-Host "Please download NSSM manually from https://nssm.cc/download" -ForegroundColor Yellow
-            Write-Host "Extract nssm.exe (64-bit) to: $nssmExe" -ForegroundColor Yellow
+            Write-Host 'Extract nssm.exe (64-bit) to:' $nssmExe -ForegroundColor Yellow
             exit 1
         }
     } else {
@@ -267,6 +267,6 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host "Build Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Installer ready: release\ScaleCmdBridge-Setup-x64.exe" -ForegroundColor Cyan
+Write-Host 'Installer ready: release/ScaleCmdBridge-Setup-x64.exe' -ForegroundColor Cyan
 Write-Host ""
 
