@@ -91,11 +91,12 @@ Stworzenie kompletnego, produkcyjnego rozwiązania Windows installer + Windows S
 - [x] Dokumentacja strategii aktualizacji (docs/UPDATE_STRATEGY.md)
 - [x] Funkcje pomocnicze w instalatorze (ServiceExists, FirewallRuleNotExists)
 
-### ⏳ Faza 8: Dokumentacja
-- [ ] Zaktualizować README z instrukcją instalacji
-- [ ] Stworzyć WINDOWS_INSTALLATION_GUIDE.md
-- [ ] Dodać troubleshooting guide
-- [ ] Dodać przykłady zarządzania usługą
+### ✅ Faza 8: Dokumentacja
+- [x] Zaktualizować README z instrukcją instalacji (sekcja Windows Production Installation)
+- [x] Stworzyć WINDOWS_INSTALLATION_GUIDE.md (kompletny przewodnik)
+- [x] Dodać troubleshooting guide (w WINDOWS_INSTALLATION_GUIDE.md)
+- [x] Dodać przykłady zarządzania usługą (komendy, skrypty)
+- [x] Stworzyć UPDATE_STRATEGY.md (strategia aktualizacji)
 
 ### ⏳ Faza 9: Testy
 - [ ] Test instalacji na czystym Windows 10/11
