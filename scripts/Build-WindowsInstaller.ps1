@@ -250,8 +250,14 @@ if (-not $SkipInstaller) {
         Set-Content $issFile $issContent -NoNewline
     }
     
-    # Compile
-    & $iscc $issFile
+    # Compile (ISCC.exe uses direct execution, Compil32.exe needs /cc parameter)
+    if ($iscc -like "*ISCC.exe") {
+        # Command-line compiler
+        & $iscc $issFile
+    } else {
+        # GUI compiler (Compil32.exe) - use /cc for command-line compilation
+        & $iscc /cc $issFile
+    }
     if ($LASTEXITCODE -ne 0) {
         Write-Host "ERROR: Inno Setup compilation failed!" -ForegroundColor Red
         exit 1
