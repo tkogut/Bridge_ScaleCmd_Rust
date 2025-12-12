@@ -21,11 +21,19 @@ For production deployment on Windows, use the automated installer:
 ### Building the Installer
 
 ```powershell
-# Build complete Windows installer
+# Build complete Windows installer (automated)
 .\scripts\Build-WindowsInstaller.ps1
 
 # The installer will be created in: release\ScaleCmdBridge-Setup-x64.exe
 ```
+
+**📖 Detailed Instructions:** See [docs/INNO_SETUP_INSTALLER_GUIDE.md](docs/INNO_SETUP_INSTALLER_GUIDE.md) for complete step-by-step guide including:
+- Prerequisites and requirements
+- Automated build process
+- Manual build process (for advanced users)
+- Configuration options
+- Troubleshooting
+- Pre-distribution checklist
 
 **Prerequisites:**
 - Inno Setup Compiler installed (auto-detected)
