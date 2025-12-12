@@ -51,7 +51,7 @@ Name: "startmenu"; Description: "Create Start Menu shortcuts"; GroupDescription:
 
 [Files]
 ; Backend executable (renamed from scaleit-bridge.exe)
-Source: "..\src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
+Source: "..\src-rust\target\release\scaleit-bridge.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
 ; NSSM executable
 Source: "..\installer\nssm\nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Frontend files
