@@ -81,12 +81,15 @@ Stworzenie kompletnego, produkcyjnego rozwiązania Windows installer + Windows S
   - EventLog: Application log, source "ScaleCmdBridge"
 - [ ] Rotacja logów (max rozmiar, max pliki)
 
-### ⏳ Faza 7: Obsługa aktualizacji
-- [ ] Zaprojektować strategię aktualizacji:
-  - Nowy instalator vs. osobny updater
+### ✅ Faza 7: Obsługa aktualizacji
+- [x] Zaprojektować strategię aktualizacji:
+  - In-place upgrade przez instalator (zalecane)
+  - Manual upgrade script dla zaawansowanych
   - Zachowanie configu i logów podczas upgrade
-- [ ] Dodać weryfikację wersji w instalatorze
-- [ ] Dodać backup configu przed aktualizacją
+- [x] Dodać weryfikację wersji w instalatorze (AppMutex, VersionInfo)
+- [x] Dodać backup configu przed aktualizacją (automatyczny)
+- [x] Dokumentacja strategii aktualizacji (docs/UPDATE_STRATEGY.md)
+- [x] Funkcje pomocnicze w instalatorze (ServiceExists, FirewallRuleNotExists)
 
 ### ⏳ Faza 8: Dokumentacja
 - [ ] Zaktualizować README z instrukcją instalacji
