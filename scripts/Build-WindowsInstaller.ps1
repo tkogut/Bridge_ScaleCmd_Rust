@@ -90,9 +90,15 @@ if (-not $SkipBackend) {
         exit 1
     }
     
-    $exePath = Join-Path $RepoRoot "src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"
+    # Try standard release path first, then GNU-specific path
+    $exePath = Join-Path $RepoRoot "src-rust\target\release\scaleit-bridge.exe"
     if (-not (Test-Path $exePath)) {
-        Write-Host "ERROR: Backend executable not found at $exePath" -ForegroundColor Red
+        $exePath = Join-Path $RepoRoot "src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"
+    }
+    if (-not (Test-Path $exePath)) {
+        Write-Host "ERROR: Backend executable not found. Tried:" -ForegroundColor Red
+        Write-Host "  - src-rust\target\release\scaleit-bridge.exe" -ForegroundColor Red
+        Write-Host "  - src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe" -ForegroundColor Red
         exit 1
     }
     Write-Host "  ✓ Backend built successfully" -ForegroundColor Green
@@ -184,7 +190,7 @@ if (-not $SkipNSSM) {
         } catch {
             Write-Host "ERROR: Failed to download NSSM: $_" -ForegroundColor Red
             Write-Host "Please download NSSM manually from https://nssm.cc/download" -ForegroundColor Yellow
-            Write-Host 'Extract nssm.exe (64-bit) to:' $nssmExe -ForegroundColor Yellow
+            Write-Host "Extract nssm.exe (64bit) to: $nssmExe" -ForegroundColor Yellow
             exit 1
         }
     } else {
