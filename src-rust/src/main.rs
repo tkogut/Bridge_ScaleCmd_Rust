@@ -5,7 +5,6 @@ use actix_web::{
     web::{self, Data},
     App, HttpResponse, HttpServer, Responder,
 };
-use config::Config;
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
 use serde_json::json;
@@ -13,7 +12,7 @@ use std::sync::Arc;
 
 use scaleit_bridge::device_manager::DeviceManager;
 use scaleit_bridge::error::BridgeError;
-use scaleit_bridge::models::device::{AppConfig, SaveConfigRequest};
+use scaleit_bridge::models::device::SaveConfigRequest;
 use scaleit_bridge::models::weight::{
     DeviceListResponse, HealthResponse, ScaleCommandRequest, ScaleCommandResponse,
 };
