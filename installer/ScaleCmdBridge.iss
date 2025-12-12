@@ -35,6 +35,12 @@ WizardStyle=modern
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
+; Upgrade support
+AppMutex=ScaleCmdBridgeMutex
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription={#MyServiceDisplayName}
+VersionInfoCopyright=Copyright (C) 2025 {#MyAppPublisher}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
