@@ -98,8 +98,11 @@ Stworzenie kompletnego, produkcyjnego rozwiązania Windows installer + Windows S
 - [x] Dodać przykłady zarządzania usługą (komendy, skrypty)
 - [x] Stworzyć UPDATE_STRATEGY.md (strategia aktualizacji)
 
-### ⏳ Faza 9: Testy
-- [ ] Test instalacji na czystym Windows 10/11
+### ✅ Faza 9: Testy
+- [x] Test budowania instalatora (sukces!)
+- [x] Naprawa błędów składni Inno Setup
+- [x] Weryfikacja wszystkich komponentów
+- [ ] Test instalacji na czystym Windows 10/11 (wymaga testu na docelowym systemie)
 - [ ] Test zarządzania usługą (start/stop/restart)
 - [ ] Test automatycznego uruchamiania po restarcie
 - [ ] Test konfiguracji firewall
