@@ -225,6 +225,48 @@ impl DeviceManager {
     }
 
     fn read_config(path: &Path) -> Result<AppConfig, BridgeError> {
+        // If file doesn't exist, create default empty config
+        if !path.exists() {
+            info!("Config file not found at {}, creating default configuration", path.display());
+            
+            // Create parent directory if it doesn't exist
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    BridgeError::ConfigurationError(format!(
+                        "Failed to create config directory {}: {}",
+                        parent.display(),
+                        e
+                    ))
+                })?;
+            }
+            
+            // Create default empty config
+            let default_config = AppConfig {
+                devices: HashMap::new(),
+            };
+            
+            // Write default config to file
+            let file = File::create(path).map_err(|e| {
+                BridgeError::ConfigurationError(format!(
+                    "Failed to create config file {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?;
+            let writer = BufWriter::new(file);
+            serde_json::to_writer_pretty(writer, &default_config).map_err(|e| {
+                BridgeError::ConfigurationError(format!(
+                    "Failed to write default config to {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?;
+            
+            info!("Default configuration file created at {}", path.display());
+            return Ok(default_config);
+        }
+        
+        // File exists, read it
         let file = File::open(path).map_err(|e| {
             BridgeError::ConfigurationError(format!(
                 "Failed to open config file {}: {}",
@@ -233,7 +275,13 @@ impl DeviceManager {
             ))
         })?;
         let reader = BufReader::new(file);
-        let config = serde_json::from_reader(reader)?;
+        let config = serde_json::from_reader(reader).map_err(|e| {
+            BridgeError::ConfigurationError(format!(
+                "Failed to parse config file {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
         Ok(config)
     }
 
