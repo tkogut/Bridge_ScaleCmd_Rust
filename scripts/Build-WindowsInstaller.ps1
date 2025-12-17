@@ -80,7 +80,7 @@ if (-not $SkipBackend) {
     
     $buildScript = Join-Path $RepoRoot "build-rust-mingw.ps1"
     if (Test-Path $buildScript) {
-        & $buildScript -Release
+        & $buildScript --release
         if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: Backend build failed!" -ForegroundColor Red
             exit 1
@@ -101,7 +101,7 @@ if (-not $SkipBackend) {
         Write-Host "  - src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe" -ForegroundColor Red
         exit 1
     }
-    Write-Host "  ✓ Backend built successfully" -ForegroundColor Green
+    Write-Host "  [OK] Backend built successfully" -ForegroundColor Green
     Write-Host ""
 } else {
     Write-Host "[1/4] Skipping backend build" -ForegroundColor Gray
@@ -138,7 +138,7 @@ if (-not $SkipFrontend) {
             Write-Host "ERROR: Frontend build output not found at dist/index.html" -ForegroundColor Red
             exit 1
         }
-        Write-Host "  ✓ Frontend built successfully" -ForegroundColor Green
+        Write-Host "  [OK] Frontend built successfully" -ForegroundColor Green
     } finally {
         Pop-Location
     }
@@ -178,7 +178,7 @@ if (-not $SkipNSSM) {
             $nssmSource = Join-Path $env:TEMP "nssm-2.24\win64\nssm.exe"
             if (Test-Path $nssmSource) {
                 Copy-Item $nssmSource $nssmExe -Force
-                Write-Host "  ✓ NSSM downloaded and extracted" -ForegroundColor Green
+                Write-Host "  [OK] NSSM downloaded and extracted" -ForegroundColor Green
             } else {
                 Write-Host "ERROR: NSSM executable not found in archive!" -ForegroundColor Red
                 exit 1
@@ -194,7 +194,7 @@ if (-not $SkipNSSM) {
             exit 1
         }
     } else {
-        Write-Host "  ✓ NSSM found at $nssmExe" -ForegroundColor Green
+        Write-Host "  [OK] NSSM found at $nssmExe" -ForegroundColor Green
     }
     Write-Host ""
 } else {
@@ -245,8 +245,9 @@ if (-not $SkipInstaller) {
     
     # Update version in ISS file if needed
     $issContent = Get-Content $issFile -Raw
-    if ($issContent -notmatch "MyAppVersion ""$Version""") {
-        $issContent = $issContent -replace 'MyAppVersion ""[^""]+""', "MyAppVersion ""$Version"""
+    $versionPattern = 'MyAppVersion "' + $Version + '"'
+    if ($issContent -notmatch [regex]::Escape($versionPattern)) {
+        $issContent = $issContent -replace 'MyAppVersion "([^"]+)"', ('MyAppVersion "' + $Version + '"')
         Set-Content $issFile $issContent -NoNewline
     }
     
@@ -266,7 +267,7 @@ if (-not $SkipInstaller) {
     $installerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
     if (Test-Path $installerPath) {
         $fileInfo = Get-Item $installerPath
-        Write-Host "  ✓ Installer created successfully" -ForegroundColor Green
+        Write-Host "  [OK] Installer created successfully" -ForegroundColor Green
         Write-Host "  Location: $installerPath" -ForegroundColor Cyan
         Write-Host "  Size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB" -ForegroundColor Cyan
     } else {
