@@ -27,6 +27,10 @@ For production deployment on Windows, use the automated installer:
 # The installer will be created in: release\ScaleCmdBridge-Setup-x64.exe
 ```
 
+### Direct Download (GitHub Releases)
+
+- Latest installer (x64): [ScaleCmdBridge-Setup-x64.exe](https://github.com/tkogut/Bridge_ScaleCmd_Rust/releases/latest/download/ScaleCmdBridge-Setup-x64.exe)
+
 **📖 Detailed Instructions:** See [docs/INNO_SETUP_INSTALLER_GUIDE.md](docs/INNO_SETUP_INSTALLER_GUIDE.md) for complete step-by-step guide including:
 - Prerequisites and requirements
 - Automated build process
