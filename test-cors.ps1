@@ -12,24 +12,27 @@ try {
     
     $corsHeaders = @()
     if ($response.Headers['Access-Control-Allow-Origin']) {
-        $corsHeaders += "✓ Access-Control-Allow-Origin: $($response.Headers['Access-Control-Allow-Origin'])"
+        $corsHeaders += "[OK] Access-Control-Allow-Origin: $($response.Headers['Access-Control-Allow-Origin'])"
     } else {
-        $corsHeaders += "✗ Access-Control-Allow-Origin: MISSING"
+        $corsHeaders += "[MISSING] Access-Control-Allow-Origin: MISSING"
     }
     
     if ($response.Headers['Access-Control-Allow-Methods']) {
-        $corsHeaders += "✓ Access-Control-Allow-Methods: $($response.Headers['Access-Control-Allow-Methods'])"
+        $corsHeaders += "[OK] Access-Control-Allow-Methods: $($response.Headers['Access-Control-Allow-Methods'])"
     } else {
-        $corsHeaders += "✗ Access-Control-Allow-Methods: MISSING"
+        $corsHeaders += "[MISSING] Access-Control-Allow-Methods: MISSING"
     }
     
     if ($response.Headers['Access-Control-Allow-Headers']) {
-        $corsHeaders += "✓ Access-Control-Allow-Headers: $($response.Headers['Access-Control-Allow-Headers'])"
+        $corsHeaders += "[OK] Access-Control-Allow-Headers: $($response.Headers['Access-Control-Allow-Headers'])"
     } else {
-        $corsHeaders += "✗ Access-Control-Allow-Headers: MISSING"
+        $corsHeaders += "[MISSING] Access-Control-Allow-Headers: MISSING"
     }
     
-    $corsHeaders | ForEach-Object { Write-Host "   $_" -ForegroundColor $(if ($_ -like "✓*") { "Green" } else { "Red" }) }
+    $corsHeaders | ForEach-Object { 
+        $color = if ($_ -like "[OK]*") { "Green" } else { "Red" }
+        Write-Host "   $_" -ForegroundColor $color
+    }
     
     Write-Host ""
     Write-Host "   All Headers:" -ForegroundColor Cyan
@@ -60,19 +63,19 @@ try {
     Write-Host "   Preflight CORS Headers:" -ForegroundColor Cyan
     
     if ($optionsResponse.Headers['Access-Control-Allow-Origin']) {
-        Write-Host "   ✓ Access-Control-Allow-Origin: $($optionsResponse.Headers['Access-Control-Allow-Origin'])" -ForegroundColor Green
+        Write-Host "   [OK] Access-Control-Allow-Origin: $($optionsResponse.Headers['Access-Control-Allow-Origin'])" -ForegroundColor Green
     } else {
-        Write-Host "   ✗ Access-Control-Allow-Origin: MISSING" -ForegroundColor Red
+        Write-Host "   [MISSING] Access-Control-Allow-Origin: MISSING" -ForegroundColor Red
     }
     
     if ($optionsResponse.Headers['Access-Control-Allow-Methods']) {
-        Write-Host "   ✓ Access-Control-Allow-Methods: $($optionsResponse.Headers['Access-Control-Allow-Methods'])" -ForegroundColor Green
+        Write-Host "   [OK] Access-Control-Allow-Methods: $($optionsResponse.Headers['Access-Control-Allow-Methods'])" -ForegroundColor Green
     } else {
-        Write-Host "   ✗ Access-Control-Allow-Methods: MISSING" -ForegroundColor Red
+        Write-Host "   [MISSING] Access-Control-Allow-Methods: MISSING" -ForegroundColor Red
     }
     
     if ($optionsResponse.Headers['Access-Control-Max-Age']) {
-        Write-Host "   ✓ Access-Control-Max-Age: $($optionsResponse.Headers['Access-Control-Max-Age'])" -ForegroundColor Green
+        Write-Host "   [OK] Access-Control-Max-Age: $($optionsResponse.Headers['Access-Control-Max-Age'])" -ForegroundColor Green
     }
     
 } catch {
@@ -82,6 +85,6 @@ try {
 
 Write-Host ""
 Write-Host "Summary:" -ForegroundColor Cyan
-Write-Host "If you see '✓' for all CORS headers, configuration is correct!" -ForegroundColor Green
-Write-Host "If you see '✗' for any header, Bridge needs to be rebuilt." -ForegroundColor Yellow
+Write-Host "If you see '[OK]' for all CORS headers, configuration is correct!" -ForegroundColor Green
+Write-Host "If you see '[MISSING]' for any header, Bridge needs to be rebuilt." -ForegroundColor Yellow
 
