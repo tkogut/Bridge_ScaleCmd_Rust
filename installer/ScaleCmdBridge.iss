@@ -51,9 +51,8 @@ Name: "startmenu"; Description: "Create Start Menu shortcuts"; GroupDescription:
 
 [Files]
 ; Backend executable (renamed from scaleit-bridge.exe)
-; Try GNU toolchain path first (MinGW), then standard release path
-Source: "..\src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion; Check: FileExists(ExpandConstant('{src}\..\src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe'))
-Source: "..\src-rust\target\release\scaleit-bridge.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion; Check: not FileExists(ExpandConstant('{src}\..\src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe')) and FileExists(ExpandConstant('{src}\..\src-rust\target\release\scaleit-bridge.exe'))
+; Build script ensures this file exists in standard location
+Source: "..\src-rust\target\release\scaleit-bridge.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
 ; NSSM executable
 Source: "..\installer\nssm\nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Frontend files

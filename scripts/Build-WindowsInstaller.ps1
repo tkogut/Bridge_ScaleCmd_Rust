@@ -96,15 +96,31 @@ if (-not $SkipBackend) {
     
     # Try standard release path first, then GNU-specific path
     $exePath = Join-Path $RepoRoot "src-rust\target\release\scaleit-bridge.exe"
+    $exePathGnu = Join-Path $RepoRoot "src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"
+    
     if (-not (Test-Path $exePath)) {
-        $exePath = Join-Path $RepoRoot "src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"
+        if (Test-Path $exePathGnu) {
+            $exePath = $exePathGnu
+        } else {
+            Write-Host "ERROR: Backend executable not found. Tried:" -ForegroundColor Red
+            Write-Host "  - src-rust\target\release\scaleit-bridge.exe" -ForegroundColor Red
+            Write-Host "  - src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe" -ForegroundColor Red
+            exit 1
+        }
     }
-    if (-not (Test-Path $exePath)) {
-        Write-Host "ERROR: Backend executable not found. Tried:" -ForegroundColor Red
-        Write-Host "  - src-rust\target\release\scaleit-bridge.exe" -ForegroundColor Red
-        Write-Host "  - src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe" -ForegroundColor Red
-        exit 1
+    
+    # Copy executable to standard location if it's in GNU path (for Inno Setup compatibility)
+    $standardPath = Join-Path $RepoRoot "src-rust\target\release\scaleit-bridge.exe"
+    if ($exePath -ne $standardPath -and (Test-Path $exePath)) {
+        Write-Host "Copying executable to standard location for installer..." -ForegroundColor Gray
+        $standardDir = Split-Path $standardPath -Parent
+        if (-not (Test-Path $standardDir)) {
+            New-Item -ItemType Directory -Path $standardDir -Force | Out-Null
+        }
+        Copy-Item $exePath $standardPath -Force
+        Write-Host "  [OK] Executable copied to standard location" -ForegroundColor Green
     }
+    
     Write-Host "  [OK] Backend built successfully" -ForegroundColor Green
     Write-Host ""
 } else {
