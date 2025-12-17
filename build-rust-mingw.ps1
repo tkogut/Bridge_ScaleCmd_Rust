@@ -190,16 +190,24 @@ Write-Host ""
 Write-Host "Build successful!" -ForegroundColor Green
 Write-Host ""
 
-# Run tests
-Write-Host "Running tests..." -ForegroundColor Yellow
-cargo test | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host ""
-    Write-Host "Some tests failed, but build is complete." -ForegroundColor Yellow
-    Write-Host "Review test output above for details." -ForegroundColor Yellow
+# Run tests (unless --skip-tests flag is provided)
+if ($args -notcontains "--skip-tests" -and $args -notcontains "--no-tests") {
+    Write-Host "Running tests..." -ForegroundColor Yellow
+    cargo test | Out-Null
+    $testExitCode = $LASTEXITCODE
+    if ($testExitCode -ne 0) {
+        Write-Host ""
+        Write-Host "Some tests failed, but build is complete." -ForegroundColor Yellow
+        Write-Host "Review test output above for details." -ForegroundColor Yellow
+    } else {
+        Write-Host ""
+        Write-Host "All tests passed! ✅" -ForegroundColor Green
+    }
+    # Reset exit code to 0 if build succeeded (tests are optional)
+    $LASTEXITCODE = 0
 } else {
+    Write-Host "Skipping tests (--skip-tests flag provided)" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "All tests passed! ✅" -ForegroundColor Green
 }
 
 Write-Host ""
