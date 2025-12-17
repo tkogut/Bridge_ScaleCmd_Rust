@@ -2,10 +2,11 @@
 Write-Host "Testing CORS configuration..." -ForegroundColor Cyan
 Write-Host ""
 
-# Test 1: Simple GET request
-Write-Host "1. Testing GET /health..." -ForegroundColor Yellow
+# Test 1: Simple GET request with Origin header (like browser does)
+Write-Host "1. Testing GET /health with Origin header..." -ForegroundColor Yellow
 try {
-    $response = Invoke-WebRequest -Uri "http://localhost:8080/health" -Method GET -UseBasicParsing
+    $response = Invoke-WebRequest -Uri "http://localhost:8080/health" -Method GET `
+        -Headers @{"Origin" = "http://localhost:5173"} -UseBasicParsing
     Write-Host "   Status: $($response.StatusCode) OK" -ForegroundColor Green
     Write-Host ""
     Write-Host "   CORS Headers found:" -ForegroundColor Cyan
