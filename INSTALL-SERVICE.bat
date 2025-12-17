@@ -5,6 +5,11 @@ REM Must be run as Administrator
 
 setlocal enabledelayedexpansion
 
+REM Quiet mode (for installer)
+set QUIET=0
+if /I "%~1"=="/quiet" set QUIET=1
+if "%INSTALLER_MODE%"=="1" set QUIET=1
+
 echo.
 echo ========================================
 echo ScaleCmdBridge - Service Installation
@@ -16,7 +21,7 @@ net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo ERROR: This script must be run as Administrator.
     echo Right-click and select "Run as administrator"
-    pause
+    if %QUIET%==0 pause
     exit /b 1
 )
 
@@ -37,7 +42,7 @@ REM Check if NSSM exists
 if not exist "%NSSM_EXE%" (
     echo ERROR: NSSM not found at %NSSM_EXE%
     echo Please ensure NSSM is installed in the installation directory.
-    pause
+    if %QUIET%==0 pause
     exit /b 1
 )
 
@@ -45,7 +50,7 @@ REM Check if service executable exists
 if not exist "%SERVICE_EXE%" (
     echo ERROR: Service executable not found at %SERVICE_EXE%
     echo Please ensure ScaleCmdBridge.exe is in the installation directory.
-    pause
+    if %QUIET%==0 pause
     exit /b 1
 )
 
@@ -54,14 +59,21 @@ sc query "%SERVICE_NAME%" >nul 2>&1
 if %errorLevel% equ 0 (
     echo Service %SERVICE_NAME% already exists.
     echo.
-    choice /C YN /M "Do you want to remove the existing service and reinstall"
-    if errorlevel 2 exit /b 0
-    if errorlevel 1 (
-        echo.
-        echo Removing existing service...
+    if %QUIET%==1 (
+        echo Quiet mode: removing existing service without prompt...
         "%NSSM_EXE%" stop "%SERVICE_NAME%"
         "%NSSM_EXE%" remove "%SERVICE_NAME%" confirm
         timeout /t 2 /nobreak >nul
+    ) else (
+        choice /C YN /M "Do you want to remove the existing service and reinstall"
+        if errorlevel 2 exit /b 0
+        if errorlevel 1 (
+            echo.
+            echo Removing existing service...
+            "%NSSM_EXE%" stop "%SERVICE_NAME%"
+            "%NSSM_EXE%" remove "%SERVICE_NAME%" confirm
+            timeout /t 2 /nobreak >nul
+        )
     )
 )
 
@@ -73,7 +85,7 @@ REM Install service using NSSM
 "%NSSM_EXE%" install "%SERVICE_NAME%" "%SERVICE_EXE%"
 if %errorLevel% neq 0 (
     echo ERROR: Failed to install service
-    pause
+    if %QUIET%==0 pause
     exit /b 1
 )
 
@@ -127,14 +139,22 @@ echo Configuration: %ProgramData%\ScaleCmdBridge\config\devices.json
 echo Logs: %ProgramData%\ScaleCmdBridge\logs\
 echo.
 
-choice /C YN /M "Do you want to start the service now"
-if errorlevel 2 goto :end
-if errorlevel 1 (
+if %QUIET%==1 (
     echo.
     echo Starting service...
     "%NSSM_EXE%" start "%SERVICE_NAME%"
     timeout /t 2 /nobreak >nul
     sc query "%SERVICE_NAME%"
+) else (
+    choice /C YN /M "Do you want to start the service now"
+    if errorlevel 2 goto :end
+    if errorlevel 1 (
+        echo.
+        echo Starting service...
+        "%NSSM_EXE%" start "%SERVICE_NAME%"
+        timeout /t 2 /nobreak >nul
+        sc query "%SERVICE_NAME%"
+    )
 )
 
 :end
@@ -146,5 +166,5 @@ echo   Start:   net start "%SERVICE_NAME%"
 echo   Stop:    net stop "%SERVICE_NAME%"
 echo   Status:  sc query "%SERVICE_NAME%"
 echo.
-pause
+if %QUIET%==0 pause
 

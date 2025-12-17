@@ -73,13 +73,13 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 ; Install and start Windows Service
-Filename: "{app}\INSTALL-SERVICE.bat"; Description: "Install and start Windows Service"; Flags: runhidden waituntilterminated; StatusMsg: "Installing Windows Service..."
+Filename: "{app}\INSTALL-SERVICE.bat"; Parameters: "/quiet"; Description: "Install and start Windows Service"; Flags: runhidden waituntilterminated; StatusMsg: "Installing Windows Service..."
 ; Configure firewall
 Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""{#MyAppName}"" dir=in action=allow protocol=TCP localport={code:GetPort}"; Description: "Configure Windows Firewall"; Flags: runhidden; StatusMsg: "Configuring firewall..."
 
 [UninstallRun]
 ; Stop and remove service before uninstallation
-Filename: "{app}\UNINSTALL-SERVICE.bat"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
+Filename: "{app}\UNINSTALL-SERVICE.bat"; Parameters: "/quiet"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
 ; Remove firewall rule
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""{#MyAppName}"""; Flags: runhidden; RunOnceId: "RemoveFirewall"
 
