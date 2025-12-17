@@ -426,11 +426,7 @@ async fn main() -> std::io::Result<()> {
     let web_path_clone = web_path.clone();
     HttpServer::new(move || {
         let state = AppState::new(dm.clone());
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .expose_headers(&["Content-Type", "Content-Length"])
+        let cors = Cors::permissive()
             .max_age(3600);
         
         let mut app = App::new()
