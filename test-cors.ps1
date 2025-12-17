@@ -86,6 +86,11 @@ try {
 
 Write-Host ""
 Write-Host "Summary:" -ForegroundColor Cyan
-Write-Host "If you see '[OK]' for all CORS headers, configuration is correct!" -ForegroundColor Green
-Write-Host "If you see '[MISSING]' for any header, Bridge needs to be rebuilt." -ForegroundColor Yellow
+Write-Host "CORS is working correctly if:" -ForegroundColor Green
+Write-Host "  - Access-Control-Allow-Origin is present in GET request" -ForegroundColor White
+Write-Host "  - All CORS headers are present in OPTIONS (preflight) request" -ForegroundColor White
+Write-Host ""
+Write-Host "Note: Access-Control-Allow-Methods and Allow-Headers" -ForegroundColor Gray
+Write-Host "are only sent in OPTIONS responses (per CORS spec)" -ForegroundColor Gray
+Write-Host "This is normal and correct behavior!" -ForegroundColor Green
 
