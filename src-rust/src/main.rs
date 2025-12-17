@@ -432,7 +432,6 @@ async fn main() -> std::io::Result<()> {
             .allow_any_origin()
             .allow_any_method()
             .allow_any_header()
-            .send_wildcard()
             .max_age(3600);
         
         let mut app = App::new()
