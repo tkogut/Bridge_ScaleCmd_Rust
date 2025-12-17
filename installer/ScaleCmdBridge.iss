@@ -51,7 +51,8 @@ Name: "startmenu"; Description: "Create Start Menu shortcuts"; GroupDescription:
 
 [Files]
 ; Backend executable (renamed from scaleit-bridge.exe)
-Source: "..\src-rust\target\release\scaleit-bridge.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
+; Path determined dynamically based on build toolchain
+Source: "{code:GetBackendExePath}"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
 ; NSSM executable
 Source: "..\installer\nssm\nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Frontend files
@@ -87,6 +88,36 @@ Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""{#MyAppN
 var
   PortPage: TInputQueryWizardPage;
   Port: Integer;
+
+function GetBackendExePath(Param: String): String;
+var
+  ScriptDir: String;
+  GnuPath: String;
+  StandardPath: String;
+begin
+  // Get directory where this .iss file is located
+  ScriptDir := ExtractFilePath(ExpandConstant('{srcexe}'));
+  if ScriptDir = '' then
+    ScriptDir := ExtractFilePath(SourcePath);
+  
+  // Try GNU toolchain path first (MinGW)
+  GnuPath := ScriptDir + '..\src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe';
+  StandardPath := ScriptDir + '..\src-rust\target\release\scaleit-bridge.exe';
+  
+  // Normalize paths
+  GnuPath := ExpandFileName(GnuPath);
+  StandardPath := ExpandFileName(StandardPath);
+  
+  if FileExists(GnuPath) then
+    Result := GnuPath
+  else if FileExists(StandardPath) then
+    Result := StandardPath
+  else
+  begin
+    // If neither exists, return GNU path (compiler will show error)
+    Result := GnuPath;
+  end;
+end;
 
 function CheckPortInUse(PortNum: Integer): Boolean;
 var
