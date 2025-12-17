@@ -65,7 +65,7 @@ Source: "..\STOP-SERVICE.bat"; DestDir: "{app}"; Flags: ignoreversion
 ; Default configuration (will be copied to ProgramData during service installation)
 Source: "..\src-rust\config\devices.json"; DestDir: "{app}\config"; Flags: ignoreversion
 ; Documentation
-Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
+Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
