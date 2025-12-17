@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Scale base/platform -->
+  <rect x="20" y="70" width="60" height="8" rx="2" fill="#4a5568"/>
+  
+  <!-- Scale platform top -->
+  <rect x="25" y="50" width="50" height="6" rx="3" fill="#718096"/>
+  
+  <!-- Scale display/screen -->
+  <rect x="30" y="20" width="40" height="25" rx="2" fill="#2d3748"/>
+  <rect x="32" y="22" width="36" height="21" rx="1" fill="#1a202c"/>
+  
+  <!-- Display lines (simulating LCD) -->
+  <line x1="35" y1="28" x2="65" y2="28" stroke="#48bb78" stroke-width="1.5"/>
+  <line x1="35" y1="33" x2="60" y2="33" stroke="#48bb78" stroke-width="1.5"/>
+  <line x1="35" y1="38" x2="55" y2="38" stroke="#48bb78" stroke-width="1.5"/>
+  
+  <!-- Support columns -->
+  <rect x="30" y="56" width="6" height="14" fill="#4a5568"/>
+  <rect x="64" y="56" width="6" height="14" fill="#4a5568"/>
+  
+  <!-- Weight indicator (optional decorative element) -->
+  <circle cx="50" y="45" r="3" fill="#f6ad55"/>
+</svg>
+
