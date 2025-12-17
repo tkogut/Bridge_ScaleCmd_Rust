@@ -520,7 +520,7 @@ Remove-Item -Recurse -Force .\src-rust\target
 
 ## 📖 Documentation
 
-- **[Windows Installation Guide](WINDOWS_INSTALLATION_GUIDE.md)** - Complete Windows setup
+- **[Windows Installation Guide](docs/WINDOWS_INSTALLATION_GUIDE.md)** - Complete Windows setup
 - **[Build Process](BUILD_WINDOWS.md)** - Detailed build instructions  
 - **[Testing Guide](TESTING_AND_DEPLOYMENT.md)** - Testing procedures
 - **[Device Configuration](src-rust/config/)** - Scale setup examples
