@@ -31,19 +31,34 @@ npm run dev
 
 **Możliwe przyczyny:**
 
-1. **Device ID jest pusty lub nieprawidłowy**
+1. **Komputer w innej sieci niż urządzenie** ⚠️ **NAJCZĘSTSZA PRZYCZYNA**
+   - Sprawdź adres IP komputera: `ipconfig`
+   - Sprawdź adres IP urządzenia w konfiguracji: `C:\ProgramData\ScaleCmdBridge\config\devices.json`
+   - Jeśli komputer ma IP np. `192.168.0.x`, a urządzenie `192.168.1.254` - są w różnych sieciach!
+   - **Rozwiązanie:** Przenieś komputer do tej samej sieci co urządzenie lub skonfiguruj routing
+   - Zobacz szczegóły: `docs/NETWORK_TROUBLESHOOTING.md`
+
+2. **Connection timeout do urządzenia**
+   - Sprawdź logi: `C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log`
+   - Jeśli widzisz: `Connection timeout to 192.168.1.254:4001` - problem z siecią lub timeout zbyt krótki
+   - **Rozwiązanie:** 
+     - Zwiększ `timeout_ms` w konfiguracji z `1000` na `5000`
+     - Sprawdź czy urządzenie jest dostępne: `Test-NetConnection -ComputerName 192.168.1.254 -Port 4001`
+
+3. **Device ID jest pusty lub nieprawidłowy**
    - Sprawdź w logach Bridge: `C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log`
    - Upewnij się, że device_id w requestcie nie jest pusty
 
-2. **Urządzenie nie istnieje lub jest wyłączone**
+4. **Urządzenie nie istnieje lub jest wyłączone**
    - Sprawdź listę urządzeń: `GET http://localhost:8080/devices`
    - Upewnij się, że urządzenie jest włączone (`enabled: true`)
 
-3. **Problem z połączeniem do urządzenia**
+5. **Problem z połączeniem do urządzenia**
    - Sprawdź konfigurację urządzenia w `C:\ProgramData\ScaleCmdBridge\config\devices.json`
    - Upewnij się, że urządzenie jest dostępne (TCP/IP lub Serial)
+   - Sprawdź firewall: Windows Firewall może blokować połączenia wychodzące
 
-4. **CORS problem (tylko dla zewnętrznych aplikacji)**
+6. **CORS problem (tylko dla zewnętrznych aplikacji)**
    - Bridge automatycznie obsługuje CORS dla wszystkich origins
    - Jeśli używasz zewnętrznej aplikacji (np. Vercel), upewnij się, że Bridge jest dostępny z internetu
 
