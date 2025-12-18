@@ -78,6 +78,42 @@ cd "C:\Program Files\ScaleCmdBridge"
 - **Logs:** `C:\ProgramData\ScaleCmdBridge\logs\`
 - **Web UI:** `http://localhost:8080` (or your configured port)
 
+### Frontend Development
+
+The frontend can run in two modes:
+
+1. **Development mode** (separate dev server):
+   ```powershell
+   npm install
+   npm run dev
+   # Frontend available at: http://localhost:5173
+   # Connects to Bridge at: http://localhost:8080
+   ```
+
+2. **Production mode** (served by Bridge):
+   - Build frontend: `npm run build`
+   - Bridge automatically serves `dist/` folder
+   - Access at: `http://localhost:8080`
+
+### Configuring Bridge URL for External Access
+
+If you need to access Bridge from external applications (e.g., Vercel, Caffeine):
+
+1. **Bridge must be accessible** - `localhost:8080` only works locally
+2. **Set environment variable** in your frontend:
+   ```bash
+   # For Vite (development)
+   VITE_BRIDGE_URL=http://your-bridge-ip:8080
+   
+   # For production build
+   # Set in Vercel environment variables or build-time
+   ```
+
+**Important:** Bridge running on `localhost:8080` is only accessible from the same machine. For external access:
+- Use the machine's IP address: `http://192.168.1.100:8080`
+- Or use a tunnel service (ngrok, Cloudflare Tunnel)
+- Or deploy Bridge to a public server
+
 ### Updating
 
 Simply run the new installer over the existing installation. Configuration and logs are automatically preserved.

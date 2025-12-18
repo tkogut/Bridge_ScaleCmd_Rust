@@ -7,7 +7,14 @@ import {
   DeviceConfig,
 } from "@/types/api";
 
-const BRIDGE_URL = "http://localhost:8080";
+// Bridge URL - can be configured via VITE_BRIDGE_URL environment variable
+// Defaults to localhost:8080 for local development
+const BRIDGE_URL = 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (import.meta as any).env?.VITE_BRIDGE_URL || 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (import.meta as any).env?.VITE_API_URL || 
+  "http://localhost:8080";
 
 /**
  * Wykonuje komendę na wadze.
