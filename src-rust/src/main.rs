@@ -54,11 +54,13 @@ fn bridge_error_response(
 #[get("/health")]
 async fn health_check() -> impl Responder {
     info!("Received health check request");
-    HttpResponse::Ok().json(HealthResponse {
-        status: "OK".to_string(),
-        service: "ScaleIT Bridge".to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
-    })
+    HttpResponse::Ok()
+        .json(HealthResponse {
+            status: "OK".to_string(),
+            service: "ScaleIT Bridge".to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        })
+}
 }
 
 #[get("/devices")]
