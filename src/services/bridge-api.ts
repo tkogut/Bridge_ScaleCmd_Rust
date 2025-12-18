@@ -15,27 +15,55 @@ const BRIDGE_URL = "http://localhost:8080";
 export async function executeScaleCommand(
   request: ScaleCommandRequest,
 ): Promise<ScaleCommandResponse> {
-  const response = await fetch(`${BRIDGE_URL}/scalecmd`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
+  // Create AbortController for timeout (30 seconds total timeout)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  // Parse response body first to get error details
-  const responseData = await response.json().catch(() => ({
-    success: false,
-    error: `Failed to parse response (status: ${response.status})`,
-  }));
+  try {
+    const response = await fetch(`${BRIDGE_URL}/scalecmd`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    // If response has error details, use them
-    const errorMessage = responseData.error || responseData.message || `HTTP error! status: ${response.status}`;
-    throw new Error(errorMessage);
+    clearTimeout(timeoutId);
+
+    // Parse response body first to get error details
+    let responseData: ScaleCommandResponse;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      // If JSON parsing fails, create error response
+      responseData = {
+        success: false,
+        device_id: request.device_id,
+        command: request.command,
+        result: null,
+        error: `Failed to parse response (status: ${response.status})`,
+      };
+    }
+
+    if (!response.ok) {
+      // If response has error details, use them
+      const errorMessage = responseData.error || responseData.message || `HTTP error! status: ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    return responseData;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout: Bridge did not respond within 30 seconds');
+      }
+      throw error;
+    }
+    throw new Error(`Unknown error: ${String(error)}`);
   }
-
-  return responseData;
 }
 
 /**
