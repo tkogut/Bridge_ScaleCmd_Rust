@@ -1,0 +1,707 @@
+[2025-12-18T15:26:35Z INFO  scaleit_bridge] Starting ScaleIT Bridge v0.1.0
+[2025-12-18T15:26:35Z INFO  scaleit_bridge] Using config path: C:\ProgramData\ScaleCmdBridge\config\devices.json
+[2025-12-18T15:26:35Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: dfw (DFW - Dini Argeo)
+[2025-12-18T15:26:35Z INFO  scaleit_bridge::device_manager] Skipping disabled device dfw
+[2025-12-18T15:26:35Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320 (C320 Rinstrum)
+[2025-12-18T15:26:35Z INFO  scaleit_bridge::device_manager] Skipping disabled device c320
+[2025-12-18T15:26:35Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320tcp (C320 Rinstrum TCP)
+[2025-12-18T15:26:35Z INFO  scaleit_bridge] Configuration loaded successfully. Devices: ["dfw", "c320", "c320tcp"]
+[2025-12-18T15:26:35Z INFO  scaleit_bridge::device_manager] Attempting to connect to device: c320tcp
+[2025-12-18T15:26:35Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:26:36Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:26:36Z ERROR scaleit_bridge::device_manager] Failed to connect to device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:26:36Z INFO  scaleit_bridge] Server running on http://0.0.0.0:8080
+[2025-12-18T15:26:36Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T15:26:36Z INFO  scaleit_bridge] Log file: C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log
+[2025-12-18T15:26:36Z INFO  actix_server::builder] starting 8 workers
+[2025-12-18T15:26:36Z INFO  actix_server::server] Actix runtime found; starting in Actix runtime
+[2025-12-18T15:26:36Z INFO  actix_server::server] starting service: "actix-web-service-0.0.0.0:8080", workers: 8, listening on: 0.0.0.0:8080
+[2025-12-18T15:26:42Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:26:42Z INFO  scaleit_bridge] Received list devices request
+[2025-12-18T15:26:44Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:26:44Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:26:44Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:26:45Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:26:45Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:26:45Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:26:46Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:26:46Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:26:46Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:26:47Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:26:47Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:26:47Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:26:47Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:26:53Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:26:53Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:26:53Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readNet'
+[2025-12-18T15:26:53Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:26:54Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:26:54Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:26:54Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:26:58Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:27:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:27:27Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:29:07Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:45Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:48Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:49Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:50Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:51Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:51Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:53Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:53Z INFO  scaleit_bridge] Received list devices request
+[2025-12-18T15:31:56Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:31:56Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:31:56Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:31:57Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:31:57Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:31:57Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:31:58Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:31:59Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:31:59Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:31:59Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:32:00Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:32:00Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:32:00Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:32:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:32:04Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:32:04Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:32:04Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:32:05Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:32:05Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:32:05Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:32:08Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:32:13Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:32:19Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:32:24Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:32:45Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:32:50Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:32:55Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:32:59Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:33:04Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:33:10Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:33:15Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:33:20Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:33:25Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:33:31Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:33:36Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:36:41Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:36:44Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:36:44Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:36:44Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:36:45Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:36:45Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:36:45Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:36:46Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:36:47Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:36:47Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:36:47Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:36:48Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:36:48Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:36:48Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:36:49Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:36:49Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:36:49Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:36:50Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:36:50Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:36:50Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:36:51Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:37:07Z INFO  actix_server::server] SIGINT received; starting forced shutdown
+[2025-12-18T15:37:07Z INFO  actix_server::accept] accept thread stopped
+[2025-12-18T15:37:07Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:37:07Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:37:07Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:37:07Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:37:07Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:37:07Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:37:07Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:37:07Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:37:39Z INFO  scaleit_bridge] Starting ScaleIT Bridge v0.1.0
+[2025-12-18T15:37:39Z INFO  scaleit_bridge] Using config path: C:\ProgramData\ScaleCmdBridge\config\devices.json
+[2025-12-18T15:37:39Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: dfw (DFW - Dini Argeo)
+[2025-12-18T15:37:39Z INFO  scaleit_bridge::device_manager] Skipping disabled device dfw
+[2025-12-18T15:37:39Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320 (C320 Rinstrum)
+[2025-12-18T15:37:39Z INFO  scaleit_bridge::device_manager] Skipping disabled device c320
+[2025-12-18T15:37:39Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320tcp (C320 Rinstrum TCP)
+[2025-12-18T15:37:39Z INFO  scaleit_bridge] Configuration loaded successfully. Devices: ["dfw", "c320", "c320tcp"]
+[2025-12-18T15:37:39Z INFO  scaleit_bridge::device_manager] Attempting to connect to device: c320tcp
+[2025-12-18T15:37:39Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:37:40Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:37:40Z ERROR scaleit_bridge::device_manager] Failed to connect to device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:37:40Z INFO  scaleit_bridge] Server running on http://0.0.0.0:8080
+[2025-12-18T15:37:40Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T15:37:40Z INFO  scaleit_bridge] Log file: C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log
+[2025-12-18T15:37:40Z INFO  actix_server::builder] starting 8 workers
+[2025-12-18T15:37:40Z INFO  actix_server::server] Actix runtime found; starting in Actix runtime
+[2025-12-18T15:37:40Z INFO  actix_server::server] starting service: "actix-web-service-0.0.0.0:8080", workers: 8, listening on: 0.0.0.0:8080
+[2025-12-18T15:37:43Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:37:48Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:37:52Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:37:52Z INFO  scaleit_bridge] Received list devices request
+[2025-12-18T15:37:55Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:37:55Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:37:55Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:37:56Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:37:56Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:37:56Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:37:57Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:37:58Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:37:58Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:37:58Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:37:59Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:37:59Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:37:59Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:38:01Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:38:01Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readNet'
+[2025-12-18T15:38:01Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:38:02Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:38:02Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:38:02Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:38:02Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:38:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:39:38Z INFO  scaleit_bridge] Received list devices request
+[2025-12-18T15:45:58Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:14Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:19Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:24Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:30Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:35Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:40Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:45Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:45Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:46:45Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:46:45Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:46:46Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:46:46Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:46:46Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:46:50Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:56Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:46:58Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:46:58Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:46:58Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:46:59Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:46:59Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:46:59Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:47:01Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:06Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:07Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:47:07Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:47:07Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:47:08Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:47:08Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:47:08Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:47:11Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:16Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:21Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:47:21Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:47:21Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:47:22Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:47:22Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:47:22Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:47:22Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:27Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:32Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:37Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:43Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:43Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp
+[2025-12-18T15:47:43Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T15:47:43Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:47:44Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:47:44Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:47:44Z ERROR scaleit_bridge] Error executing command: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:47:48Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:53Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:47:58Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:48:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:48:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:48:14Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:48:19Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:48:24Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:48:29Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:48:35Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:52:39Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:52:45Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:52:50Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:52:55Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:00Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:06Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:11Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:16Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:21Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:27Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:32Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:37Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:42Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:47Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:53Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:53:58Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:08Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:14Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:19Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:24Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:29Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:35Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:40Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:45Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:50Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:54:55Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:01Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:06Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:11Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:16Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:22Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:27Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:32Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:37Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:43Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:48Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:53Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:55:58Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:00Z INFO  scaleit_bridge] Shutdown request received
+[2025-12-18T15:56:00Z INFO  scaleit_bridge] Initiating graceful shutdown...
+[2025-12-18T15:56:00Z INFO  scaleit_bridge::device_manager] Attempting to disconnect from device: c320tcp
+[2025-12-18T15:56:00Z WARN  scaleit_bridge::adapters::rinstrum] Attempted to disconnect device c320tcp which was not connected (TCP).
+[2025-12-18T15:56:00Z INFO  scaleit_bridge] All devices disconnected. Exiting.
+[2025-12-18T15:56:00Z INFO  scaleit_bridge] Starting ScaleIT Bridge v0.1.0
+[2025-12-18T15:56:00Z INFO  scaleit_bridge] Using config path: C:\ProgramData\ScaleCmdBridge\config\devices.json
+[2025-12-18T15:56:00Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: dfw (DFW - Dini Argeo)
+[2025-12-18T15:56:00Z INFO  scaleit_bridge::device_manager] Skipping disabled device dfw
+[2025-12-18T15:56:00Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320 (C320 Rinstrum)
+[2025-12-18T15:56:00Z INFO  scaleit_bridge::device_manager] Skipping disabled device c320
+[2025-12-18T15:56:00Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320tcp (C320 Rinstrum TCP)
+[2025-12-18T15:56:00Z INFO  scaleit_bridge] Configuration loaded successfully. Devices: ["dfw", "c320", "c320tcp"]
+[2025-12-18T15:56:00Z INFO  scaleit_bridge::device_manager] Attempting to connect to device: c320tcp
+[2025-12-18T15:56:00Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T15:56:01Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T15:56:01Z ERROR scaleit_bridge::device_manager] Failed to connect to device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T15:56:01Z INFO  scaleit_bridge] Server running on http://0.0.0.0:8080
+[2025-12-18T15:56:01Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T15:56:01Z INFO  scaleit_bridge] Log file: C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log
+[2025-12-18T15:56:01Z INFO  actix_server::builder] starting 8 workers
+[2025-12-18T15:56:01Z INFO  actix_server::server] Actix runtime found; starting in Actix runtime
+[2025-12-18T15:56:01Z INFO  actix_server::server] starting service: "actix-web-service-0.0.0.0:8080", workers: 8, listening on: 0.0.0.0:8080
+[2025-12-18T15:56:02Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:02Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:02Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:04Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:05Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:06Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:07Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:08Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:10Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:14Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:19Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:33Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T15:56:33Z INFO  actix_server::server] SIGINT received; starting forced shutdown
+[2025-12-18T15:56:33Z INFO  actix_server::accept] accept thread stopped
+[2025-12-18T15:56:33Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:56:33Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:56:33Z INFO  actix_server::worker] force shutdown worker, closing 1 connections
+[2025-12-18T15:56:33Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:56:33Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:56:33Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:56:33Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T15:56:33Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T16:16:21Z INFO  scaleit_bridge] Starting ScaleIT Bridge v0.1.0
+[2025-12-18T16:16:21Z INFO  scaleit_bridge] Using config path: C:\ProgramData\ScaleCmdBridge\config\devices.json
+[2025-12-18T16:16:21Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320 (C320 Rinstrum)
+[2025-12-18T16:16:21Z INFO  scaleit_bridge::device_manager] Skipping disabled device c320
+[2025-12-18T16:16:21Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: dfw (DFW - Dini Argeo)
+[2025-12-18T16:16:21Z INFO  scaleit_bridge::device_manager] Skipping disabled device dfw
+[2025-12-18T16:16:21Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320tcp (C320 Rinstrum TCP)
+[2025-12-18T16:16:21Z INFO  scaleit_bridge] Configuration loaded successfully. Devices: ["c320", "dfw", "c320tcp"]
+[2025-12-18T16:16:21Z INFO  scaleit_bridge::device_manager] Attempting to connect to device: c320tcp
+[2025-12-18T16:16:21Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T16:16:22Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T16:16:22Z ERROR scaleit_bridge::device_manager] Failed to connect to device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Server running on http://0.0.0.0:8080
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Log file: C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log
+[2025-12-18T16:16:22Z INFO  actix_server::builder] starting 8 workers
+[2025-12-18T16:16:22Z INFO  actix_server::server] Actix runtime found; starting in Actix runtime
+[2025-12-18T16:16:22Z INFO  actix_server::server] starting service: "actix-web-service-0.0.0.0:8080", workers: 8, listening on: 0.0.0.0:8080
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:22Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:16:30Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:16:30Z INFO  scaleit_bridge] Received list devices request
+[2025-12-18T16:16:32Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readGross
+[2025-12-18T16:16:32Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T16:16:32Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T16:16:33Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T16:16:33Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:33Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:34Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readGross
+[2025-12-18T16:16:34Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T16:16:34Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T16:16:35Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:16:35Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T16:16:35Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:35Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:41Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:16:41Z INFO  scaleit_bridge] Received list devices request
+[2025-12-18T16:16:45Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readGross
+[2025-12-18T16:16:45Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T16:16:45Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T16:16:46Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T16:16:46Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:46Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:46Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:16:50Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readNet
+[2025-12-18T16:16:50Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readNet'
+[2025-12-18T16:16:50Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T16:16:51Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T16:16:51Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:51Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:51Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:16:53Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: zero
+[2025-12-18T16:16:53Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'zero'
+[2025-12-18T16:16:53Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T16:16:54Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T16:16:54Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:54Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:16:56Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:02Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:12Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:18Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:23Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:28Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:33Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:39Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:44Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:49Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:54Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:17:59Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:05Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:10Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:15Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:20Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:25Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:31Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:36Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:41Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:46Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:51Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:18:56Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:01Z INFO  scaleit_bridge] Shutdown request received
+[2025-12-18T16:19:01Z INFO  scaleit_bridge] Initiating graceful shutdown...
+[2025-12-18T16:19:01Z INFO  scaleit_bridge::device_manager] Attempting to disconnect from device: c320tcp
+[2025-12-18T16:19:01Z WARN  scaleit_bridge::adapters::rinstrum] Attempted to disconnect device c320tcp which was not connected (TCP).
+[2025-12-18T16:19:01Z INFO  scaleit_bridge] All devices disconnected. Exiting.
+[2025-12-18T16:19:01Z INFO  scaleit_bridge] Starting ScaleIT Bridge v0.1.0
+[2025-12-18T16:19:01Z INFO  scaleit_bridge] Using config path: C:\ProgramData\ScaleCmdBridge\config\devices.json
+[2025-12-18T16:19:01Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: dfw (DFW - Dini Argeo)
+[2025-12-18T16:19:01Z INFO  scaleit_bridge::device_manager] Skipping disabled device dfw
+[2025-12-18T16:19:01Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320tcp (C320 Rinstrum TCP)
+[2025-12-18T16:19:01Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320 (C320 Rinstrum)
+[2025-12-18T16:19:01Z INFO  scaleit_bridge::device_manager] Skipping disabled device c320
+[2025-12-18T16:19:01Z INFO  scaleit_bridge] Configuration loaded successfully. Devices: ["dfw", "c320tcp", "c320"]
+[2025-12-18T16:19:01Z INFO  scaleit_bridge::device_manager] Attempting to connect to device: c320tcp
+[2025-12-18T16:19:01Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T16:19:02Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T16:19:02Z ERROR scaleit_bridge::device_manager] Failed to connect to device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Server running on http://0.0.0.0:8080
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Log file: C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log
+[2025-12-18T16:19:02Z INFO  actix_server::builder] starting 8 workers
+[2025-12-18T16:19:02Z INFO  actix_server::server] Actix runtime found; starting in Actix runtime
+[2025-12-18T16:19:02Z INFO  actix_server::server] starting service: "actix-web-service-0.0.0.0:8080", workers: 8, listening on: 0.0.0.0:8080
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T16:19:02Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:04Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:04Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:05Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:06Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:07Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:08Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:10Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:11Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:12Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:17Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:22Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:27Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:32Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: zero
+[2025-12-18T16:19:32Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'zero'
+[2025-12-18T16:19:32Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T16:19:33Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T16:19:33Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:19:33Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T16:19:33Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:38Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:43Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:48Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:54Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:19:59Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:04Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:14Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:20Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:25Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:30Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:35Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:40Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:46Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:51Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:20:56Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:01Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:07Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:12Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:17Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:22Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:28Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:33Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:38Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:43Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:49Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:54Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:21:59Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:22:04Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:22:10Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:22:15Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:22:20Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:22:25Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:22:31Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:29:53Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:29:53Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:29:59Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T16:30:36Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:13:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:13:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:28:06Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:28:06Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:32:30Z INFO  actix_server::server] SIGINT received; starting forced shutdown
+[2025-12-18T17:32:30Z INFO  actix_server::accept] accept thread stopped
+[2025-12-18T17:32:30Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:32:30Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:32:30Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:32:30Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:32:30Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:32:30Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:32:30Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:32:30Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:33:12Z INFO  scaleit_bridge] Starting ScaleIT Bridge v0.1.0
+[2025-12-18T17:33:12Z INFO  scaleit_bridge] Using config path: C:\ProgramData\ScaleCmdBridge\config\devices.json
+[2025-12-18T17:33:12Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: dfw (DFW - Dini Argeo)
+[2025-12-18T17:33:12Z INFO  scaleit_bridge::device_manager] Skipping disabled device dfw
+[2025-12-18T17:33:12Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320tcp (C320 Rinstrum TCP)
+[2025-12-18T17:33:12Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320 (C320 Rinstrum)
+[2025-12-18T17:33:12Z INFO  scaleit_bridge::device_manager] Skipping disabled device c320
+[2025-12-18T17:33:12Z INFO  scaleit_bridge] Configuration loaded successfully. Devices: ["dfw", "c320tcp", "c320"]
+[2025-12-18T17:33:12Z INFO  scaleit_bridge::device_manager] Attempting to connect to device: c320tcp
+[2025-12-18T17:33:12Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:33:13Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:33:13Z ERROR scaleit_bridge::device_manager] Failed to connect to device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Server running on http://0.0.0.0:8080
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Log file: C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log
+[2025-12-18T17:33:13Z INFO  actix_server::builder] starting 8 workers
+[2025-12-18T17:33:13Z INFO  actix_server::server] Actix runtime found; starting in Actix runtime
+[2025-12-18T17:33:13Z INFO  actix_server::server] starting service: "actix-web-service-0.0.0.0:8080", workers: 8, listening on: 0.0.0.0:8080
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:13Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:33:30Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:33:30Z INFO  scaleit_bridge] Received list devices request
+[2025-12-18T17:33:34Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readGross
+[2025-12-18T17:33:34Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T17:33:34Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:33:35Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:33:35Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:33:35Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:33:36Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:33:36Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readGross
+[2025-12-18T17:33:36Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T17:33:36Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:33:37Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:33:37Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:33:37Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:33:41Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:33:46Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:33:51Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:33:56Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:34:02Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:34:10Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:34:31Z INFO  scaleit_bridge] Received list devices request
+[2025-12-18T17:35:04Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readnet
+[2025-12-18T17:35:04Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readnet'
+[2025-12-18T17:35:04Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:35:05Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:35:05Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:05Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:08Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readnet
+[2025-12-18T17:35:08Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readnet'
+[2025-12-18T17:35:08Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:35:09Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:35:09Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:09Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:10Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readnet
+[2025-12-18T17:35:10Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readnet'
+[2025-12-18T17:35:10Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:35:11Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:35:11Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:11Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:13Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readnet
+[2025-12-18T17:35:13Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readnet'
+[2025-12-18T17:35:13Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:35:14Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:35:14Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:14Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:19Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readnet
+[2025-12-18T17:35:19Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readnet'
+[2025-12-18T17:35:19Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:35:20Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:35:20Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:20Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:34Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readgross
+[2025-12-18T17:35:34Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readgross'
+[2025-12-18T17:35:34Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:35:35Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:35:35Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:35Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:43Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readgross
+[2025-12-18T17:35:43Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readgross'
+[2025-12-18T17:35:43Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:35:44Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:35:44Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:35:44Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:36:58Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:08Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:13Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:18Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:24Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:28Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readGross
+[2025-12-18T17:37:28Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T17:37:28Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:37:29Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:29Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:37:29Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:37:29Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:37:34Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:39Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:45Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:50Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:37:55Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:00Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:05Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:11Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:16Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:21Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:26Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:31Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:36Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:42Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:47Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:52Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:38:57Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:39:03Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:39:08Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:39:13Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:39:18Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:39:23Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:39:29Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:39:34Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:39:40Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readgross
+[2025-12-18T17:39:40Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readgross'
+[2025-12-18T17:39:40Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:39:41Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:39:41Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:39:41Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:42:15Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:42:21Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:42:24Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:42:29Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readgross
+[2025-12-18T17:42:29Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readgross'
+[2025-12-18T17:42:29Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:42:30Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:42:30Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:42:30Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:42:30Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:42:35Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:42:40Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:44:49Z INFO  actix_server::server] SIGINT received; starting forced shutdown
+[2025-12-18T17:44:49Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:44:49Z INFO  actix_server::accept] accept thread stopped
+[2025-12-18T17:44:49Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:44:49Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:44:49Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:44:49Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:44:49Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:44:49Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:44:49Z INFO  actix_server::worker] shutting down idle worker
+[2025-12-18T17:53:44Z INFO  scaleit_bridge] Starting ScaleIT Bridge v0.1.0
+[2025-12-18T17:53:44Z INFO  scaleit_bridge] Using config path: C:\ProgramData\ScaleCmdBridge\config\devices.json
+[2025-12-18T17:53:44Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320tcp (C320 Rinstrum TCP)
+[2025-12-18T17:53:44Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: c320 (C320 Rinstrum)
+[2025-12-18T17:53:44Z INFO  scaleit_bridge::device_manager] Skipping disabled device c320
+[2025-12-18T17:53:44Z INFO  scaleit_bridge::device_manager] Initializing adapter for device: dfw (DFW - Dini Argeo)
+[2025-12-18T17:53:44Z INFO  scaleit_bridge::device_manager] Skipping disabled device dfw
+[2025-12-18T17:53:44Z INFO  scaleit_bridge] Configuration loaded successfully. Devices: ["c320tcp", "c320", "dfw"]
+[2025-12-18T17:53:44Z INFO  scaleit_bridge::device_manager] Attempting to connect to device: c320tcp
+[2025-12-18T17:53:44Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:53:45Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:53:45Z ERROR scaleit_bridge::device_manager] Failed to connect to device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Server running on http://0.0.0.0:8080
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Log file: C:\ProgramData\ScaleCmdBridge\logs\scaleit-bridge.log
+[2025-12-18T17:53:45Z INFO  actix_server::builder] starting 8 workers
+[2025-12-18T17:53:45Z INFO  actix_server::server] Actix runtime found; starting in Actix runtime
+[2025-12-18T17:53:45Z INFO  actix_server::server] starting service: "actix-web-service-0.0.0.0:8080", workers: 8, listening on: 0.0.0.0:8080
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:45Z INFO  scaleit_bridge] Serving static files from: C:\Program Files\ScaleCmdBridge\web
+[2025-12-18T17:53:49Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:53:54Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:53:59Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:53:59Z INFO  scaleit_bridge] Received scalecmd request for device: c320tcp, command: readGross
+[2025-12-18T17:53:59Z WARN  scaleit_bridge::adapters::rinstrum] Device c320tcp not connected, attempting to reconnect for command 'readGross'
+[2025-12-18T17:53:59Z INFO  scaleit_bridge::adapters::rinstrum] Attempting to connect to Rinstrum C320 at 192.168.1.254:4001 (TCP)
+[2025-12-18T17:54:00Z ERROR scaleit_bridge::adapters::rinstrum] Connection timeout to 192.168.1.254:4001 for device c320tcp
+[2025-12-18T17:54:00Z ERROR scaleit_bridge::device_manager] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:54:00Z ERROR scaleit_bridge] Error executing command for device c320tcp: Timeout("Connection timeout after 1000ms")
+[2025-12-18T17:54:04Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:09Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:14Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:20Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:25Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:30Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:35Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:41Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:46Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:51Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:54:56Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:55:01Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:55:07Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:55:12Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:55:17Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:55:22Z INFO  scaleit_bridge] Received health check request
+[2025-12-18T17:55:27Z INFO  scaleit_bridge] Received health check request
