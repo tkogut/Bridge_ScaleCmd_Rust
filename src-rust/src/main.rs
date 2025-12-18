@@ -77,15 +77,28 @@ async fn handle_scalecmd(
     req_body: web::Json<ScaleCommandRequest>,
     state: Data<AppState>,
 ) -> impl Responder {
-    let request = req_body.into_inner();
+    let request = match req_body.into_inner() {
+        req if req.device_id.is_empty() => {
+            error!("Received scalecmd request with empty device_id");
+            return HttpResponse::BadRequest().json(json!({
+                "success": false,
+                "error": "device_id is required"
+            }));
+        }
+        req => req
+    };
+    
     let device_id = request.device_id.clone();
     let command = request.command.clone();
-    info!("Received scalecmd request for device: {}", device_id);
+    info!("Received scalecmd request for device: {}, command: {}", device_id, command);
 
     match state.device_manager.execute_command(request).await {
-        Ok(response) => HttpResponse::Ok().json(response),
+        Ok(response) => {
+            info!("Command executed successfully for device: {}", device_id);
+            HttpResponse::Ok().json(response)
+        },
         Err(e) => {
-            error!("Error executing command: {:?}", e);
+            error!("Error executing command for device {}: {:?}", device_id, e);
             bridge_error_response(Some(device_id), Some(command), e)
         }
     }
@@ -279,8 +292,23 @@ async fn start_server() -> impl Responder {
 
 // Default handler for SPA routing - serves index.html for non-API routes
 async fn default_handler() -> impl Responder {
-    let web_path = std::env::var("WEB_PATH")
-        .unwrap_or_else(|_| "dist".to_string());
+    // Use the same path resolution logic as main()
+    let web_path = if cfg!(windows) {
+        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| String::new());
+        if !program_files.is_empty() {
+            let program_files_web = format!("{}\\ScaleCmdBridge\\web", program_files);
+            if std::path::Path::new(&program_files_web).exists() {
+                program_files_web
+            } else {
+                std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
+            }
+        } else {
+            std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
+        }
+    } else {
+        std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
+    };
+    
     let index_path = std::path::Path::new(&web_path).join("index.html");
     
     if index_path.exists() {
@@ -288,13 +316,17 @@ async fn default_handler() -> impl Responder {
             Ok(content) => HttpResponse::Ok()
                 .content_type("text/html")
                 .body(content),
-            Err(_) => HttpResponse::NotFound().json(json!({
-                "error": "index.html not found"
-            })),
+            Err(e) => {
+                error!("Failed to read index.html from {}: {}", index_path.display(), e);
+                HttpResponse::NotFound().json(json!({
+                    "error": format!("index.html not readable: {}", e)
+                }))
+            },
         }
     } else {
+        warn!("Frontend index.html not found at: {}", index_path.display());
         HttpResponse::NotFound().json(json!({
-            "error": "Frontend not found. Please build the frontend first."
+            "error": format!("Frontend not found at {}. Please build the frontend first.", index_path.display())
         }))
     }
 }
@@ -452,11 +484,14 @@ async fn main() -> std::io::Result<()> {
         // Serve static files if directory exists
         // Check if web directory exists
         if std::path::Path::new(&web_path_clone).exists() {
+            info!("Serving static files from: {}", web_path_clone);
             app = app.service(
                 Files::new("/", &web_path_clone)
                     .index_file("index.html")
                     .default_handler(web::route().to(default_handler))
             );
+        } else {
+            warn!("Static files directory not found at: {}. Frontend will not be available.", web_path_clone);
         }
         
         app
