@@ -61,7 +61,6 @@ async fn health_check() -> impl Responder {
             version: env!("CARGO_PKG_VERSION").to_string(),
         })
 }
-}
 
 #[get("/devices")]
 async fn list_devices(state: Data<AppState>) -> impl Responder {
