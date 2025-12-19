@@ -11,10 +11,11 @@ on:
     - cron: '0 2 * * *'
 
 env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
-  NODE_VERSION: '18'
-  RUST_VERSION: '1.75'
+    CARGO_TERM_COLOR: always
+    RUST_BACKTRACE: 1
+    NODE_VERSION: '18'
+    RUST_VERSION: '1.75'
+    PNPM_VERSION: '10.24.0'
 
 jobs:
   # Code quality and linting
@@ -25,11 +26,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -43,10 +49,10 @@ jobs:
           workspaces: src-rust
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Lint frontend
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Check Rust formatting
         run: cd src-rust && cargo fmt -- --check
@@ -56,7 +62,7 @@ jobs:
 
       - name: Check for security vulnerabilities
         run: |
-          npm audit --audit-level high
+          pnpm audit --audit-level high
           cd src-rust && cargo audit || echo "cargo-audit not installed"
 
   # Backend testing
@@ -110,20 +116,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
-        run: npm run test:run
+        run: pnpm run test:run
 
       - name: Run tests with coverage
-        run: npm run test:coverage
+        run: pnpm run test:coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -140,11 +151,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -157,13 +173,13 @@ jobs:
           workspaces: src-rust
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: pnpm exec playwright install --with-deps
 
       - name: Build frontend
-        run: npm run build
+        run: pnpm run build
 
       - name: Build backend
         run: |
@@ -186,7 +202,7 @@ jobs:
           RUST_LOG: info
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: pnpm run test:e2e
 
       - name: Upload E2E test results
         uses: actions/upload-artifact@v4
@@ -217,16 +233,22 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-      - name: Setup Node.js for npm audit
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js for pnpm audit
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
-      - name: Run npm audit
-        run: npm audit --audit-level high
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level high
 
   # Build and package
   build:
@@ -243,11 +265,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -267,10 +294,10 @@ jobs:
           sudo apt-get install -y mingw-w64
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build frontend
-        run: npm run build
+        run: pnpm run build
 
       - name: Build backend
         run: |
@@ -420,17 +447,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run Lighthouse CI
         run: |
-          npm install -g @lhci/cli@0.12.x
+          pnpm add -g @lhci/cli@0.12.x
           lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
