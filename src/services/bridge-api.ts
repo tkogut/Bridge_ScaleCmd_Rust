@@ -7,7 +7,11 @@ import {
   DeviceConfig,
 } from "@/types/api";
 
-const BRIDGE_URL = "http://localhost:8080";
+const BRIDGE_URL =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (import.meta as any).env?.VITE_BRIDGE_URL || 
+  (import.meta as any).env?.VITE_API_URL || 
+  "http://localhost:8080";
 
 /**
  * Wykonuje komendę na wadze.
