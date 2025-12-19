@@ -7,7 +7,24 @@ import {
   DeviceConfig,
 } from "@/types/api";
 
-const BRIDGE_URL = "http://localhost:8080";
+// Use IP address or environment variable to avoid ERR_BLOCKED_BY_CLIENT
+// when accessing from Vercel (HTTPS) or other external sources
+// For local development: use 127.0.0.1 or localhost
+// For Vercel/external: use your computer's IP (e.g., http://192.168.1.100:8080)
+// Set VITE_BRIDGE_URL environment variable in Vercel to override
+const getBridgeUrl = () => {
+  // Try environment variable first (for Vercel deployment)
+  const envUrl = (import.meta as any).env?.VITE_BRIDGE_URL || 
+                 (import.meta as any).env?.VITE_API_URL;
+  if (envUrl) return envUrl;
+  
+  // Use 127.0.0.1 instead of localhost to avoid some browser blocking issues
+  // For Vercel/external access, set VITE_BRIDGE_URL=http://YOUR_IP:8080
+  // Your IP addresses: 192.168.1.100 or 192.168.1.50
+  return "http://127.0.0.1:8080";
+};
+
+const BRIDGE_URL = getBridgeUrl();
 
 /**
  * Wykonuje komendę na wadze.
