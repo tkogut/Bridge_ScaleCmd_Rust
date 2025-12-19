@@ -281,13 +281,9 @@ jobs:
         run: |
           mkdir -p release/scaleit-bridge-${{ matrix.target }}
           cp -r dist release/scaleit-bridge-${{ matrix.target }}/web
-          cp -r src-rust/config release/scaleit-bridge-${{ matrix.target }}/config
-          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-            cp src-rust/target/${{ matrix.target }}/release/scaleit-bridge.exe release/scaleit-bridge-${{ matrix.target }}/ || true
-          else
-            cp src-rust/target/${{ matrix.target }}/release/scaleit-bridge release/scaleit-bridge-${{ matrix.target }}/ || true
-          fi
-          cp README.md LICENSE.md release/scaleit-bridge-${{ matrix.target }}/ || true
+          cp -r config release/scaleit-bridge-${{ matrix.target }}/
+          cp src-rust/target/${{ matrix.target }}/release/scaleit-bridge* release/scaleit-bridge-${{ matrix.target }}/
+          cp README.md LICENSE.md release/scaleit-bridge-${{ matrix.target }}/
 
           # Create platform-specific package
           cd release
