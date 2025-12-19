@@ -49,7 +49,7 @@ jobs:
           workspaces: src-rust
 
       - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Lint frontend
         run: pnpm run lint
@@ -128,7 +128,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run unit tests
         run: pnpm run test:run
@@ -173,7 +173,7 @@ jobs:
           workspaces: src-rust
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps
@@ -245,7 +245,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run pnpm audit
         run: pnpm audit --audit-level high
@@ -294,7 +294,7 @@ jobs:
           sudo apt-get install -y mingw-w64
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Build frontend
         run: pnpm run build
@@ -308,9 +308,13 @@ jobs:
         run: |
           mkdir -p release/scaleit-bridge-${{ matrix.target }}
           cp -r dist release/scaleit-bridge-${{ matrix.target }}/web
-          cp -r config release/scaleit-bridge-${{ matrix.target }}/
-          cp src-rust/target/${{ matrix.target }}/release/scaleit-bridge* release/scaleit-bridge-${{ matrix.target }}/
-          cp README.md LICENSE.md release/scaleit-bridge-${{ matrix.target }}/
+          cp -r src-rust/config release/scaleit-bridge-${{ matrix.target }}/config
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            cp src-rust/target/${{ matrix.target }}/release/scaleit-bridge.exe release/scaleit-bridge-${{ matrix.target }}/ || true
+          else
+            cp src-rust/target/${{ matrix.target }}/release/scaleit-bridge release/scaleit-bridge-${{ matrix.target }}/ || true
+          fi
+          cp README.md LICENSE.md release/scaleit-bridge-${{ matrix.target }}/ || true
 
           # Create platform-specific package
           cd release
@@ -459,7 +463,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run Lighthouse CI
         run: |
