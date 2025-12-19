@@ -575,8 +575,8 @@ impl DeviceAdapter for DiniArgeoAsciiAdapter {
             .find(|(k, _)| k.to_lowercase() == command_lower)
             .map(|(_, v)| v.as_str())
             .ok_or_else(|| {
-                BridgeError::InvalidCommand(format!("Unknown ASCII command: {}", command))
-            })?;
+            BridgeError::InvalidCommand(format!("Unknown ASCII command: {}", command))
+        })?;
 
         let response = self.send_command_and_read_response(command_str).await?;
         let (value, unit, is_stable) = self.parse_weight_from_response(&response)?;

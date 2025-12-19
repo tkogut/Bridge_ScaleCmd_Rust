@@ -86,14 +86,14 @@ fn serial_connection_strategy() -> impl Strategy<Value = ConnectionConfig> {
     )
         .prop_map(
             |(port, baud_rate, data_bits, stop_bits, parity, flow_control)| {
-                ConnectionConfig::Serial {
+            ConnectionConfig::Serial {
                     port,
-                    baud_rate,
-                    data_bits,
-                    stop_bits,
-                    parity,
-                    flow_control,
-                }
+                baud_rate,
+                data_bits,
+                stop_bits,
+                parity,
+                flow_control,
+            }
             },
         )
 }
@@ -124,14 +124,14 @@ fn device_config_strategy() -> impl Strategy<Value = DeviceConfig> {
         .prop_map(
             |(name, manufacturer, model, protocol, connection, commands, timeout_ms, enabled)| {
                 DeviceConfig {
-                    name,
-                    manufacturer,
-                    model,
-                    protocol,
-                    connection,
-                    timeout_ms,
-                    commands,
-                    enabled,
+                name,
+                manufacturer,
+                model,
+                protocol,
+                connection,
+                timeout_ms,
+                commands,
+                enabled,
                 }
             },
         )
@@ -155,11 +155,11 @@ fn weight_reading_strategy() -> impl Strategy<Value = WeightReading> {
         })
         .prop_map(
             |(gross_weight, net_weight, unit, is_stable, timestamp)| WeightReading {
-                gross_weight,
-                net_weight,
-                unit,
-                is_stable,
-                timestamp,
+            gross_weight,
+            net_weight,
+            unit,
+            is_stable,
+            timestamp,
             },
         )
 }
