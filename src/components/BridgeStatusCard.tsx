@@ -152,6 +152,8 @@ const BridgeStatusCard = () => {
         return { text: "Running", color: "bg-green-500 hover:bg-green-600" };
       case "STOPPED":
         return { text: "Stopped", color: "bg-gray-500 hover:bg-gray-600" };
+      case "BLOCKED":
+        return { text: "Blocked", color: "bg-yellow-500 hover:bg-yellow-600" };
       case "ERROR":
         return { text: "Error", color: "bg-red-500 hover:bg-red-600" };
       default:
@@ -184,16 +186,52 @@ const BridgeStatusCard = () => {
         {error && (
           <div className="space-y-2">
             <div className="text-sm text-destructive">
-              Connection Error: Cannot reach Bridge API at http://localhost:8080.
+              Connection Error: Cannot reach Bridge API at http://127.0.0.1:8080.
             </div>
-            <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-              <strong>Server is stopped.</strong> To start it manually:
-              <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>From project root: <code className="bg-background px-1 rounded">.\run-backend.ps1</code></li>
-                <li>From src-rust: <code className="bg-background px-1 rounded">cargo run</code></li>
-                <li>Or run executable: <code className="bg-background px-1 rounded">.\src-rust\target\release\scaleit-bridge.exe</code></li>
-              </ul>
-            </div>
+            
+            {/* Detect Mixed Content / Browser Blocking */}
+            {(
+              (error as any)?.message?.includes("Failed to fetch") ||
+              (error as any)?.message?.includes("ERR_BLOCKED_BY_CLIENT") ||
+              (error as any)?.message?.includes("NetworkError") ||
+              (error as any)?.message?.includes("Network request failed")
+            ) && window.location.protocol === "https:" ? (
+              <div className="text-xs bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded">
+                <strong className="text-yellow-800 dark:text-yellow-200">⚠️ Mixed Content Blocked</strong>
+                <p className="mt-1 text-yellow-700 dark:text-yellow-300">
+                  Twoja przeglądarka blokuje połączenie z HTTP (localhost) z HTTPS strony. Zezwól na komunikację:
+                </p>
+                <div className="mt-2 space-y-1 text-yellow-700 dark:text-yellow-300">
+                  <p><strong>Chrome/Edge:</strong></p>
+                  <ul className="list-disc list-inside ml-2 space-y-0.5">
+                    <li>Kliknij ikonę kłódki w pasku adresu</li>
+                    <li>Wybierz "Ustawienia witryny" → "Zezwól na niebezpieczne treści"</li>
+                    <li>Lub kliknij "Zezwól" w dialogu, który się pojawił</li>
+                  </ul>
+                  <p className="mt-2"><strong>Brave:</strong></p>
+                  <ul className="list-disc list-inside ml-2 space-y-0.5">
+                    <li>Kliknij ikonę tarczy (Shields) obok paska adresu</li>
+                    <li>Przełącz "Shields" na "Wyłączone" dla tej witryny</li>
+                    <li>Lub przejdź do: <code className="bg-yellow-100 dark:bg-yellow-900 px-1 rounded">brave://settings/content</code></li>
+                    <li>Dodaj wyjątek dla localhost w sekcji "Dodatkowe uprawnienia"</li>
+                  </ul>
+                  <p className="mt-2"><strong>Firefox:</strong></p>
+                  <ul className="list-disc list-inside ml-2 space-y-0.5">
+                    <li>Kliknij ikonę kłódki w pasku adresu</li>
+                    <li>Kliknij "Wyłącz ochronę na tej stronie"</li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                <strong>Server is stopped.</strong> To start it manually:
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>From project root: <code className="bg-background px-1 rounded">.\run-backend.ps1</code></li>
+                  <li>From src-rust: <code className="bg-background px-1 rounded">cargo run</code></li>
+                  <li>Or run executable: <code className="bg-background px-1 rounded">.\src-rust\target\release\scaleit-bridge.exe</code></li>
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

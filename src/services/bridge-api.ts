@@ -65,7 +65,11 @@ export async function executeScaleCommand(
 
     if (!response.ok) {
       // If response has error details, use them
-      const errorMessage = responseData.error || responseData.message || `HTTP error! status: ${response.status}`;
+      const errorMessage = responseData.error || 
+                           (typeof responseData.result === 'object' && responseData.result !== null && 'message' in responseData.result 
+                             ? (responseData.result as { message: string }).message 
+                             : null) ||
+                           `HTTP error! status: ${response.status}`;
       throw new Error(errorMessage);
     }
 
@@ -121,16 +125,23 @@ export async function getHealth(): Promise<HealthResponse> {
 
     return response.json();
   } catch (error) {
-    // Network error or timeout - server is likely stopped
+    // Network error or timeout - server is likely stopped or blocked
     if (
       error instanceof Error &&
       (error.name === "AbortError" ||
         error.message.includes("Failed to fetch") ||
         error.message.includes("NetworkError") ||
-        error.message.includes("Network request failed"))
+        error.message.includes("Network request failed") ||
+        error.message.includes("ERR_BLOCKED_BY_CLIENT") ||
+        error.message.includes("ERR_CONNECTION_REFUSED"))
     ) {
+      // Check if it's a Mixed Content issue (HTTPS trying to connect to HTTP)
+      const isMixedContent = window.location.protocol === "https:" && 
+                            (error.message.includes("Failed to fetch") || 
+                             error.message.includes("ERR_BLOCKED_BY_CLIENT"));
+      
       return {
-        status: "STOPPED",
+        status: isMixedContent ? "BLOCKED" : "STOPPED",
         service: "ScaleIT Bridge",
         version: "N/A",
       };
