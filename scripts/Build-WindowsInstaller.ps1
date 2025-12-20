@@ -366,15 +366,17 @@ if (-not $SkipInstaller) {
         exit 1
     }
     
-    # Build installer filename with version and branch
+    # Build installer filename with version and branch (same as in ISS file)
     $versionSuffix = "-v$Version"
     $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
     $installerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
     
-    # Check if installer was created with default name (before renaming)
-    $defaultInstallerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
-    if (Test-Path $defaultInstallerPath) {
-        if ($defaultInstallerPath -ne $installerPath) {
+    # Inno Setup should have created the file with the name from OutputBaseFilename
+    # Check if installer was created with the expected name
+    if (-not (Test-Path $installerPath)) {
+        # Check if installer was created with default name (fallback)
+        $defaultInstallerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
+        if (Test-Path $defaultInstallerPath) {
             # Check if target file already exists (preserve old versions)
             if (Test-Path $installerPath) {
                 # Add timestamp to make filename unique
@@ -386,6 +388,11 @@ if (-not $SkipInstaller) {
             # Rename to include version and branch (don't overwrite existing files)
             Move-Item $defaultInstallerPath $installerPath -Force
             Write-Host "  [OK] Installer renamed to include version and branch" -ForegroundColor Green
+        } else {
+            Write-Host "ERROR: Installer file not found after compilation!" -ForegroundColor Red
+            Write-Host "  Expected: $installerPath" -ForegroundColor Red
+            Write-Host "  Or default: $defaultInstallerPath" -ForegroundColor Red
+            exit 1
         }
     }
     
