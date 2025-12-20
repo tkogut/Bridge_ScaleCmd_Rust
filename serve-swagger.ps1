@@ -32,14 +32,16 @@ if ($httpServer) {
     Write-Host "Using http-server..." -ForegroundColor Green
     Write-Host "Opening browser at http://localhost:$Port/swagger-ui.html" -ForegroundColor Cyan
     Write-Host ""
+    Start-Sleep -Seconds 2
     Start-Process "http://localhost:$Port/swagger-ui.html"
-    http-server -p $Port -c-1
+    http-server . -p $Port -c-1
 } elseif ($npx) {
     Write-Host "Using npx http-server..." -ForegroundColor Green
     Write-Host "Opening browser at http://localhost:$Port/swagger-ui.html" -ForegroundColor Cyan
     Write-Host ""
+    Start-Sleep -Seconds 2
     Start-Process "http://localhost:$Port/swagger-ui.html"
-    npx -y http-server@latest -p $Port -c-1
+    npx -y http-server@latest . -p $Port -c-1
 } else {
     Write-Host "Error: Neither http-server nor npx found!" -ForegroundColor Red
     Write-Host ""
