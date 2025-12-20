@@ -341,10 +341,11 @@ if (-not $SkipInstaller) {
         Write-Host "  [INFO] Installer with same name exists, adding timestamp to preserve old version" -ForegroundColor Yellow
     }
     
-    $oldOutputBase = 'OutputBaseFilename=ScaleCmdBridge-Setup-x64'
+    # Replace OutputBaseFilename - handle both old default name and any existing versioned name
+    $oldOutputBasePattern = 'OutputBaseFilename=ScaleCmdBridge-Setup-x64[^\r\n]*'
     $newOutputBase = "OutputBaseFilename=$installerBaseName"
     if ($issContent -notmatch [regex]::Escape($newOutputBase)) {
-        $issContent = $issContent -replace [regex]::Escape($oldOutputBase), $newOutputBase
+        $issContent = $issContent -replace $oldOutputBasePattern, $newOutputBase
     }
     
     # Save updated ISS file
