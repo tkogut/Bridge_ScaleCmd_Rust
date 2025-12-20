@@ -3,12 +3,12 @@
 use crate::error::MiernikError;
 use crate::models::WeightReading;
 use async_trait::async_trait;
-use scaleit_host::{CommandExecutor, Connection, HostError, Protocol};
+use scaleit_host::{CommandExecutor, Connection, Protocol};
 use std::sync::Arc;
 
 /// Device adapter trait
 #[async_trait]
-pub trait DeviceAdapter: Send + Sync {
+pub trait DeviceAdapter: Send + Sync + std::fmt::Debug {
     /// Connect to device
     async fn connect(&self) -> Result<(), MiernikError>;
 
@@ -23,6 +23,7 @@ pub trait DeviceAdapter: Send + Sync {
 }
 
 /// Device implementation
+#[derive(Debug)]
 pub struct Device {
     device_id: String,
     connection: Arc<Connection>,
@@ -95,22 +96,17 @@ impl DeviceAdapter for Device {
             .map_err(|e| MiernikError::HostError(format!("{}", e)))?;
 
         // Parse response based on protocol
-        self.parse_response(&response)
-    }
-
-    /// Parse response based on protocol
-    fn parse_response(&self, response: &str) -> Result<WeightReading, MiernikError> {
         match self.protocol {
             scaleit_host::Protocol::Rincmd => {
-                crate::parsers::parse_rincmd_response(response)
+                crate::parsers::parse_rincmd_response(&response)
             }
             scaleit_host::Protocol::DiniAscii => {
-                crate::parsers::parse_dini_ascii_response(response)
+                crate::parsers::parse_dini_ascii_response(&response)
             }
             scaleit_host::Protocol::Custom(_) => {
                 // Try RINCMD first, then Dini
-                crate::parsers::parse_rincmd_response(response)
-                    .or_else(|_| crate::parsers::parse_dini_ascii_response(response))
+                crate::parsers::parse_rincmd_response(&response)
+                    .or_else(|_| crate::parsers::parse_dini_ascii_response(&response))
             }
         }
     }

@@ -1,7 +1,5 @@
 //! Protocol definitions and handlers
 
-use crate::error::HostError;
-
 /// Protocol type
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Protocol {

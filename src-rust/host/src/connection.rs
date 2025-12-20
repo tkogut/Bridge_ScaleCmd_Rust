@@ -1,17 +1,16 @@
 //! Connection management for TCP and Serial connections
 
 use crate::error::HostError;
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use parking_lot::{Mutex, RwLock};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::{timeout, Duration as TokioDuration};
 
 /// Connection type (TCP or Serial)
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum ConnectionType {
     Tcp {
         host: String,
@@ -27,6 +26,37 @@ pub enum ConnectionType {
         flow_control: serialport::FlowControl,
         connection: Arc<Mutex<Option<Box<dyn serialport::SerialPort + Send>>>>,
     },
+}
+
+impl std::fmt::Debug for ConnectionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConnectionType::Tcp { host, port, .. } => {
+                f.debug_struct("Tcp")
+                    .field("host", host)
+                    .field("port", port)
+                    .finish()
+            }
+            ConnectionType::Serial {
+                port_path,
+                baud_rate,
+                data_bits,
+                stop_bits,
+                parity,
+                flow_control,
+                ..
+            } => {
+                f.debug_struct("Serial")
+                    .field("port_path", port_path)
+                    .field("baud_rate", baud_rate)
+                    .field("data_bits", data_bits)
+                    .field("stop_bits", stop_bits)
+                    .field("parity", parity)
+                    .field("flow_control", flow_control)
+                    .finish()
+            }
+        }
+    }
 }
 
 /// Connection configuration

@@ -11,6 +11,7 @@ use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration as TokioDuration};
 
 /// Command executor for sending commands and receiving responses
+#[derive(Debug)]
 pub struct CommandExecutor {
     connection: Arc<Connection>,
     protocol: Protocol,
@@ -44,7 +45,7 @@ impl CommandExecutor {
         stream: &Arc<parking_lot::RwLock<Option<TcpStream>>>,
         command: &str,
     ) -> Result<String, HostError> {
-        let mut conn_opt = {
+        let conn_opt = {
             let mut guard = stream.write();
             guard.take()
         };

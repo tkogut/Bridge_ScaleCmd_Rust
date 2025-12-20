@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Rinstrum C320 device
+#[derive(Debug)]
 pub struct RinstrumC320 {
     device: Device,
 }
@@ -53,6 +54,7 @@ impl DeviceAdapter for RinstrumC320 {
 }
 
 /// Dini Argeo DFW device
+#[derive(Debug)]
 pub struct DiniArgeoDFW {
     device: Device,
 }

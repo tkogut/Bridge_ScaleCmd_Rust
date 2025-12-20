@@ -10,7 +10,7 @@ use crate::error::BridgeError;
 use crate::models::device::{AppConfig, DeviceConfig};
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
 use scaleit_host::{Connection, Protocol};
-use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW};
+use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW, MiernikError};
 
 #[derive(Debug)]
 pub struct DeviceManager {
@@ -82,6 +82,7 @@ impl DeviceManager {
             adapters_guard
                 .get(&request.device_id)
                 .ok_or_else(|| BridgeError::DeviceNotFound(request.device_id.clone()))?
+                .clone()
         };
 
         match adapter.execute_command(&request.command).await {
@@ -170,17 +171,20 @@ impl DeviceManager {
         let devices_snapshot = self.devices.read().clone();
         let new_adapters = Self::build_adapters(&devices_snapshot)?;
 
-        let old_adapters = {
-            let mut adapters_guard = self.adapters.write();
-            let old = adapters_guard.clone();
-            *adapters_guard = new_adapters;
-            old
-        };
-
-        for adapter in old_adapters.values() {
-            if let Err(e) = adapter.disconnect().await {
-                warn!("Failed to disconnect adapter during reload: {:?}", e);
+        // Disconnect old adapters before replacing
+        {
+            let old_adapters = self.adapters.read();
+            for adapter in old_adapters.values() {
+                if let Err(e) = adapter.disconnect().await {
+                    warn!("Failed to disconnect adapter during reload: {:?}", e);
+                }
             }
+        }
+
+        // Replace adapters
+        {
+            let mut adapters_guard = self.adapters.write();
+            *adapters_guard = new_adapters;
         }
 
         self.connect_all_devices().await;
@@ -207,20 +211,30 @@ impl DeviceManager {
             let connection = Self::convert_connection(device_config)?;
             let connection_arc = Arc::new(connection);
 
+            // Convert DeviceConfig to scaleit_miernik::DeviceConfig
+            let miernik_config = scaleit_miernik::DeviceConfig {
+                name: device_config.name.clone(),
+                manufacturer: device_config.manufacturer.clone(),
+                model: device_config.model.clone(),
+                protocol: device_config.protocol.clone(),
+                commands: device_config.commands.clone(),
+                enabled: device_config.enabled,
+            };
+
             let adapter: Arc<dyn DeviceAdapter + Send + Sync> = match protocol {
                 Protocol::Rincmd => {
                     Arc::new(RinstrumC320::from_config(
                         device_id.clone(),
-                        device_config,
+                        &miernik_config,
                         connection_arc,
-                    )?)
+                    ).map_err(|e| BridgeError::ConfigurationError(format!("{}", e)))?)
                 }
                 Protocol::DiniAscii => {
                     Arc::new(DiniArgeoDFW::from_config(
                         device_id.clone(),
-                        device_config,
+                        &miernik_config,
                         connection_arc,
-                    )?)
+                    ).map_err(|e| BridgeError::ConfigurationError(format!("{}", e)))?)
                 }
                 Protocol::Custom(_) => {
                     error!(
