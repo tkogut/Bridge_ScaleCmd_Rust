@@ -321,14 +321,19 @@ if (-not $SkipInstaller) {
     Write-Host "Using Inno Setup: $iscc" -ForegroundColor Gray
     Write-Host "Compiling installer..." -ForegroundColor Gray
     
-    # Update version in ISS file if needed
+    # Read ISS file
     $issContent = Get-Content $issFile -Raw
+    
+    # First, restore default OutputBaseFilename to avoid accumulation
+    $issContent = $issContent -replace 'OutputBaseFilename=ScaleCmdBridge-Setup-x64[^\r\n]*', 'OutputBaseFilename=ScaleCmdBridge-Setup-x64'
+    
+    # Update version in ISS file if needed
     $versionPattern = 'MyAppVersion "' + $Version + '"'
     if ($issContent -notmatch [regex]::Escape($versionPattern)) {
         $issContent = $issContent -replace 'MyAppVersion "([^"]+)"', ('MyAppVersion "' + $Version + '"')
     }
     
-    # Update OutputBaseFilename with version and branch
+    # Build installer filename with version and branch
     $versionSuffix = "-v$Version"
     $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
     
@@ -341,12 +346,9 @@ if (-not $SkipInstaller) {
         Write-Host "  [INFO] Installer with same name exists, adding timestamp to preserve old version" -ForegroundColor Yellow
     }
     
-    # Replace OutputBaseFilename - handle both old default name and any existing versioned name
-    $oldOutputBasePattern = 'OutputBaseFilename=ScaleCmdBridge-Setup-x64[^\r\n]*'
+    # Update OutputBaseFilename with the final name
     $newOutputBase = "OutputBaseFilename=$installerBaseName"
-    if ($issContent -notmatch [regex]::Escape($newOutputBase)) {
-        $issContent = $issContent -replace $oldOutputBasePattern, $newOutputBase
-    }
+    $issContent = $issContent -replace 'OutputBaseFilename=ScaleCmdBridge-Setup-x64[^\r\n]*', $newOutputBase
     
     # Save updated ISS file
     Set-Content $issFile $issContent -NoNewline
