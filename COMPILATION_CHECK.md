@@ -79,14 +79,35 @@ Problem z kompilacją wynika z braku `dlltool.exe` w toolchain MinGW, co jest pr
 2. **Lub użyć MSVC toolchain** - jeśli dostępny
 3. **Lub sprawdzić kompilację na innym systemie** - Linux/Mac
 
-### Alternatywne sprawdzenie
+### Rozwiązanie problemu z toolchain
+
+**Problem:** Błąd `dlltool.exe: program not found` występuje, gdy `cargo check` jest uruchamiane bez skonfigurowanego środowiska MinGW.
+
+**Rozwiązanie:** Użyj skryptu `check-workspace.ps1`, który automatycznie konfiguruje środowisko:
+
+```powershell
+.\check-workspace.ps1
+```
+
+Skrypt:
+1. Konfiguruje PATH z `$mingwCrossBinPath` (gdzie jest `dlltool.exe`)
+2. Ustawia zmienne środowiskowe (CC, AR, RANLIB, LINKER)
+3. Weryfikuje dostępność narzędzi
+4. Uruchamia `cargo check --workspace`
+
+**Kluczowe ustawienia:**
+- `dlltool.exe` jest w `D:\msys64\mingw64\x86_64-w64-mingw32\bin`
+- PATH musi zawierać tę ścieżkę (cross path przed bin path)
+- `AR` i `RANLIB` też są w cross path
+
+**Alternatywne sprawdzenie:**
 
 Można sprawdzić składnię bez kompilacji:
 ```bash
 cargo check --message-format=short 2>&1 | grep -E "error\[|warning\[" | grep -v "dlltool"
 ```
 
-Lub sprawdzić tylko nasze biblioteki:
+Lub sprawdzić tylko nasze biblioteki (po skonfigurowaniu środowiska):
 ```bash
 cd host && cargo check
 cd ../miernik && cargo check
