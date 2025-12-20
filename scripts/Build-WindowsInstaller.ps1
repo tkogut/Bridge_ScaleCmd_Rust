@@ -96,11 +96,47 @@ if (-not $SkipBackend) {
     
     $buildScript = Join-Path $RepoRoot "build-rust-mingw.ps1"
     if (Test-Path $buildScript) {
-        # Build with --skip-tests for installer (tests can fail but build is still valid)
-        & $buildScript --release --skip-tests
-        # Check if executable exists instead of exit code (tests may fail but build succeeded)
+        # Get timestamp before build to verify new file was created
         $exePathCheck = Join-Path $RepoRoot "src-rust\target\release\scaleit-bridge.exe"
         $exePathCheckGnu = Join-Path $RepoRoot "src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"
+        $beforeBuildTime = $null
+        if (Test-Path $exePathCheck) {
+            $beforeBuildTime = (Get-Item $exePathCheck).LastWriteTime
+        } elseif (Test-Path $exePathCheckGnu) {
+            $beforeBuildTime = (Get-Item $exePathCheckGnu).LastWriteTime
+        }
+        
+        # Build with --skip-tests for installer (tests can fail but build is still valid)
+        & $buildScript --release --skip-tests
+        
+        # Wait a moment to ensure file system has updated
+        Start-Sleep -Milliseconds 500
+        
+        # Check if executable exists and was updated
+        $exeUpdated = $false
+        if (Test-Path $exePathCheck) {
+            $afterBuildTime = (Get-Item $exePathCheck).LastWriteTime
+            if ($null -eq $beforeBuildTime -or $afterBuildTime -gt $beforeBuildTime) {
+                $exeUpdated = $true
+                Write-Host "  [OK] Executable updated: $exePathCheck" -ForegroundColor Green
+                Write-Host "  Build time: $afterBuildTime" -ForegroundColor Gray
+            }
+        }
+        if (Test-Path $exePathCheckGnu) {
+            $afterBuildTime = (Get-Item $exePathCheckGnu).LastWriteTime
+            if ($null -eq $beforeBuildTime -or $afterBuildTime -gt $beforeBuildTime) {
+                $exeUpdated = $true
+                Write-Host "  [OK] Executable updated: $exePathCheckGnu" -ForegroundColor Green
+                Write-Host "  Build time: $afterBuildTime" -ForegroundColor Gray
+            }
+        }
+        
+        if (-not $exeUpdated) {
+            Write-Host "WARNING: Executable file was not updated after build!" -ForegroundColor Yellow
+            Write-Host "  This may indicate the build used cached files." -ForegroundColor Yellow
+            Write-Host "  The installer will use the existing executable." -ForegroundColor Yellow
+        }
+        
         if (-not (Test-Path $exePathCheck) -and -not (Test-Path $exePathCheckGnu)) {
             Write-Host "ERROR: Backend build failed - executable not found!" -ForegroundColor Red
             exit 1
@@ -124,6 +160,12 @@ if (-not $SkipBackend) {
             exit 1
         }
     }
+    
+    # Verify executable timestamp and show info
+    $exeInfo = Get-Item $exePath
+    Write-Host "  Using executable: $exePath" -ForegroundColor Gray
+    Write-Host "  Last modified: $($exeInfo.LastWriteTime)" -ForegroundColor Gray
+    Write-Host "  Size: $([math]::Round($exeInfo.Length / 1MB, 2)) MB" -ForegroundColor Gray
     
     # Copy executable to standard location if it's in GNU path (for Inno Setup compatibility)
     $standardPath = Join-Path $RepoRoot "src-rust\target\release\scaleit-bridge.exe"
