@@ -183,19 +183,19 @@ const BridgeStatusCard = () => {
           </p>
         </div>
 
-        {error && (
+        {(error || data?.status === "BLOCKED") && (
           <div className="space-y-2">
             <div className="text-sm text-destructive">
               Connection Error: Cannot reach Bridge API at http://127.0.0.1:8080.
             </div>
             
             {/* Detect Mixed Content / Browser Blocking */}
-            {(
+            {(data?.status === "BLOCKED" || (
               (error as any)?.message?.includes("Failed to fetch") ||
               (error as any)?.message?.includes("ERR_BLOCKED_BY_CLIENT") ||
               (error as any)?.message?.includes("NetworkError") ||
               (error as any)?.message?.includes("Network request failed")
-            ) && window.location.protocol === "https:" ? (
+            )) && window.location.protocol === "https:" ? (
               <div className="text-xs bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded">
                 <strong className="text-yellow-800 dark:text-yellow-200">⚠️ Mixed Content Blocked</strong>
                 <p className="mt-1 text-yellow-700 dark:text-yellow-300">
