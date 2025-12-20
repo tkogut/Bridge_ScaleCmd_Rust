@@ -366,17 +366,16 @@ if (-not $SkipInstaller) {
         exit 1
     }
     
-    # Build installer filename with version and branch (same as in ISS file)
-    $versionSuffix = "-v$Version"
-    $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
+    # Inno Setup should have created the file with the name from OutputBaseFilename
+    # Use the same $installerBaseName that was set earlier (may include timestamp)
     $installerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
     
-    # Inno Setup should have created the file with the name from OutputBaseFilename
     # Check if installer was created with the expected name
     if (-not (Test-Path $installerPath)) {
-        # Check if installer was created with default name (fallback)
+        # Check if installer was created with default name (fallback - should not happen)
         $defaultInstallerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
         if (Test-Path $defaultInstallerPath) {
+            Write-Host "  [WARN] Installer created with default name, renaming..." -ForegroundColor Yellow
             # Check if target file already exists (preserve old versions)
             if (Test-Path $installerPath) {
                 # Add timestamp to make filename unique
