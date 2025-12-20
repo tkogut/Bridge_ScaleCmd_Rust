@@ -29,7 +29,11 @@ impl RinstrumC320 {
         config: &DeviceConfig,
         connection: Arc<Connection>,
     ) -> Result<Self, MiernikError> {
-        let commands = config.commands.clone();
+        // Normalize command keys to lowercase for case-insensitive matching
+        let commands: HashMap<String, String> = config.commands
+            .iter()
+            .map(|(k, v)| (k.to_lowercase(), v.clone()))
+            .collect();
         Ok(Self::new(device_id, connection, commands))
     }
 }
@@ -75,7 +79,11 @@ impl DiniArgeoDFW {
         config: &DeviceConfig,
         connection: Arc<Connection>,
     ) -> Result<Self, MiernikError> {
-        let commands = config.commands.clone();
+        // Normalize command keys to lowercase for case-insensitive matching
+        let commands: HashMap<String, String> = config.commands
+            .iter()
+            .map(|(k, v)| (k.to_lowercase(), v.clone()))
+            .collect();
         Ok(Self::new(device_id, connection, commands))
     }
 }
