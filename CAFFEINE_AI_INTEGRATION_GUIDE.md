@@ -757,24 +757,358 @@ Before deploying to production:
 
 ---
 
+## Internet Computer (Motoko) Integration - CRITICAL
+
+### ⚠️ Important: Internet Computer Limitations
+
+**Internet Computer canisters CANNOT directly connect to HTTP endpoints!**
+
+The error you're seeing:
+```
+Connecting to caffeine-ai-broker.run.goorm.site failed: DNS error
+```
+
+This happens because:
+1. **IC canisters can only make HTTPS outbound calls** (not HTTP)
+2. **IC requires whitelisted domains** for HTTP outcalls
+3. **Direct HTTP connections from canisters are blocked** for security
+
+### Solution: Use Frontend as Proxy (Recommended)
+
+**Architecture:**
+```
+User Browser [HTTPS]
+    ↓
+Caffeine.ai Frontend [HTTPS] 
+    ↓ (fetch from browser)
+Bridge API (localhost:8080) [HTTP]
+    ↓
+Industrial Scales
+```
+
+**Implementation:**
+
+#### 1. Frontend Proxy Function (TypeScript/JavaScript)
+
+Create a proxy function in your frontend that calls Bridge API:
+
+```typescript
+// frontend/src/services/bridge-proxy.ts
+const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL || 'http://127.0.0.1:8080';
+
+export async function callBridgeAPI(
+  endpoint: string, 
+  options?: RequestInit
+): Promise<Response> {
+  // Frontend (browser) can call HTTP endpoints
+  const url = `${BRIDGE_URL}${endpoint}`;
+  
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Bridge API error: ${response.status} ${response.statusText}`);
+  }
+  
+  return response;
+}
+
+// Wrapper functions
+export async function getBridgeHealth() {
+  const response = await callBridgeAPI('/health');
+  return await response.json();
+}
+
+export async function getDevices() {
+  const response = await callBridgeAPI('/devices');
+  return await response.json();
+}
+
+export async function executeScaleCommand(deviceId: string, command: string) {
+  const response = await callBridgeAPI('/scalecmd', {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId, command }),
+  });
+  return await response.json();
+}
+```
+
+#### 2. Motoko Canister - Expose Query/Update Methods
+
+In your Motoko canister, expose methods that the frontend can call:
+
+```motoko
+// Main.mo
+import Text "mo:base/Text";
+import Result "mo:base/Result";
+
+actor ScaleService {
+  
+  // Frontend will call this, then proxy to Bridge
+  public query func getHealthStatus() : async Text {
+    // Return status - frontend will check Bridge
+    return "Frontend will check Bridge health";
+  };
+  
+  // Store weight reading from frontend
+  private var lastWeightReading : ?WeightReading = null;
+  
+  public type WeightReading = {
+    gross_weight : Float;
+    net_weight : Float;
+    unit : Text;
+    is_stable : Bool;
+    timestamp : Text;
+  };
+  
+  // Frontend calls Bridge, then calls this to store result
+  public func storeWeightReading(reading : WeightReading) : async () {
+    lastWeightReading := ?reading;
+  };
+  
+  public query func getLastWeightReading() : async ?WeightReading {
+    return lastWeightReading;
+  };
+  
+  // Frontend will handle Bridge communication
+  public func requestWeightReading(deviceId : Text, command : Text) : async Text {
+    // Return instruction for frontend to call Bridge
+    return "Frontend should call Bridge API and then storeWeightReading()";
+  };
+}
+```
+
+#### 3. Frontend Integration (React/TypeScript)
+
+```typescript
+// frontend/src/components/ScaleControl.tsx
+import { callBridgeAPI, executeScaleCommand } from '@/services/bridge-proxy';
+import { actor } from '@/services/ic-agent'; // Your IC agent setup
+
+async function handleReadWeight(deviceId: string) {
+  try {
+    // 1. Call Bridge API from frontend (browser can access HTTP)
+    const bridgeResponse = await executeScaleCommand(deviceId, 'readGross');
+    
+    if (bridgeResponse.success && bridgeResponse.result) {
+      // 2. Store result in IC canister
+      const weightReading = {
+        gross_weight: bridgeResponse.result.gross_weight,
+        net_weight: bridgeResponse.result.net_weight,
+        unit: bridgeResponse.result.unit,
+        is_stable: bridgeResponse.result.is_stable,
+        timestamp: bridgeResponse.result.timestamp,
+      };
+      
+      await actor.storeWeightReading(weightReading);
+      
+      return weightReading;
+    } else {
+      throw new Error(bridgeResponse.error || 'Command failed');
+    }
+  } catch (error) {
+    console.error('Error reading weight:', error);
+    throw error;
+  }
+}
+```
+
+### Alternative Solution: HTTPS Tunnel for Bridge
+
+If you need canister to directly call Bridge, you MUST use HTTPS:
+
+#### Step 1: Set up HTTPS Tunnel
+
+```bash
+# Using ngrok
+ngrok http 8080
+
+# Or Cloudflare Tunnel
+cloudflared tunnel --url http://localhost:8080
+```
+
+#### Step 2: Configure IC HTTP Outcalls
+
+In your `dfx.json` or canister configuration, whitelist the HTTPS domain:
+
+```json
+{
+  "canisters": {
+    "your_canister": {
+      "http_outcalls": {
+        "allowed_urls": [
+          "https://your-bridge-tunnel.ngrok.io",
+          "https://bridge.yourdomain.com"
+        ]
+      }
+    }
+  }
+}
+```
+
+#### Step 3: Use HTTPS Outcalls in Motoko
+
+```motoko
+import HTTP "mo:base/Http";
+import Text "mo:base/Text";
+
+actor ScaleService {
+  let bridgeUrl = "https://your-bridge-tunnel.ngrok.io";
+  
+  public func readWeight(deviceId : Text) : async Result.Result<WeightReading, Text> {
+    let url = bridgeUrl # "/scalecmd";
+    let body = Text.encodeUtf8(
+      "{ \"device_id\": \"" # deviceId # "\", \"command\": \"readGross\" }"
+    );
+    
+    let request : HTTP.Request = {
+      method = "POST";
+      url = url;
+      headers = [
+        ("Content-Type", "application/json")
+      ];
+      body = body;
+    };
+    
+    // Use HTTPS outcall
+    switch (await HTTP.http_request(request)) {
+      case (#ok response) {
+        // Parse JSON response
+        // Return WeightReading
+      };
+      case (#err error) {
+        return #err("HTTP error: " # debug_show(error));
+      };
+    };
+  };
+}
+```
+
+### Recommended Architecture for Caffeine.ai
+
+**Best Practice: Frontend Proxy Pattern**
+
+```
+┌─────────────────┐
+│  User Browser   │
+└────────┬────────┘
+         │ HTTPS
+         ↓
+┌─────────────────────────┐
+│  Caffeine.ai Frontend   │  ← React/TypeScript
+│  (Vercel/IC Frontend)   │
+└─────┬───────────┬───────┘
+      │           │
+      │ HTTPS     │ HTTPS (update call)
+      ↓           ↓
+┌──────────┐  ┌──────────────────┐
+│  Bridge  │  │  IC Canister     │
+│  (HTTP)  │  │  (Motoko)        │
+└──────────┘  └──────────────────┘
+```
+
+**Flow:**
+1. User clicks "Read Weight" in frontend
+2. Frontend calls Bridge API directly (browser → HTTP Bridge) ✅
+3. Frontend receives weight reading
+4. Frontend calls IC canister to store result (browser → HTTPS IC) ✅
+5. IC canister stores data on-chain
+
+**Why this works:**
+- Browser can access HTTP endpoints (with Mixed Content handling)
+- Browser can access HTTPS IC canisters
+- No need for IC HTTP outcalls
+- Simpler architecture
+- Better error handling
+
+### Error Handling for Caffeine.ai
+
+```typescript
+// frontend/src/services/bridge-proxy.ts
+export async function callBridgeAPIWithRetry(
+  endpoint: string,
+  options?: RequestInit,
+  maxRetries: number = 3
+): Promise<Response> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await callBridgeAPI(endpoint, options);
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      
+      // Check for Mixed Content
+      if (error.message.includes('Failed to fetch') && 
+          window.location.protocol === 'https:') {
+        throw new Error('MIXED_CONTENT_BLOCKED: Please allow Mixed Content in browser settings');
+      }
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+```
+
+### Configuration for Caffeine.ai
+
+**Environment Variables (Frontend):**
+```env
+# For local development
+VITE_BRIDGE_URL=http://127.0.0.1:8080
+
+# For production (use your computer's IP)
+VITE_BRIDGE_URL=http://192.168.1.100:8080
+
+# Or use HTTPS tunnel
+VITE_BRIDGE_URL=https://bridge-tunnel.ngrok.io
+```
+
+**Important Notes:**
+1. **Never call Bridge API directly from Motoko canister** (unless using HTTPS tunnel)
+2. **Always use frontend as proxy** for HTTP Bridge endpoints
+3. **Store results in IC canister** after receiving from Bridge
+4. **Handle Mixed Content** if frontend is HTTPS and Bridge is HTTP
+5. **Use environment variables** for Bridge URL configuration
+
+---
+
 ## Summary for Caffeine.ai Agent
 
 **Key Points:**
-1. Bridge API runs on `http://localhost:8080` (local) or `http://IP:8080` (network)
-2. All endpoints support CORS automatically
-3. Mixed Content (HTTPS → HTTP) must be handled via:
+1. **IC canisters CANNOT call HTTP endpoints directly** - use frontend proxy
+2. Bridge API runs on `http://localhost:8080` (local) or `http://IP:8080` (network)
+3. All endpoints support CORS automatically
+4. Mixed Content (HTTPS → HTTP) must be handled via:
    - Environment variable with IP address
    - HTTPS tunnel
    - User instructions
-4. Always implement timeout handling (30 seconds recommended)
-5. Use proper error handling for network errors
-6. Bridge supports TCP/IP and Serial connections
-7. Commands: `readGross`, `readNet`, `tare`, `zero`
+5. Always implement timeout handling (30 seconds recommended)
+6. Use proper error handling for network errors
+7. Bridge supports TCP/IP and Serial connections
+8. Commands: `readGross`, `readNet`, `tare`, `zero`
 
-**Recommended Approach:**
-1. Use environment variable `VITE_BRIDGE_URL` for Bridge URL
-2. Implement Mixed Content detection and user instructions
-3. Use IP address instead of `localhost` for network access
-4. Implement retry logic for transient errors
-5. Always set timeouts for API calls
+**Recommended Approach for Caffeine.ai:**
+1. **Use Frontend Proxy Pattern:**
+   - Frontend (browser) calls Bridge API directly
+   - Frontend calls IC canister to store results
+   - No direct IC → Bridge communication needed
+2. Use environment variable `VITE_BRIDGE_URL` for Bridge URL
+3. Implement Mixed Content detection and user instructions
+4. Use IP address instead of `localhost` for network access
+5. Implement retry logic for transient errors
+6. Always set timeouts for API calls
+
+**Architecture Pattern:**
+```
+Browser → Frontend → Bridge (HTTP) ✅
+Browser → Frontend → IC Canister (HTTPS) ✅
+IC Canister → Bridge (HTTP) ❌ NOT POSSIBLE
+IC Canister → Bridge (HTTPS Tunnel) ✅ POSSIBLE but complex
+```
 
