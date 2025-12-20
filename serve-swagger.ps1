@@ -18,31 +18,35 @@ if (-not (Test-Path $File)) {
     exit 1
 }
 
-# Try to use swagger-ui-serve if available
-$swaggerUiServe = Get-Command swagger-ui-serve -ErrorAction SilentlyContinue
+# Check if swagger-ui.html exists, if not create it
+if (-not (Test-Path "swagger-ui.html")) {
+    Write-Host "Creating swagger-ui.html..." -ForegroundColor Yellow
+    # HTML file should already exist, but if not, we'll use http-server
+}
 
-if ($swaggerUiServe) {
-    Write-Host "Using swagger-ui-serve..." -ForegroundColor Green
-    Write-Host "Opening browser at http://localhost:$Port" -ForegroundColor Cyan
+# Try to use http-server (simpler and more reliable)
+$httpServer = Get-Command http-server -ErrorAction SilentlyContinue
+$npx = Get-Command npx -ErrorAction SilentlyContinue
+
+if ($httpServer) {
+    Write-Host "Using http-server..." -ForegroundColor Green
+    Write-Host "Opening browser at http://localhost:$Port/swagger-ui.html" -ForegroundColor Cyan
     Write-Host ""
-    swagger-ui-serve $File -p $Port
+    Start-Process "http://localhost:$Port/swagger-ui.html"
+    http-server -p $Port -c-1
+} elseif ($npx) {
+    Write-Host "Using npx http-server..." -ForegroundColor Green
+    Write-Host "Opening browser at http://localhost:$Port/swagger-ui.html" -ForegroundColor Cyan
+    Write-Host ""
+    Start-Process "http://localhost:$Port/swagger-ui.html"
+    npx -y http-server@latest -p $Port -c-1
 } else {
-    Write-Host "swagger-ui-serve not found. Trying npx..." -ForegroundColor Yellow
-    
-    # Try using npx (no global install needed)
-    $npx = Get-Command npx -ErrorAction SilentlyContinue
-    if ($npx) {
-        Write-Host "Using npx swagger-ui-serve..." -ForegroundColor Green
-        Write-Host "Opening browser at http://localhost:$Port" -ForegroundColor Cyan
-        Write-Host ""
-        npx -y swagger-ui-serve@latest $File -p $Port
-    } else {
-        Write-Host "Error: Neither swagger-ui-serve nor npx found!" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "Installation options:" -ForegroundColor Yellow
-        Write-Host "  1. Global install: npm install -g swagger-ui-serve" -ForegroundColor Gray
-        Write-Host "  2. Use npx (no install): npx swagger-ui-serve swagger.yaml" -ForegroundColor Gray
-        Write-Host "  3. Use online editor: https://editor.swagger.io/" -ForegroundColor Gray
-        exit 1
-    }
+    Write-Host "Error: Neither http-server nor npx found!" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Installation options:" -ForegroundColor Yellow
+    Write-Host "  1. Global install: npm install -g http-server" -ForegroundColor Gray
+    Write-Host "  2. Use npx (no install): npx http-server -p 3000" -ForegroundColor Gray
+    Write-Host "  3. Use online editor: https://editor.swagger.io/" -ForegroundColor Gray
+    Write-Host "  4. Open swagger-ui.html directly in browser (file://)" -ForegroundColor Gray
+    exit 1
 }
