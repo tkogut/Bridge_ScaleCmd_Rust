@@ -1,0 +1,794 @@
+openapi: 3.0.3
+info:
+  title: ScaleIT Bridge API
+  description: |
+    REST API for communicating with industrial scales (Dini Argeo, Rinstrum, etc.) via TCP/IP or Serial connections.
+    
+    ## Important Notes:
+    
+    - **CORS**: All endpoints support CORS automatically (allow any origin, method, and header)
+    - **Mixed Content**: If accessing from HTTPS (e.g., Vercel), browsers may block HTTP connections. Use IP address or HTTPS tunnel.
+    - **Base URL**: 
+      - Local: `http://localhost:8080` or `http://127.0.0.1:8080`
+      - Network: `http://YOUR_COMPUTER_IP:8080` (e.g., `http://192.168.1.100:8080`)
+    
+    ## Authentication:
+    No authentication required for local installations.
+    
+  version: 0.1.0
+  contact:
+    name: ScaleIT Bridge Support
+    url: https://github.com/tkogut/Bridge_ScaleCmd_Rust
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://127.0.0.1:8080
+    description: Local development server (alternative)
+  - url: http://{ip}:8080
+    description: Network server (replace {ip} with your computer's IP address)
+    variables:
+      ip:
+        default: 192.168.1.100
+        description: Your computer's IP address on the local network
+
+tags:
+  - name: Health
+    description: Service health and status checks
+  - name: Devices
+    description: Device management and listing
+  - name: Scale Commands
+    description: Execute commands on scale devices (read weight, tare, zero)
+  - name: Configuration
+    description: Device configuration management
+  - name: Server Control
+    description: Server lifecycle management (start, stop)
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: |
+        Check if Bridge service is running and get service information.
+        
+        **Status values:**
+        - `OK`: Service is running normally
+        - `ERROR`: Service encountered an error
+        - `STOPPED`: Service is stopped
+        - `BLOCKED`: Browser is blocking connection (Mixed Content issue)
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service health information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                ok:
+                  summary: Service running
+                  value:
+                    status: "OK"
+                    service: "ScaleIT Bridge"
+                    version: "0.1.0"
+                stopped:
+                  summary: Service stopped
+                  value:
+                    status: "STOPPED"
+                    service: "ScaleIT Bridge"
+                    version: "N/A"
+                blocked:
+                  summary: Browser blocking connection
+                  value:
+                    status: "BLOCKED"
+                    service: "ScaleIT Bridge"
+                    version: "N/A"
+
+  /devices:
+    get:
+      tags:
+        - Devices
+      summary: List all devices
+      description: |
+        Get a list of all configured scale devices.
+        
+        Returns an array of tuples: `[device_id, device_name, device_model]`
+      operationId: listDevices
+      responses:
+        '200':
+          description: List of configured devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicesResponse'
+              examples:
+                success:
+                  summary: Devices list
+                  value:
+                    success: true
+                    devices:
+                      - ["scale1", "Main Scale", "Dini Argeo C320"]
+                      - ["scale2", "Secondary Scale", "Rinstrum R320"]
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /scalecmd:
+    post:
+      tags:
+        - Scale Commands
+      summary: Execute scale command
+      description: |
+        Execute a command on a scale device.
+        
+        **Available commands:**
+        - `readGross`: Read gross weight
+        - `readNet`: Read net weight
+        - `tare`: Tare the scale
+        - `zero`: Zero the scale
+        
+        **Timeout:** Commands have a configurable timeout (default: 5000ms). If the device doesn't respond within the timeout, an error is returned.
+      operationId: executeScaleCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScaleCommandRequest'
+            examples:
+              readGross:
+                summary: Read gross weight
+                value:
+                  device_id: "scale1"
+                  command: "readGross"
+              readNet:
+                summary: Read net weight
+                value:
+                  device_id: "scale1"
+                  command: "readNet"
+              tare:
+                summary: Tare scale
+                value:
+                  device_id: "scale1"
+                  command: "tare"
+              zero:
+                summary: Zero scale
+                value:
+                  device_id: "scale1"
+                  command: "zero"
+      responses:
+        '200':
+          description: Command executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaleCommandResponse'
+              examples:
+                success:
+                  summary: Successful weight reading
+                  value:
+                    success: true
+                    device_id: "scale1"
+                    command: "readGross"
+                    result:
+                      gross_weight: 123.45
+                      net_weight: 123.45
+                      unit: "kg"
+                      is_stable: true
+                      timestamp: "2025-12-19T10:30:00Z"
+                error:
+                  summary: Command failed
+                  value:
+                    success: false
+                    device_id: "scale1"
+                    command: "readGross"
+                    result: null
+                    error: "Connection timeout to device"
+        '400':
+          description: Bad request (e.g., empty device_id)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                emptyDeviceId:
+                  summary: Empty device_id
+                  value:
+                    success: false
+                    error: "device_id is required"
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaleCommandResponse'
+              examples:
+                timeout:
+                  summary: Connection timeout
+                  value:
+                    success: false
+                    device_id: "scale1"
+                    command: "readGross"
+                    result: null
+                    error: "Connection timeout to 192.168.1.254:4001"
+
+  /api/config:
+    get:
+      tags:
+        - Configuration
+      summary: Get all device configurations
+      description: |
+        Get detailed configuration for all devices.
+        
+        Returns a map where keys are device IDs and values are device configurations.
+      operationId: getAllDeviceConfigs
+      responses:
+        '200':
+          description: Device configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/DeviceConfig'
+              examples:
+                configs:
+                  summary: Device configurations
+                  value:
+                    scale1:
+                      name: "Main Scale"
+                      manufacturer: "Dini Argeo"
+                      model: "C320"
+                      protocol: "ASCII"
+                      connection:
+                        connection_type: "Tcp"
+                        host: "192.168.1.254"
+                        port: 4001
+                      timeout_ms: 5000
+                      commands:
+                        readGross: "READ"
+                        readNet: "REXT"
+                        tare: "TARE"
+                        zero: "ZERO"
+                      enabled: true
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/config/save:
+    post:
+      tags:
+        - Configuration
+      summary: Save device configuration
+      description: |
+        Add or update a device configuration.
+        
+        After saving, the configuration is automatically reloaded and the device connection is re-established.
+      operationId: saveDeviceConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveConfigRequest'
+            examples:
+              tcpDevice:
+                summary: TCP device configuration
+                value:
+                  device_id: "scale1"
+                  config:
+                    name: "Main Scale"
+                    manufacturer: "Dini Argeo"
+                    model: "C320"
+                    protocol: "ASCII"
+                    connection:
+                      connection_type: "Tcp"
+                      host: "192.168.1.254"
+                      port: 4001
+                    timeout_ms: 5000
+                    commands:
+                      readGross: "READ"
+                      readNet: "REXT"
+                      tare: "TARE"
+                      zero: "ZERO"
+                    enabled: true
+              serialDevice:
+                summary: Serial device configuration
+                value:
+                  device_id: "scale2"
+                  config:
+                    name: "Serial Scale"
+                    manufacturer: "Rinstrum"
+                    model: "R320"
+                    protocol: "RINCMD"
+                    connection:
+                      connection_type: "Serial"
+                      port: "COM3"
+                      baud_rate: 9600
+                      data_bits: 8
+                      stop_bits: "one"
+                      parity: "none"
+                      flow_control: "none"
+                    timeout_ms: 1000
+                    commands:
+                      readGross: "21120008:0B"
+                      readNet: "21120008:0C"
+                      tare: "21120008:0D"
+                      zero: "21120008:0E"
+                    enabled: true
+      responses:
+        '200':
+          description: Configuration saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveConfigResponse'
+              examples:
+                success:
+                  summary: Configuration saved
+                  value:
+                    success: true
+                    message: "Configuration for scale1 saved and reloaded."
+        '400':
+          description: Bad request (invalid configuration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/config/{device_id}:
+    delete:
+      tags:
+        - Configuration
+      summary: Delete device configuration
+      description: |
+        Remove a device configuration.
+        
+        After deletion, the configuration is automatically reloaded.
+      operationId: deleteDeviceConfig
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: Device ID to delete
+          schema:
+            type: string
+          examples:
+            scale1:
+              summary: Delete scale1
+              value: "scale1"
+      responses:
+        '200':
+          description: Device deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteConfigResponse'
+              examples:
+                success:
+                  summary: Device deleted
+                  value:
+                    success: true
+                    message: "Device scale1 deleted and configuration reloaded."
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/shutdown:
+    post:
+      tags:
+        - Server Control
+      summary: Shutdown server
+      description: |
+        Gracefully shutdown the Bridge server.
+        
+        All device connections are closed before the server exits.
+        
+        **Warning:** After shutdown, the server will stop and cannot accept new requests.
+      operationId: shutdownServer
+      responses:
+        '200':
+          description: Shutdown initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShutdownResponse'
+              examples:
+                success:
+                  summary: Shutdown initiated
+                  value:
+                    success: true
+                    message: "Shutdown initiated. Server will stop after disconnecting all devices."
+
+  /api/start:
+    post:
+      tags:
+        - Server Control
+      summary: Start server
+      description: |
+        Attempt to start the Bridge server.
+        
+        **Note:** This endpoint only works if the server is already running. If the server is stopped, it must be started manually.
+      operationId: startServer
+      responses:
+        '200':
+          description: Start command executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartResponse'
+              examples:
+                success:
+                  summary: Start command sent
+                  value:
+                    success: true
+                    message: "Server start command executed. Please wait a few seconds and check the status."
+        '400':
+          description: Cannot start server (server executable not found)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - version
+      properties:
+        status:
+          type: string
+          enum: [OK, ERROR, STOPPED, BLOCKED]
+          description: Service status
+          example: "OK"
+        service:
+          type: string
+          description: Service name
+          example: "ScaleIT Bridge"
+        version:
+          type: string
+          description: Service version
+          example: "0.1.0"
+
+    DevicesResponse:
+      type: object
+      required:
+        - success
+        - devices
+      properties:
+        success:
+          type: boolean
+          description: Operation success status
+          example: true
+        devices:
+          type: array
+          description: List of devices as tuples [device_id, name, model]
+          items:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: string
+          example:
+            - ["scale1", "Main Scale", "Dini Argeo C320"]
+            - ["scale2", "Secondary Scale", "Rinstrum R320"]
+
+    ScaleCommandRequest:
+      type: object
+      required:
+        - device_id
+        - command
+      properties:
+        device_id:
+          type: string
+          description: Device identifier
+          example: "scale1"
+        command:
+          type: string
+          enum: [readGross, readNet, tare, zero]
+          description: Command to execute
+          example: "readGross"
+
+    WeightReading:
+      type: object
+      required:
+        - gross_weight
+        - net_weight
+        - unit
+        - is_stable
+        - timestamp
+      properties:
+        gross_weight:
+          type: number
+          format: double
+          description: Gross weight value
+          example: 123.45
+        net_weight:
+          type: number
+          format: double
+          description: Net weight value
+          example: 123.45
+        unit:
+          type: string
+          description: Weight unit (kg, g, lb, etc.)
+          example: "kg"
+        is_stable:
+          type: boolean
+          description: Whether the weight reading is stable
+          example: true
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of the reading
+          example: "2025-12-19T10:30:00Z"
+
+    ScaleCommandResponse:
+      type: object
+      required:
+        - success
+        - device_id
+        - command
+      properties:
+        success:
+          type: boolean
+          description: Whether the command executed successfully
+          example: true
+        device_id:
+          type: string
+          description: Device identifier
+          example: "scale1"
+        command:
+          type: string
+          description: Command that was executed
+          example: "readGross"
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/WeightReading'
+            - type: object
+              properties:
+                message:
+                  type: string
+          description: Command result (weight reading or message)
+          nullable: true
+        error:
+          type: string
+          description: Error message if command failed
+          nullable: true
+          example: "Connection timeout to device"
+
+    DeviceConfig:
+      type: object
+      required:
+        - name
+        - manufacturer
+        - model
+        - protocol
+        - connection
+        - timeout_ms
+        - commands
+        - enabled
+      properties:
+        name:
+          type: string
+          description: Device display name
+          example: "Main Scale"
+        manufacturer:
+          type: string
+          description: Device manufacturer
+          example: "Dini Argeo"
+        model:
+          type: string
+          description: Device model
+          example: "C320"
+        protocol:
+          type: string
+          description: Communication protocol
+          example: "ASCII"
+        connection:
+          oneOf:
+            - $ref: '#/components/schemas/TcpConnection'
+            - $ref: '#/components/schemas/SerialConnection'
+          description: Connection configuration
+        timeout_ms:
+          type: integer
+          format: int32
+          description: Connection timeout in milliseconds
+          minimum: 100
+          maximum: 60000
+          example: 5000
+        commands:
+          type: object
+          additionalProperties:
+            type: string
+          description: Command mappings (command name -> device command string)
+          example:
+            readGross: "READ"
+            readNet: "REXT"
+            tare: "TARE"
+            zero: "ZERO"
+        enabled:
+          type: boolean
+          description: Whether the device is enabled
+          example: true
+
+    TcpConnection:
+      type: object
+      required:
+        - connection_type
+        - host
+        - port
+      properties:
+        connection_type:
+          type: string
+          enum: [Tcp]
+          description: Connection type
+          example: "Tcp"
+        host:
+          type: string
+          format: ipv4
+          description: Device IP address
+          example: "192.168.1.254"
+        port:
+          type: integer
+          format: int32
+          description: TCP port number
+          minimum: 1
+          maximum: 65535
+          example: 4001
+
+    SerialConnection:
+      type: object
+      required:
+        - connection_type
+        - port
+        - baud_rate
+      properties:
+        connection_type:
+          type: string
+          enum: [Serial]
+          description: Connection type
+          example: "Serial"
+        port:
+          type: string
+          description: Serial port name (e.g., COM3, /dev/ttyUSB0)
+          example: "COM3"
+        baud_rate:
+          type: integer
+          format: int32
+          description: Baud rate
+          enum: [9600, 19200, 38400, 57600, 115200]
+          example: 9600
+        data_bits:
+          type: integer
+          format: int32
+          description: Data bits (5, 6, 7, or 8)
+          enum: [5, 6, 7, 8]
+          example: 8
+        stop_bits:
+          type: string
+          enum: [one, two]
+          description: Stop bits
+          example: "one"
+        parity:
+          type: string
+          enum: [none, even, odd]
+          description: Parity setting
+          example: "none"
+        flow_control:
+          type: string
+          enum: [none, software, hardware]
+          description: Flow control setting
+          example: "none"
+
+    SaveConfigRequest:
+      type: object
+      required:
+        - device_id
+        - config
+      properties:
+        device_id:
+          type: string
+          description: Device identifier
+          example: "scale1"
+        config:
+          $ref: '#/components/schemas/DeviceConfig'
+
+    SaveConfigResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Configuration for scale1 saved and reloaded."
+
+    DeleteConfigResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Device scale1 deleted and configuration reloaded."
+
+    ShutdownResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Shutdown initiated. Server will stop after disconnecting all devices."
+
+    StartResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Server start command executed. Please wait a few seconds and check the status."
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+          example: "Device not found"
+        message:
+          type: string
+          description: Alternative error message field
+          example: "Connection timeout to device"
+
