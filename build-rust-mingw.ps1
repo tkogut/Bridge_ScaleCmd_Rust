@@ -148,9 +148,10 @@ if (-not (Test-Path "src-rust")) {
 Set-Location "src-rust"
 Write-Host "Changed to src-rust directory" -ForegroundColor Gray
 
-# Clean previous build
+# Clean previous build to ensure fresh build
 Write-Host "Cleaning previous build..." -ForegroundColor Yellow
 cargo clean
+Write-Host "  [OK] Build cache cleared" -ForegroundColor Green
 
 # Check for release build flag
 $buildMode = "debug"
@@ -257,6 +258,18 @@ if ($buildMode -eq "release") {
 }
 
 if (Test-Path $originalExePath) {
+    # Verify the executable was just built (check timestamp)
+    $exeInfo = Get-Item $originalExePath
+    $buildTime = Get-Date
+    $timeDiff = ($buildTime - $exeInfo.LastWriteTime).TotalSeconds
+    
+    if ($timeDiff -gt 60) {
+        Write-Host "WARNING: Executable appears to be older than 60 seconds!" -ForegroundColor Yellow
+        Write-Host "  Last modified: $($exeInfo.LastWriteTime)" -ForegroundColor Yellow
+        Write-Host "  Current time: $buildTime" -ForegroundColor Yellow
+        Write-Host "  This may indicate the build used cached files." -ForegroundColor Yellow
+    }
+    
     # Copy executable with new name
     Copy-Item $originalExePath $newExePath -Force
     $fileInfo = Get-Item $newExePath
@@ -264,6 +277,7 @@ if (Test-Path $originalExePath) {
     Write-Host "Size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB" -ForegroundColor Cyan
     Write-Host "Version: $version" -ForegroundColor Cyan
     Write-Host "Branch: $currentBranch" -ForegroundColor Cyan
+    Write-Host "Last modified: $($fileInfo.LastWriteTime)" -ForegroundColor Cyan
     Write-Host ""
 }
 
