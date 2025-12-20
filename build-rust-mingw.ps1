@@ -153,6 +153,17 @@ Write-Host "Cleaning previous build..." -ForegroundColor Yellow
 cargo clean
 Write-Host "  [OK] Build cache cleared" -ForegroundColor Green
 
+# Remove existing executable to force rebuild
+if ($buildMode -eq "release") {
+    $exeToRemove = "target\release\scaleit-bridge.exe"
+} else {
+    $exeToRemove = "target\debug\scaleit-bridge.exe"
+}
+if (Test-Path $exeToRemove) {
+    Remove-Item $exeToRemove -Force -ErrorAction SilentlyContinue
+    Write-Host "  [OK] Removed existing executable to force rebuild" -ForegroundColor Green
+}
+
 # Check for release build flag
 $buildMode = "debug"
 if ($args -contains "--release" -or $args -contains "-r") {
