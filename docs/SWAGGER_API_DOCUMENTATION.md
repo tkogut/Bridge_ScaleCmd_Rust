@@ -15,17 +15,28 @@ ScaleIT Bridge API is documented using OpenAPI 3.0.3 specification. The specific
 
 ### Option 2: Swagger UI (Local)
 
-1. Install Swagger UI:
-   ```bash
-   npm install -g swagger-ui-serve
-   ```
+**Method A: Using PowerShell script (easiest)**
+```powershell
+# From project root
+.\serve-swagger.ps1
+# Or with custom port:
+.\serve-swagger.ps1 -Port 8081
+```
 
-2. Serve the documentation:
-   ```bash
-   swagger-ui-serve swagger.yaml
-   ```
+**Method B: Using npx (no installation needed)**
+```bash
+npx swagger-ui-serve swagger.yaml
+# Or with custom port:
+npx swagger-ui-serve swagger.yaml -p 8081
+```
 
-3. Open browser: `http://localhost:3000`
+**Method C: Global installation**
+```bash
+npm install -g swagger-ui-serve
+swagger-ui-serve swagger.yaml
+```
+
+3. Open browser: `http://localhost:3000` (or your specified port)
 
 ### Option 3: Redoc
 
