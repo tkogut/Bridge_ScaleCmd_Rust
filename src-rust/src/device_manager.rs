@@ -4,17 +4,19 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use crate::adapters::adapter_enum::DeviceAdapterEnum;
 use crate::error::BridgeError;
 use crate::models::device::{AppConfig, DeviceConfig};
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
+use scaleit_host::{Connection, Protocol};
+use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW};
 
 #[derive(Debug)]
 pub struct DeviceManager {
     config_path: PathBuf,
     devices: RwLock<HashMap<String, DeviceConfig>>,
-    adapters: RwLock<HashMap<String, DeviceAdapterEnum>>,
+    adapters: RwLock<HashMap<String, Arc<dyn DeviceAdapter + Send + Sync>>>,
 }
 
 impl DeviceManager {
@@ -79,31 +81,41 @@ impl DeviceManager {
             let adapters_guard = self.adapters.read();
             adapters_guard
                 .get(&request.device_id)
-                .cloned()
                 .ok_or_else(|| BridgeError::DeviceNotFound(request.device_id.clone()))?
         };
 
         match adapter.execute_command(&request.command).await {
-            Ok(weight_reading) => Ok(ScaleCommandResponse {
-                success: true,
-                device_id: request.device_id,
-                command: request.command,
-                result: Some(weight_reading),
-                error: None,
-            }),
+            Ok(weight_reading) => {
+                // Convert scaleit_miernik::WeightReading to crate::models::weight::WeightReading
+                let reading = crate::models::weight::WeightReading {
+                    gross_weight: weight_reading.gross_weight,
+                    net_weight: weight_reading.net_weight,
+                    unit: weight_reading.unit,
+                    is_stable: weight_reading.is_stable,
+                    timestamp: weight_reading.timestamp,
+                };
+                Ok(ScaleCommandResponse {
+                    success: true,
+                    device_id: request.device_id,
+                    command: request.command,
+                    result: Some(reading),
+                    error: None,
+                })
+            }
             Err(e) => {
                 error!(
                     "Error executing command for device {}: {:?}",
                     request.device_id, e
                 );
-                Err(e)
+                // Convert MiernikError to BridgeError
+                Err(BridgeError::ProtocolError(format!("{}", e)))
             }
         }
     }
 
     pub async fn connect_all_devices(&self) {
-        let adapters = self.adapters.read().clone();
-        for (device_id, adapter) in adapters {
+        let adapters = self.adapters.read();
+        for (device_id, adapter) in adapters.iter() {
             info!("Attempting to connect to device: {}", device_id);
             if let Err(e) = adapter.connect().await {
                 error!("Failed to connect to device {}: {:?}", device_id, e);
@@ -112,8 +124,8 @@ impl DeviceManager {
     }
 
     pub async fn disconnect_all_devices(&self) {
-        let adapters = self.adapters.read().clone();
-        for (device_id, adapter) in adapters {
+        let adapters = self.adapters.read();
+        for (device_id, adapter) in adapters.iter() {
             info!("Attempting to disconnect from device: {}", device_id);
             if let Err(e) = adapter.disconnect().await {
                 error!("Failed to disconnect from device {}: {:?}", device_id, e);
@@ -160,12 +172,12 @@ impl DeviceManager {
 
         let old_adapters = {
             let mut adapters_guard = self.adapters.write();
-            let old = adapters_guard.values().cloned().collect::<Vec<_>>();
+            let old = adapters_guard.clone();
             *adapters_guard = new_adapters;
             old
         };
 
-        for adapter in old_adapters {
+        for adapter in old_adapters.values() {
             if let Err(e) = adapter.disconnect().await {
                 warn!("Failed to disconnect adapter during reload: {:?}", e);
             }
@@ -177,8 +189,8 @@ impl DeviceManager {
 
     fn build_adapters(
         devices: &HashMap<String, DeviceConfig>,
-    ) -> Result<HashMap<String, DeviceAdapterEnum>, BridgeError> {
-        let mut adapters: HashMap<String, DeviceAdapterEnum> = HashMap::new();
+    ) -> Result<HashMap<String, Arc<dyn DeviceAdapter + Send + Sync>>, BridgeError> {
+        let mut adapters: HashMap<String, Arc<dyn DeviceAdapter + Send + Sync>> = HashMap::new();
 
         for (device_id, device_config) in devices.iter() {
             info!(
@@ -191,22 +203,26 @@ impl DeviceManager {
                 continue;
             }
 
-            let protocol = device_config.protocol.to_uppercase();
+            let protocol = Protocol::from_str(&device_config.protocol);
+            let connection = Self::convert_connection(device_config)?;
+            let connection_arc = Arc::new(connection);
 
-            let connection = device_config.get_connection();
-
-            let adapter = match protocol.as_str() {
-                "RINCMD" => DeviceAdapterEnum::new_rinstrum(
-                    device_id.clone(),
-                    connection,
-                    device_config.commands.clone(),
-                )?,
-                "ASCII" | "DFW" | "DINIA" | "DINI_ARGEO" => DeviceAdapterEnum::new_dini_argeo(
-                    device_id.clone(),
-                    connection,
-                    device_config.commands.clone(),
-                )?,
-                _ => {
+            let adapter: Arc<dyn DeviceAdapter + Send + Sync> = match protocol {
+                Protocol::Rincmd => {
+                    Arc::new(RinstrumC320::from_config(
+                        device_id.clone(),
+                        device_config,
+                        connection_arc,
+                    )?)
+                }
+                Protocol::DiniAscii => {
+                    Arc::new(DiniArgeoDFW::from_config(
+                        device_id.clone(),
+                        device_config,
+                        connection_arc,
+                    )?)
+                }
+                Protocol::Custom(_) => {
                     error!(
                         "Unsupported protocol '{}' for device {}",
                         device_config.protocol, device_id
@@ -222,6 +238,52 @@ impl DeviceManager {
         }
 
         Ok(adapters)
+    }
+
+    /// Convert old Connection enum to new scaleit_host::Connection
+    fn convert_connection(config: &DeviceConfig) -> Result<Connection, BridgeError> {
+        match &config.connection {
+            crate::models::device::ConnectionConfig::Tcp { host, port } => {
+                Ok(Connection::tcp(host.clone(), *port, config.timeout_ms))
+            }
+            crate::models::device::ConnectionConfig::Serial {
+                port,
+                baud_rate,
+                data_bits,
+                stop_bits,
+                parity,
+                flow_control,
+            } => {
+                use serialport::{FlowControl as SerialFlowControl, Parity as SerialParity, StopBits as SerialStopBits};
+                
+                let stop_bits_serial = match stop_bits {
+                    crate::models::device::StopBits::One => SerialStopBits::One,
+                    crate::models::device::StopBits::Two => SerialStopBits::Two,
+                };
+
+                let parity_serial = match parity {
+                    crate::models::device::Parity::None => SerialParity::None,
+                    crate::models::device::Parity::Even => SerialParity::Even,
+                    crate::models::device::Parity::Odd => SerialParity::Odd,
+                };
+
+                let flow_control_serial = match flow_control {
+                    crate::models::device::FlowControl::None => SerialFlowControl::None,
+                    crate::models::device::FlowControl::Software => SerialFlowControl::Software,
+                    crate::models::device::FlowControl::Hardware => SerialFlowControl::Hardware,
+                };
+
+                Ok(Connection::serial(
+                    port.clone(),
+                    *baud_rate,
+                    *data_bits,
+                    stop_bits_serial,
+                    parity_serial,
+                    flow_control_serial,
+                    config.timeout_ms,
+                ))
+            }
+        }
     }
 
     fn read_config(path: &Path) -> Result<AppConfig, BridgeError> {
