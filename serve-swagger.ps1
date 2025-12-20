@@ -14,7 +14,7 @@ Write-Host ""
 # Check if file exists
 if (-not (Test-Path $File)) {
     Write-Host "❌ Error: File '$File' not found!" -ForegroundColor Red
-    Write-Host "   Make sure you're running this from the project root directory." -ForegroundColor Yellow
+    Write-Host "   Make sure you are running this from the project root directory." -ForegroundColor Yellow
     exit 1
 }
 
