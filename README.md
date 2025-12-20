@@ -520,6 +520,9 @@ Remove-Item -Recurse -Force .\src-rust\target
 
 ## 📖 Documentation
 
+- **[API Documentation (Swagger/OpenAPI)](swagger.yaml)** - Complete API specification
+- **[Swagger Usage Guide](docs/SWAGGER_API_DOCUMENTATION.md)** - How to view and use API documentation
+- **[Caffeine.ai Integration Guide](CAFFEINE_AI_INTEGRATION_GUIDE.md)** - Integration guide for Motoko/Internet Computer
 - **[Windows Installation Guide](docs/WINDOWS_INSTALLATION_GUIDE.md)** - Complete Windows setup
 - **[Build Process](BUILD_WINDOWS.md)** - Detailed build instructions  
 - **[Testing Guide](TESTING_AND_DEPLOYMENT.md)** - Testing procedures
