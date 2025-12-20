@@ -216,16 +216,54 @@ Write-Host "Build complete!" -ForegroundColor Green
 Write-Host "════════════════════════════════════════" -ForegroundColor Green
 Write-Host ""
 
-if ($buildMode -eq "release") {
-    $exePath = "target\release\scaleit-bridge.exe"
-} else {
-    $exePath = "target\debug\scaleit-bridge.exe"
+# Get version from Cargo.toml
+$cargoFile = Join-Path $repoRoot "src-rust\Cargo.toml"
+$version = "0.1.0"
+if (Test-Path $cargoFile) {
+    $cargoContent = Get-Content $cargoFile
+    foreach ($line in $cargoContent) {
+        if ($line -match '^\s*version\s*=\s*"([^"]+)"') {
+            $version = $Matches[1]
+            break
+        }
+    }
 }
 
-if (Test-Path $exePath) {
-    $fileInfo = Get-Item $exePath
-    Write-Host "Executable: $exePath" -ForegroundColor Cyan
+# Get current branch
+$currentBranch = git branch --show-current 2>$null
+if (-not $currentBranch) {
+    $currentBranch = "unknown"
+}
+
+# Determine if we're on a non-main branch
+$isMainBranch = ($currentBranch -eq "main" -or $currentBranch -eq "master")
+$branchSuffix = ""
+if (-not $isMainBranch) {
+    # Sanitize branch name for filename (remove special characters)
+    $sanitizedBranch = $currentBranch -replace '[^\w\-]', '-'
+    $branchSuffix = "-$sanitizedBranch"
+}
+
+# Build executable name with version and branch
+$versionSuffix = "-v$version"
+$exeBaseName = "scaleit-bridge$versionSuffix$branchSuffix"
+
+if ($buildMode -eq "release") {
+    $originalExePath = "target\release\scaleit-bridge.exe"
+    $newExePath = "target\release\$exeBaseName.exe"
+} else {
+    $originalExePath = "target\debug\scaleit-bridge.exe"
+    $newExePath = "target\debug\$exeBaseName.exe"
+}
+
+if (Test-Path $originalExePath) {
+    # Copy executable with new name
+    Copy-Item $originalExePath $newExePath -Force
+    $fileInfo = Get-Item $newExePath
+    Write-Host "Executable: $newExePath" -ForegroundColor Cyan
     Write-Host "Size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB" -ForegroundColor Cyan
+    Write-Host "Version: $version" -ForegroundColor Cyan
+    Write-Host "Branch: $currentBranch" -ForegroundColor Cyan
     Write-Host ""
 }
 

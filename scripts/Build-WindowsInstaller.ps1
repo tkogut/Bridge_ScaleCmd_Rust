@@ -69,7 +69,23 @@ if (-not $Version) {
     }
 }
 
+# Get current branch
+$currentBranch = git -C $RepoRoot branch --show-current 2>$null
+if (-not $currentBranch) {
+    $currentBranch = "unknown"
+}
+
+# Determine if we're on a non-main branch
+$isMainBranch = ($currentBranch -eq "main" -or $currentBranch -eq "master")
+$branchSuffix = ""
+if (-not $isMainBranch) {
+    # Sanitize branch name for filename (remove special characters)
+    $sanitizedBranch = $currentBranch -replace '[^\w\-]', '-'
+    $branchSuffix = "-$sanitizedBranch"
+}
+
 Write-Host "Version: $Version" -ForegroundColor Cyan
+Write-Host "Branch: $currentBranch" -ForegroundColor Cyan
 Write-Host "Repository: $RepoRoot" -ForegroundColor Cyan
 Write-Host ""
 
@@ -268,8 +284,22 @@ if (-not $SkipInstaller) {
     $versionPattern = 'MyAppVersion "' + $Version + '"'
     if ($issContent -notmatch [regex]::Escape($versionPattern)) {
         $issContent = $issContent -replace 'MyAppVersion "([^"]+)"', ('MyAppVersion "' + $Version + '"')
-        Set-Content $issFile $issContent -NoNewline
     }
+    
+    # Update OutputBaseFilename with version and branch
+    $versionSuffix = "-v$Version"
+    $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
+    $oldOutputBase = 'OutputBaseFilename=ScaleCmdBridge-Setup-x64'
+    $newOutputBase = "OutputBaseFilename=$installerBaseName"
+    if ($issContent -notmatch [regex]::Escape($newOutputBase)) {
+        $issContent = $issContent -replace [regex]::Escape($oldOutputBase), $newOutputBase
+    }
+    
+    # Save updated ISS file
+    Set-Content $issFile $issContent -NoNewline
+    
+    Write-Host "Updated ISS file with version and branch info" -ForegroundColor Gray
+    Write-Host "  Output filename: $installerBaseName.exe" -ForegroundColor Gray
     
     # Compile (ISCC.exe uses direct execution, Compil32.exe needs /cc parameter)
     if ($iscc -like "*ISCC.exe") {
@@ -284,7 +314,21 @@ if (-not $SkipInstaller) {
         exit 1
     }
     
-    $installerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
+    # Build installer filename with version and branch
+    $versionSuffix = "-v$Version"
+    $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
+    $installerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
+    
+    # Check if installer was created with default name (before renaming)
+    $defaultInstallerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
+    if (Test-Path $defaultInstallerPath) {
+        if ($defaultInstallerPath -ne $installerPath) {
+            # Rename to include version and branch
+            Move-Item $defaultInstallerPath $installerPath -Force
+            Write-Host "  [OK] Installer renamed to include version and branch" -ForegroundColor Green
+        }
+    }
+    
     if (Test-Path $installerPath) {
         $fileInfo = Get-Item $installerPath
         Write-Host "  [OK] Installer created successfully" -ForegroundColor Green
@@ -304,6 +348,10 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host "Build Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host 'Installer ready: release/ScaleCmdBridge-Setup-x64.exe' -ForegroundColor Cyan
+
+# Build installer filename with version and branch
+$versionSuffix = "-v$Version"
+$installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
+Write-Host "Installer ready: release/$installerBaseName.exe" -ForegroundColor Cyan
 Write-Host ""
 
