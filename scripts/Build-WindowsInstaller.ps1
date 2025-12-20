@@ -331,6 +331,16 @@ if (-not $SkipInstaller) {
     # Update OutputBaseFilename with version and branch
     $versionSuffix = "-v$Version"
     $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
+    
+    # Check if file with this name already exists in release directory
+    $potentialInstallerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
+    if (Test-Path $potentialInstallerPath) {
+        # Add timestamp to make filename unique (preserve old versions)
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix-$timestamp"
+        Write-Host "  [INFO] Installer with same name exists, adding timestamp to preserve old version" -ForegroundColor Yellow
+    }
+    
     $oldOutputBase = 'OutputBaseFilename=ScaleCmdBridge-Setup-x64'
     $newOutputBase = "OutputBaseFilename=$installerBaseName"
     if ($issContent -notmatch [regex]::Escape($newOutputBase)) {
@@ -365,7 +375,15 @@ if (-not $SkipInstaller) {
     $defaultInstallerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
     if (Test-Path $defaultInstallerPath) {
         if ($defaultInstallerPath -ne $installerPath) {
-            # Rename to include version and branch
+            # Check if target file already exists (preserve old versions)
+            if (Test-Path $installerPath) {
+                # Add timestamp to make filename unique
+                $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+                $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix-$timestamp"
+                $installerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
+                Write-Host "  [INFO] Installer with same name exists, adding timestamp: $installerBaseName.exe" -ForegroundColor Yellow
+            }
+            # Rename to include version and branch (don't overwrite existing files)
             Move-Item $defaultInstallerPath $installerPath -Force
             Write-Host "  [OK] Installer renamed to include version and branch" -ForegroundColor Green
         }
@@ -376,6 +394,7 @@ if (-not $SkipInstaller) {
         Write-Host "  [OK] Installer created successfully" -ForegroundColor Green
         Write-Host "  Location: $installerPath" -ForegroundColor Cyan
         Write-Host "  Size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB" -ForegroundColor Cyan
+        Write-Host "  Created: $($fileInfo.CreationTime)" -ForegroundColor Cyan
     } else {
         Write-Host "ERROR: Installer file not found after compilation!" -ForegroundColor Red
         exit 1
