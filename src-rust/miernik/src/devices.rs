@@ -32,8 +32,19 @@ impl RinstrumC320 {
         // Normalize command keys to lowercase for case-insensitive matching
         let commands: HashMap<String, String> = config.commands
             .iter()
-            .map(|(k, v)| (k.to_lowercase(), v.clone()))
+            .map(|(k, v)| {
+                let normalized_key = k.to_lowercase();
+                log::debug!(
+                    "Normalizing command key: '{}' -> '{}' (value: '{}')",
+                    k, normalized_key, v
+                );
+                (normalized_key, v.clone())
+            })
             .collect();
+        log::info!(
+            "RinstrumC320 initialized with normalized commands: {:?}",
+            commands.keys().collect::<Vec<_>>()
+        );
         Ok(Self::new(device_id, connection, commands))
     }
 }
@@ -82,8 +93,19 @@ impl DiniArgeoDFW {
         // Normalize command keys to lowercase for case-insensitive matching
         let commands: HashMap<String, String> = config.commands
             .iter()
-            .map(|(k, v)| (k.to_lowercase(), v.clone()))
+            .map(|(k, v)| {
+                let normalized_key = k.to_lowercase();
+                log::debug!(
+                    "Normalizing command key: '{}' -> '{}' (value: '{}')",
+                    k, normalized_key, v
+                );
+                (normalized_key, v.clone())
+            })
             .collect();
+        log::info!(
+            "DiniArgeoDFW initialized with normalized commands: {:?}",
+            commands.keys().collect::<Vec<_>>()
+        );
         Ok(Self::new(device_id, connection, commands))
     }
 }

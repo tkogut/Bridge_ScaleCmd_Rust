@@ -82,11 +82,25 @@ impl DeviceAdapter for Device {
 
     async fn execute_command(&self, command: &str) -> Result<WeightReading, MiernikError> {
         let command_lower = command.to_lowercase();
+        
+        // Debug: log available commands and requested command
+        log::debug!(
+            "Executing command: '{}' (normalized: '{}'). Available commands: {:?}",
+            command,
+            command_lower,
+            self.command_map.keys().collect::<Vec<_>>()
+        );
+        
         let device_command = self
             .command_map
             .get(&command_lower)
             .ok_or_else(|| {
-                MiernikError::InvalidCommand(format!("Unknown command: {}", command))
+                let available: Vec<String> = self.command_map.keys().map(|k| k.clone()).collect();
+                let available_str = available.join(", ");
+                MiernikError::InvalidCommand(format!(
+                    "Unknown command: '{}' (normalized: '{}'). Available commands: [{}]",
+                    command, command_lower, available_str
+                ))
             })?;
 
         let response = self

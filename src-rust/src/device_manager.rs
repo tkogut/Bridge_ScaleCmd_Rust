@@ -10,7 +10,7 @@ use crate::error::BridgeError;
 use crate::models::device::{AppConfig, DeviceConfig};
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
 use scaleit_host::{Connection, Protocol};
-use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW, MiernikError};
+use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW};
 
 #[derive(Debug)]
 pub struct DeviceManager {
