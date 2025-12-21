@@ -27,9 +27,23 @@ export interface DeviceConfig {
   name: string;
   manufacturer: string;
   model: string;
-  protocol: string;
+  host_id: string;
+  miernik_id: string;
+  enabled: boolean;
+}
+
+export interface HostConfig {
+  name: string;
   connection: TcpConnection | SerialConnection;
   timeout_ms: number;
+  enabled: boolean;
+}
+
+export interface MiernikConfig {
+  name: string;
+  protocol: string;
+  manufacturer: string;
+  model: string;
   commands: Record<string, string>;
   enabled: boolean;
 }

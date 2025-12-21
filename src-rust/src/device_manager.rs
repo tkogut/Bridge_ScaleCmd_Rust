@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::error::BridgeError;
-use crate::models::device::{AppConfig, DeviceConfig};
+use crate::models::device::DeviceConfig;
+use crate::models::host::{AppConfig, HostConfig};
+use crate::models::miernik::MiernikConfig;
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
 use scaleit_host::{Connection, Protocol};
 use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW};
@@ -15,6 +17,8 @@ use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW};
 #[derive(Debug)]
 pub struct DeviceManager {
     config_path: PathBuf,
+    hosts: RwLock<HashMap<String, HostConfig>>,
+    mierniki: RwLock<HashMap<String, MiernikConfig>>,
     devices: RwLock<HashMap<String, DeviceConfig>>,
     adapters: RwLock<HashMap<String, Arc<dyn DeviceAdapter + Send + Sync>>>,
 }
@@ -28,11 +32,15 @@ impl DeviceManager {
 
     pub fn from_config<P: Into<PathBuf>>(path: P, config: AppConfig) -> Result<Self, BridgeError> {
         let path = path.into();
+        let hosts = config.hosts;
+        let mierniki = config.mierniki;
         let devices = config.devices;
-        let adapters = Self::build_adapters(&devices)?;
+        let adapters = Self::build_adapters(&hosts, &mierniki, &devices)?;
 
         Ok(Self {
             config_path: path,
+            hosts: RwLock::new(hosts),
+            mierniki: RwLock::new(mierniki),
             devices: RwLock::new(devices),
             adapters: RwLock::new(adapters),
         })
@@ -57,6 +65,72 @@ impl DeviceManager {
             .get(device_id)
             .cloned()
             .ok_or_else(|| BridgeError::DeviceNotFound(device_id.to_string()))
+    }
+
+    // Host management methods
+    pub fn list_hosts(&self) -> HashMap<String, HostConfig> {
+        self.hosts.read().clone()
+    }
+
+    pub fn get_host(&self, host_id: &str) -> Result<HostConfig, BridgeError> {
+        self.hosts
+            .read()
+            .get(host_id)
+            .cloned()
+            .ok_or_else(|| BridgeError::DeviceNotFound(format!("Host '{}' not found", host_id)))
+    }
+
+    pub async fn save_host(&self, host_id: &str, config: HostConfig) -> Result<(), BridgeError> {
+        {
+            let mut hosts = self.hosts.write();
+            hosts.insert(host_id.to_string(), config);
+        }
+        self.write_config()?;
+        Ok(())
+    }
+
+    pub async fn delete_host(&self, host_id: &str) -> Result<(), BridgeError> {
+        {
+            let mut hosts = self.hosts.write();
+            if hosts.remove(host_id).is_none() {
+                return Err(BridgeError::DeviceNotFound(format!("Host '{}' not found", host_id)));
+            }
+        }
+        self.write_config()?;
+        Ok(())
+    }
+
+    // Miernik management methods
+    pub fn list_mierniki(&self) -> HashMap<String, MiernikConfig> {
+        self.mierniki.read().clone()
+    }
+
+    pub fn get_miernik(&self, miernik_id: &str) -> Result<MiernikConfig, BridgeError> {
+        self.mierniki
+            .read()
+            .get(miernik_id)
+            .cloned()
+            .ok_or_else(|| BridgeError::DeviceNotFound(format!("Miernik '{}' not found", miernik_id)))
+    }
+
+    pub async fn save_miernik(&self, miernik_id: &str, config: MiernikConfig) -> Result<(), BridgeError> {
+        {
+            let mut mierniki = self.mierniki.write();
+            mierniki.insert(miernik_id.to_string(), config);
+        }
+        self.write_config()?;
+        Ok(())
+    }
+
+    pub async fn delete_miernik(&self, miernik_id: &str) -> Result<(), BridgeError> {
+        {
+            let mut mierniki = self.mierniki.write();
+            if mierniki.remove(miernik_id).is_none() {
+                return Err(BridgeError::DeviceNotFound(format!("Miernik '{}' not found", miernik_id)));
+            }
+        }
+        self.write_config()?;
+        Ok(())
     }
 
     pub async fn execute_command(
@@ -142,8 +216,8 @@ impl DeviceManager {
         {
             let mut devices = self.devices.write();
             devices.insert(device_id.to_string(), config);
-            self.write_config(&devices)?;
         }
+        self.write_config()?;
         Ok(())
     }
 
@@ -153,23 +227,33 @@ impl DeviceManager {
             if devices.remove(device_id).is_none() {
                 return Err(BridgeError::DeviceNotFound(device_id.to_string()));
             }
-            self.write_config(&devices)?;
         }
+        self.write_config()?;
         Ok(())
     }
 
     pub async fn reload_config(&self) -> Result<(), BridgeError> {
-        let devices_from_disk = Self::read_config(&self.config_path)?.devices;
+        let config_from_disk = Self::read_config(&self.config_path)?;
+        {
+            let mut hosts = self.hosts.write();
+            *hosts = config_from_disk.hosts;
+        }
+        {
+            let mut mierniki = self.mierniki.write();
+            *mierniki = config_from_disk.mierniki;
+        }
         {
             let mut devices = self.devices.write();
-            *devices = devices_from_disk;
+            *devices = config_from_disk.devices;
         }
         self.rebuild_adapters().await
     }
 
     async fn rebuild_adapters(&self) -> Result<(), BridgeError> {
+        let hosts_snapshot = self.hosts.read().clone();
+        let mierniki_snapshot = self.mierniki.read().clone();
         let devices_snapshot = self.devices.read().clone();
-        let new_adapters = Self::build_adapters(&devices_snapshot)?;
+        let new_adapters = Self::build_adapters(&hosts_snapshot, &mierniki_snapshot, &devices_snapshot)?;
 
         // Disconnect old adapters before replacing
         {
@@ -192,6 +276,8 @@ impl DeviceManager {
     }
 
     fn build_adapters(
+        hosts: &HashMap<String, HostConfig>,
+        mierniki: &HashMap<String, MiernikConfig>,
         devices: &HashMap<String, DeviceConfig>,
     ) -> Result<HashMap<String, Arc<dyn DeviceAdapter + Send + Sync>>, BridgeError> {
         let mut adapters: HashMap<String, Arc<dyn DeviceAdapter + Send + Sync>> = HashMap::new();
@@ -207,17 +293,31 @@ impl DeviceManager {
                 continue;
             }
 
-            let protocol = Protocol::from_str(&device_config.protocol);
-            let connection = Self::convert_connection(device_config)?;
+            // Get host configuration
+            let host_config = hosts.get(&device_config.host_id)
+                .ok_or_else(|| BridgeError::ConfigurationError(format!(
+                    "Host '{}' not found for device '{}'",
+                    device_config.host_id, device_id
+                )))?;
+
+            // Get miernik configuration
+            let miernik_config = mierniki.get(&device_config.miernik_id)
+                .ok_or_else(|| BridgeError::ConfigurationError(format!(
+                    "Miernik '{}' not found for device '{}'",
+                    device_config.miernik_id, device_id
+                )))?;
+
+            let protocol = Protocol::from_str(&miernik_config.protocol);
+            let connection = Self::convert_host_to_connection(host_config)?;
             let connection_arc = Arc::new(connection);
 
-            // Convert DeviceConfig to scaleit_miernik::DeviceConfig
-            let miernik_config = scaleit_miernik::DeviceConfig {
+            // Convert MiernikConfig to scaleit_miernik::DeviceConfig
+            let scaleit_miernik_config = scaleit_miernik::DeviceConfig {
                 name: device_config.name.clone(),
-                manufacturer: device_config.manufacturer.clone(),
-                model: device_config.model.clone(),
-                protocol: device_config.protocol.clone(),
-                commands: device_config.commands.clone(),
+                manufacturer: miernik_config.manufacturer.clone(),
+                model: miernik_config.model.clone(),
+                protocol: miernik_config.protocol.clone(),
+                commands: miernik_config.commands.clone(),
                 enabled: device_config.enabled,
             };
 
@@ -225,25 +325,25 @@ impl DeviceManager {
                 Protocol::Rincmd => {
                     Arc::new(RinstrumC320::from_config(
                         device_id.clone(),
-                        &miernik_config,
+                        &scaleit_miernik_config,
                         connection_arc,
                     ).map_err(|e| BridgeError::ConfigurationError(format!("{}", e)))?)
                 }
                 Protocol::DiniAscii => {
                     Arc::new(DiniArgeoDFW::from_config(
                         device_id.clone(),
-                        &miernik_config,
+                        &scaleit_miernik_config,
                         connection_arc,
                     ).map_err(|e| BridgeError::ConfigurationError(format!("{}", e)))?)
                 }
                 Protocol::Custom(_) => {
                     error!(
                         "Unsupported protocol '{}' for device {}",
-                        device_config.protocol, device_id
+                        miernik_config.protocol, device_id
                     );
                     return Err(BridgeError::ConfigurationError(format!(
                         "Unsupported protocol: {}",
-                        device_config.protocol
+                        miernik_config.protocol
                     )));
                 }
             };
@@ -254,11 +354,11 @@ impl DeviceManager {
         Ok(adapters)
     }
 
-    /// Convert old Connection enum to new scaleit_host::Connection
-    fn convert_connection(config: &DeviceConfig) -> Result<Connection, BridgeError> {
-        match &config.connection {
+    /// Convert HostConfig to scaleit_host::Connection
+    fn convert_host_to_connection(host_config: &HostConfig) -> Result<Connection, BridgeError> {
+        match &host_config.connection {
             crate::models::device::ConnectionConfig::Tcp { host, port } => {
-                Ok(Connection::tcp(host.clone(), *port, config.timeout_ms))
+                Ok(Connection::tcp(host.clone(), *port, host_config.timeout_ms))
             }
             crate::models::device::ConnectionConfig::Serial {
                 port,
@@ -294,7 +394,7 @@ impl DeviceManager {
                     stop_bits_serial,
                     parity_serial,
                     flow_control_serial,
-                    config.timeout_ms,
+                    host_config.timeout_ms,
                 ))
             }
         }
@@ -318,6 +418,8 @@ impl DeviceManager {
             
             // Create default empty config
             let default_config = AppConfig {
+                hosts: HashMap::new(),
+                mierniki: HashMap::new(),
                 devices: HashMap::new(),
             };
             
@@ -361,7 +463,7 @@ impl DeviceManager {
         Ok(config)
     }
 
-    fn write_config(&self, devices: &HashMap<String, DeviceConfig>) -> Result<(), BridgeError> {
+    fn write_config(&self) -> Result<(), BridgeError> {
         let file = File::create(&self.config_path).map_err(|e| {
             BridgeError::ConfigurationError(format!(
                 "Failed to write config file {}: {}",
@@ -371,7 +473,9 @@ impl DeviceManager {
         })?;
         let writer = BufWriter::new(file);
         let config = AppConfig {
-            devices: devices.clone(),
+            hosts: self.hosts.read().clone(),
+            mierniki: self.mierniki.read().clone(),
+            devices: self.devices.read().clone(),
         };
         serde_json::to_writer_pretty(writer, &config)?;
         Ok(())

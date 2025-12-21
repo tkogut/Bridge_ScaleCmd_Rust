@@ -13,6 +13,8 @@ use std::sync::Arc;
 use scaleit_bridge::device_manager::DeviceManager;
 use scaleit_bridge::error::BridgeError;
 use scaleit_bridge::models::device::SaveConfigRequest;
+use scaleit_bridge::models::host::{HostConfig, SaveHostRequest};
+use scaleit_bridge::models::miernik::{MiernikConfig, SaveMiernikRequest};
 use scaleit_bridge::models::weight::{
     DeviceListResponse, HealthResponse, ScaleCommandRequest, ScaleCommandResponse,
 };
@@ -153,6 +155,138 @@ async fn delete_device_config(
     HttpResponse::Ok().json(json!({
         "success": true,
         "message": format!("Device {} deleted and configuration reloaded.", id)
+    }))
+}
+
+// Host endpoints
+#[get("/api/hosts")]
+async fn get_hosts(state: Data<AppState>) -> impl Responder {
+    HttpResponse::Ok().json(state.device_manager.list_hosts())
+}
+
+#[get("/api/hosts/{host_id}")]
+async fn get_host(
+    host_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = host_id.into_inner();
+    match state.device_manager.get_host(&id) {
+        Ok(config) => HttpResponse::Ok().json(config),
+        Err(e) => bridge_error_response(Some(id), None, e),
+    }
+}
+
+#[post("/api/hosts/save")]
+async fn save_host(
+    payload: web::Json<SaveHostRequest>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let host_id = payload.host_id.clone();
+    if let Err(e) = state
+        .device_manager
+        .save_host(&host_id, payload.config.clone())
+        .await
+    {
+        error!("Failed to save host: {:?}", e);
+        return bridge_error_response(Some(host_id), None, e);
+    }
+
+    if let Err(e) = state.device_manager.reload_config().await {
+        error!("Failed to reload config: {:?}", e);
+        return bridge_error_response(Some(host_id), None, e);
+    }
+
+    HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": format!("Host {} saved and configuration reloaded.", host_id)
+    }))
+}
+
+#[delete("/api/hosts/{host_id}")]
+async fn delete_host(
+    host_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = host_id.into_inner();
+    if let Err(e) = state.device_manager.delete_host(&id).await {
+        error!("Failed to delete host: {:?}", e);
+        return bridge_error_response(Some(id.clone()), None, e);
+    }
+
+    if let Err(e) = state.device_manager.reload_config().await {
+        error!("Failed to reload config: {:?}", e);
+        return bridge_error_response(Some(id.clone()), None, e);
+    }
+
+    HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": format!("Host {} deleted and configuration reloaded.", id)
+    }))
+}
+
+// Miernik endpoints
+#[get("/api/mierniki")]
+async fn get_mierniki(state: Data<AppState>) -> impl Responder {
+    HttpResponse::Ok().json(state.device_manager.list_mierniki())
+}
+
+#[get("/api/mierniki/{miernik_id}")]
+async fn get_miernik(
+    miernik_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = miernik_id.into_inner();
+    match state.device_manager.get_miernik(&id) {
+        Ok(config) => HttpResponse::Ok().json(config),
+        Err(e) => bridge_error_response(Some(id), None, e),
+    }
+}
+
+#[post("/api/mierniki/save")]
+async fn save_miernik(
+    payload: web::Json<SaveMiernikRequest>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let miernik_id = payload.miernik_id.clone();
+    if let Err(e) = state
+        .device_manager
+        .save_miernik(&miernik_id, payload.config.clone())
+        .await
+    {
+        error!("Failed to save miernik: {:?}", e);
+        return bridge_error_response(Some(miernik_id), None, e);
+    }
+
+    if let Err(e) = state.device_manager.reload_config().await {
+        error!("Failed to reload config: {:?}", e);
+        return bridge_error_response(Some(miernik_id), None, e);
+    }
+
+    HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": format!("Miernik {} saved and configuration reloaded.", miernik_id)
+    }))
+}
+
+#[delete("/api/mierniki/{miernik_id}")]
+async fn delete_miernik(
+    miernik_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = miernik_id.into_inner();
+    if let Err(e) = state.device_manager.delete_miernik(&id).await {
+        error!("Failed to delete miernik: {:?}", e);
+        return bridge_error_response(Some(id.clone()), None, e);
+    }
+
+    if let Err(e) = state.device_manager.reload_config().await {
+        error!("Failed to reload config: {:?}", e);
+        return bridge_error_response(Some(id.clone()), None, e);
+    }
+
+    HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": format!("Miernik {} deleted and configuration reloaded.", id)
     }))
 }
 
@@ -477,6 +611,14 @@ async fn main() -> std::io::Result<()> {
             .service(get_device_configs)
             .service(save_device_config)
             .service(delete_device_config)
+            .service(get_hosts)
+            .service(get_host)
+            .service(save_host)
+            .service(delete_host)
+            .service(get_mierniki)
+            .service(get_miernik)
+            .service(save_miernik)
+            .service(delete_miernik)
             .service(shutdown_server)
             .service(start_server);
         

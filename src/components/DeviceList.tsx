@@ -112,17 +112,6 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
 
   const devices = configs ? Object.entries(configs) : [];
 
-  const renderConnection = (config: DeviceConfig) => {
-    const connection = config.connection;
-    if (connection.connection_type === "Tcp") {
-      return `${connection.host}:${connection.port}`;
-    }
-    if (connection.connection_type === "Serial") {
-      return `${connection.port} (${connection.baud_rate} baud)`;
-    }
-    return connection.connection_type;
-  };
-
   return (
     <div>
       <div className="flex justify-end mb-4">
@@ -160,27 +149,12 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
                   <TableCell>{config.name}</TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      {config.connection.connection_type === "Tcp" ? (
-                        <div>
-                          <div className="font-medium">TCP</div>
-                          <div className="text-muted-foreground">
-                            {config.connection.host}:{config.connection.port}
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="font-medium">Serial</div>
-                          <div className="text-muted-foreground">
-                            {config.connection.port} @ {config.connection.baud_rate} baud
-                          </div>
-                        </div>
-                      )}
+                      <div className="font-medium">{config.host_id}</div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      <div className="font-medium">{config.protocol}</div>
-                      <div className="text-muted-foreground">{config.model}</div>
+                      <div className="font-medium">{config.miernik_id}</div>
                     </div>
                   </TableCell>
                   <TableCell>

@@ -88,7 +88,7 @@ fn default_flow_control() -> FlowControl {
     FlowControl::None
 }
 
-fn default_timeout_ms() -> u32 {
+pub fn default_timeout_ms() -> u32 {
     1000
 }
 
@@ -116,52 +116,21 @@ pub struct DeviceConfig {
     pub name: String,
     pub manufacturer: String,
     pub model: String,
-    pub protocol: String,
-    pub connection: ConnectionConfig,
-    #[serde(default = "default_timeout_ms")]
-    pub timeout_ms: u32,
-    pub commands: HashMap<String, String>,
+    // Reference to host and miernik instead of direct connection/protocol
+    pub host_id: String,
+    pub miernik_id: String,
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 }
 
-impl DeviceConfig {
-    /// Konwertuje ConnectionConfig + timeout_ms na Connection dla adapterów
-    pub fn get_connection(&self) -> Connection {
-        match &self.connection {
-            ConnectionConfig::Tcp { host, port } => Connection::Tcp {
-                host: host.clone(),
-                port: *port,
-                timeout_ms: self.timeout_ms,
-            },
-            ConnectionConfig::Serial {
-                port,
-                baud_rate,
-                data_bits,
-                stop_bits,
-                parity,
-                flow_control,
-            } => Connection::Serial {
-                port: port.clone(),
-                baud_rate: *baud_rate,
-                data_bits: *data_bits,
-                stop_bits: stop_bits.clone(),
-                parity: parity.clone(),
-                flow_control: flow_control.clone(),
-                timeout_ms: self.timeout_ms,
-            },
-        }
-    }
-}
+// DeviceConfig no longer has connection/protocol - they come from host_id and miernik_id
+// The get_connection method is no longer needed
 
 fn default_enabled() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppConfig {
-    pub devices: HashMap<String, DeviceConfig>,
-}
+// AppConfig moved to host.rs to avoid circular dependencies
 
 #[derive(Debug, Deserialize)]
 pub struct SaveConfigRequest {
