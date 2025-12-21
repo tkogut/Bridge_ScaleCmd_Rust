@@ -68,7 +68,8 @@ pub fn parse_rincmd_response(response: &str) -> Result<WeightReading, MiernikErr
         };
 
         let is_net = status_char == "N";
-        let is_stable = status_char == "G" || status_char == "N";
+        // For zero/tare commands (Z/T), consider them stable (confirmation commands)
+        let is_stable = status_char == "G" || status_char == "N" || status_char == "Z" || status_char == "T";
 
         return Ok(WeightReading {
             gross_weight: if is_net { 0.0 } else { weight_val },
@@ -113,7 +114,7 @@ pub fn parse_rincmd_response(response: &str) -> Result<WeightReading, MiernikErr
         ));
     }
 
-    let is_stable = parts[0] == "S";
+    let mut is_stable = parts[0] == "S";
 
     let search_space = if let Some(pos) = cleaned.find(':') {
         cleaned[(pos + 1)..].trim().to_string()
@@ -129,6 +130,12 @@ pub fn parse_rincmd_response(response: &str) -> Result<WeightReading, MiernikErr
             .map_err(|e| {
                 MiernikError::ProtocolError(format!("Failed to parse weight '{}': {}", num_str, e))
             })?;
+
+        // For zero/tare commands, if weight is 0.0, consider it stable
+        // (zero/tare are confirmation commands, not weight readings)
+        if weight_val == 0.0 {
+            is_stable = true;
+        }
 
         let after = &search_space[m.end()..];
         let unit = RINCMD_UNIT_RE
@@ -161,6 +168,18 @@ pub fn parse_dini_ascii_response(response: &str) -> Result<WeightReading, Mierni
 
     // Clean response
     let cleaned = response.trim().to_string();
+    
+    // Handle "OK" response for zero/tare commands
+    // These are confirmation commands, not weight readings
+    if cleaned.to_uppercase() == "OK" {
+        return Ok(WeightReading {
+            gross_weight: 0.0,
+            net_weight: 0.0,
+            unit: "kg".to_string(),
+            is_stable: true,
+            timestamp: Utc::now(),
+        });
+    }
     
     // Find numeric value
     if let Some(caps) = DINI_VALUE_RE.captures(&cleaned) {
