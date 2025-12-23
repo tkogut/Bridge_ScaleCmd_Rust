@@ -15,7 +15,7 @@ info:
     ## Authentication:
     No authentication required for local installations.
     
-  version: 0.1.0
+  version: 0.1.1
   contact:
     name: ScaleIT Bridge Support
     url: https://github.com/tkogut/Bridge_ScaleCmd_Rust
@@ -41,6 +41,10 @@ tags:
     description: Execute commands on scale devices (read weight, tare, zero)
   - name: Configuration
     description: Device configuration management
+  - name: Hosts
+    description: Host (connection) configuration management
+  - name: Mierniki
+    description: Miernik (indicator/protocol) configuration management
   - name: Server Control
     description: Server lifecycle management (start, stop)
 
@@ -250,17 +254,8 @@ paths:
                       name: "Main Scale"
                       manufacturer: "Dini Argeo"
                       model: "C320"
-                      protocol: "ASCII"
-                      connection:
-                        connection_type: "Tcp"
-                        host: "192.168.1.254"
-                        port: 4001
-                      timeout_ms: 5000
-                      commands:
-                        readGross: "READ"
-                        readNet: "REXT"
-                        tare: "TARE"
-                        zero: "ZERO"
+                      host_id: "host-1"
+                      miernik_id: "miernik-1"
                       enabled: true
         '500':
           description: Internal server error
@@ -294,41 +289,19 @@ paths:
                     name: "Main Scale"
                     manufacturer: "Dini Argeo"
                     model: "C320"
-                    protocol: "ASCII"
-                    connection:
-                      connection_type: "Tcp"
-                      host: "192.168.1.254"
-                      port: 4001
-                    timeout_ms: 5000
-                    commands:
-                      readGross: "READ"
-                      readNet: "REXT"
-                      tare: "TARE"
-                      zero: "ZERO"
+                    host_id: "host-1"
+                    miernik_id: "miernik-1"
                     enabled: true
-              serialDevice:
-                summary: Serial device configuration
+              deviceWithSerial:
+                summary: Device with serial connection
                 value:
                   device_id: "scale2"
                   config:
                     name: "Serial Scale"
                     manufacturer: "Rinstrum"
                     model: "R320"
-                    protocol: "RINCMD"
-                    connection:
-                      connection_type: "Serial"
-                      port: "COM3"
-                      baud_rate: 9600
-                      data_bits: 8
-                      stop_bits: "one"
-                      parity: "none"
-                      flow_control: "none"
-                    timeout_ms: 1000
-                    commands:
-                      readGross: "21120008:0B"
-                      readNet: "21120008:0C"
-                      tare: "21120008:0D"
-                      zero: "21120008:0E"
+                    host_id: "host-2"
+                    miernik_id: "miernik-2"
                     enabled: true
       responses:
         '200':
@@ -392,6 +365,397 @@ paths:
                     message: "Device scale1 deleted and configuration reloaded."
         '404':
           description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/hosts:
+    get:
+      tags:
+        - Hosts
+      summary: List all host configurations
+      description: |
+        Get all host (connection) configurations.
+        
+        Returns a map where keys are host IDs and values are host configurations.
+      operationId: getAllHosts
+      responses:
+        '200':
+          description: Host configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/HostConfig'
+              examples:
+                hosts:
+                  summary: Host configurations
+                  value:
+                    host-1:
+                      name: "Host 192.168.1.254:4001"
+                      connection:
+                        connection_type: "Tcp"
+                        host: "192.168.1.254"
+                        port: 4001
+                      timeout_ms: 5000
+                      enabled: true
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/hosts/{host_id}:
+    get:
+      tags:
+        - Hosts
+      summary: Get host configuration
+      description: |
+        Get detailed configuration for a specific host.
+      operationId: getHost
+      parameters:
+        - name: host_id
+          in: path
+          required: true
+          description: Host identifier
+          schema:
+            type: string
+          examples:
+            host1:
+              summary: Get host-1
+              value: "host-1"
+      responses:
+        '200':
+          description: Host configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostConfig'
+        '404':
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Hosts
+      summary: Delete host configuration
+      description: |
+        Remove a host (connection) configuration.
+        
+        After deletion, the configuration is automatically reloaded.
+      operationId: deleteHost
+      parameters:
+        - name: host_id
+          in: path
+          required: true
+          description: Host ID to delete
+          schema:
+            type: string
+          examples:
+            host1:
+              summary: Delete host-1
+              value: "host-1"
+      responses:
+        '200':
+          description: Host deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteHostResponse'
+              examples:
+                success:
+                  summary: Host deleted
+                  value:
+                    success: true
+                    message: "Host host-1 deleted and configuration reloaded."
+        '404':
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/hosts/save:
+    post:
+      tags:
+        - Hosts
+      summary: Save host configuration
+      description: |
+        Add or update a host (connection) configuration.
+        
+        After saving, the configuration is automatically reloaded.
+      operationId: saveHost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveHostRequest'
+            examples:
+              tcpHost:
+                summary: TCP host configuration
+                value:
+                  host_id: "host-1"
+                  config:
+                    name: "Host 192.168.1.254:4001"
+                    connection:
+                      connection_type: "Tcp"
+                      host: "192.168.1.254"
+                      port: 4001
+                    timeout_ms: 5000
+                    enabled: true
+              serialHost:
+                summary: Serial host configuration
+                value:
+                  host_id: "host-2"
+                  config:
+                    name: "Serial COM3 @ 9600 baud"
+                    connection:
+                      connection_type: "Serial"
+                      port: "COM3"
+                      baud_rate: 9600
+                      data_bits: 8
+                      stop_bits: "one"
+                      parity: "none"
+                      flow_control: "none"
+                    timeout_ms: 1000
+                    enabled: true
+      responses:
+        '200':
+          description: Host configuration saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveHostResponse'
+              examples:
+                success:
+                  summary: Host saved
+                  value:
+                    success: true
+                    message: "Host host-1 saved and configuration reloaded."
+        '400':
+          description: Bad request (invalid configuration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/mierniki:
+    get:
+      tags:
+        - Mierniki
+      summary: List all miernik configurations
+      description: |
+        Get all miernik (indicator/protocol) configurations.
+        
+        Returns a map where keys are miernik IDs and values are miernik configurations.
+      operationId: getAllMierniki
+      responses:
+        '200':
+          description: Miernik configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/MiernikConfig'
+              examples:
+                mierniki:
+                  summary: Miernik configurations
+                  value:
+                    miernik-1:
+                      name: "Rinstrum C320"
+                      protocol: "RINCMD"
+                      manufacturer: "Rinstrum"
+                      model: "C320"
+                      commands:
+                        readGross: "20050026"
+                        readNet: "20050025"
+                        tare: "21120008:0C"
+                        zero: "21120008:0B"
+                      enabled: true
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/mierniki/{miernik_id}:
+    get:
+      tags:
+        - Mierniki
+      summary: Get miernik configuration
+      description: |
+        Get detailed configuration for a specific miernik.
+      operationId: getMiernik
+      parameters:
+        - name: miernik_id
+          in: path
+          required: true
+          description: Miernik identifier
+          schema:
+            type: string
+          examples:
+            miernik1:
+              summary: Get miernik-1
+              value: "miernik-1"
+      responses:
+        '200':
+          description: Miernik configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiernikConfig'
+        '404':
+          description: Miernik not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Mierniki
+      summary: Delete miernik configuration
+      description: |
+        Remove a miernik (indicator/protocol) configuration.
+        
+        After deletion, the configuration is automatically reloaded.
+      operationId: deleteMiernik
+      parameters:
+        - name: miernik_id
+          in: path
+          required: true
+          description: Miernik ID to delete
+          schema:
+            type: string
+          examples:
+            miernik1:
+              summary: Delete miernik-1
+              value: "miernik-1"
+      responses:
+        '200':
+          description: Miernik deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteMiernikResponse'
+              examples:
+                success:
+                  summary: Miernik deleted
+                  value:
+                    success: true
+                    message: "Miernik miernik-1 deleted and configuration reloaded."
+        '404':
+          description: Miernik not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/mierniki/save:
+    post:
+      tags:
+        - Mierniki
+      summary: Save miernik configuration
+      description: |
+        Add or update a miernik (indicator/protocol) configuration.
+        
+        After saving, the configuration is automatically reloaded.
+      operationId: saveMiernik
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveMiernikRequest'
+            examples:
+              rincmdMiernik:
+                summary: RINCMD miernik configuration
+                value:
+                  miernik_id: "miernik-1"
+                  config:
+                    name: "Rinstrum C320"
+                    protocol: "RINCMD"
+                    manufacturer: "Rinstrum"
+                    model: "C320"
+                    commands:
+                      readGross: "20050026"
+                      readNet: "20050025"
+                      tare: "21120008:0C"
+                      zero: "21120008:0B"
+                    enabled: true
+              diniMiernik:
+                summary: Dini Argeo miernik configuration
+                value:
+                  miernik_id: "miernik-2"
+                  config:
+                    name: "Dini Argeo DFW"
+                    protocol: "DINI_ARGEO"
+                    manufacturer: "Dini Argeo"
+                    model: "DFW"
+                    commands:
+                      readGross: "READ"
+                      readNet: "REXT"
+                      tare: "TARE"
+                      zero: "ZERO"
+                    enabled: true
+      responses:
+        '200':
+          description: Miernik configuration saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveMiernikResponse'
+              examples:
+                success:
+                  summary: Miernik saved
+                  value:
+                    success: true
+                    message: "Miernik miernik-1 saved and configuration reloaded."
+        '400':
+          description: Bad request (invalid configuration)
           content:
             application/json:
               schema:
@@ -594,10 +958,8 @@ components:
         - name
         - manufacturer
         - model
-        - protocol
-        - connection
-        - timeout_ms
-        - commands
+        - host_id
+        - miernik_id
         - enabled
       properties:
         name:
@@ -612,32 +974,14 @@ components:
           type: string
           description: Device model
           example: "C320"
-        protocol:
+        host_id:
           type: string
-          description: Communication protocol
-          example: "ASCII"
-        connection:
-          oneOf:
-            - $ref: '#/components/schemas/TcpConnection'
-            - $ref: '#/components/schemas/SerialConnection'
-          description: Connection configuration
-        timeout_ms:
-          type: integer
-          format: int32
-          description: Connection timeout in milliseconds
-          minimum: 100
-          maximum: 60000
-          example: 5000
-        commands:
-          type: object
-          additionalProperties:
-            type: string
-          description: Command mappings (command name -> device command string)
-          example:
-            readGross: "READ"
-            readNet: "REXT"
-            tare: "TARE"
-            zero: "ZERO"
+          description: Reference to host (connection) configuration ID
+          example: "host-1"
+        miernik_id:
+          type: string
+          description: Reference to miernik (indicator/protocol) configuration ID
+          example: "miernik-1"
         enabled:
           type: boolean
           description: Whether the device is enabled
@@ -776,6 +1120,154 @@ components:
         message:
           type: string
           example: "Server start command executed. Please wait a few seconds and check the status."
+
+    HostConfig:
+      type: object
+      required:
+        - name
+        - connection
+        - timeout_ms
+        - enabled
+      properties:
+        name:
+          type: string
+          description: Host display name
+          example: "Host 192.168.1.254:4001"
+        connection:
+          oneOf:
+            - $ref: '#/components/schemas/TcpConnection'
+            - $ref: '#/components/schemas/SerialConnection'
+          description: Connection configuration
+        timeout_ms:
+          type: integer
+          format: int32
+          description: Connection timeout in milliseconds
+          minimum: 100
+          maximum: 60000
+          example: 5000
+        enabled:
+          type: boolean
+          description: Whether the host is enabled
+          example: true
+
+    MiernikConfig:
+      type: object
+      required:
+        - name
+        - protocol
+        - manufacturer
+        - model
+        - commands
+        - enabled
+      properties:
+        name:
+          type: string
+          description: Miernik display name
+          example: "Rinstrum C320"
+        protocol:
+          type: string
+          description: Communication protocol
+          example: "RINCMD"
+        manufacturer:
+          type: string
+          description: Device manufacturer
+          example: "Rinstrum"
+        model:
+          type: string
+          description: Device model
+          example: "C320"
+        commands:
+          type: object
+          additionalProperties:
+            type: string
+          description: Command mappings (command name -> device command string)
+          example:
+            readGross: "20050026"
+            readNet: "20050025"
+            tare: "21120008:0C"
+            zero: "21120008:0B"
+        enabled:
+          type: boolean
+          description: Whether the miernik is enabled
+          example: true
+
+    SaveHostRequest:
+      type: object
+      required:
+        - host_id
+        - config
+      properties:
+        host_id:
+          type: string
+          description: Host identifier
+          example: "host-1"
+        config:
+          $ref: '#/components/schemas/HostConfig'
+
+    SaveMiernikRequest:
+      type: object
+      required:
+        - miernik_id
+        - config
+      properties:
+        miernik_id:
+          type: string
+          description: Miernik identifier
+          example: "miernik-1"
+        config:
+          $ref: '#/components/schemas/MiernikConfig'
+
+    SaveHostResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Host host-1 saved and configuration reloaded."
+
+    SaveMiernikResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Miernik miernik-1 saved and configuration reloaded."
+
+    DeleteHostResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Host host-1 deleted and configuration reloaded."
+
+    DeleteMiernikResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Miernik miernik-1 deleted and configuration reloaded."
 
     ErrorResponse:
       type: object

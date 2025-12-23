@@ -563,7 +563,23 @@ impl DeviceAdapter for DiniArgeoAsciiAdapter {
     }
 
     async fn execute_command(&self, command: &str) -> Result<WeightReading, BridgeError> {
-        if !self.is_connected() {
+        // Check connection status before executing command
+        let needs_reconnect = match &self.connection_type {
+            ConnectionType::Tcp { stream, .. } => {
+                let guard = stream.read();
+                guard.is_none()
+            }
+            ConnectionType::Serial { connection, .. } => {
+                let guard = connection.lock();
+                guard.is_none()
+            }
+        };
+
+        if needs_reconnect {
+            warn!(
+                "Device {} not connected, attempting to reconnect for command '{}'",
+                self.device_id, command
+            );
             self.connect().await?;
         }
 

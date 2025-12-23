@@ -2,10 +2,11 @@
 
 use crate::error::HostError;
 use log::{error, info, warn};
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
+use tokio::sync::RwLock;
 use tokio::task;
 use tokio::time::{timeout, Duration as TokioDuration};
 
@@ -127,8 +128,7 @@ impl Connection {
     pub fn is_connected(&self) -> bool {
         match &self.connection_type {
             ConnectionType::Tcp { stream, .. } => {
-                let guard = stream.read();
-                guard.is_some()
+                stream.try_read().map(|guard| guard.is_some()).unwrap_or(false)
             }
             ConnectionType::Serial { connection, .. } => {
                 let guard = connection.lock();
@@ -142,7 +142,7 @@ impl Connection {
         match &self.connection_type {
             ConnectionType::Tcp { stream, host, port } => {
                 {
-                    let conn_guard = stream.read();
+                    let conn_guard = stream.read().await;
                     if conn_guard.is_some() {
                         info!("TCP connection already established to {}:{}", host, port);
                         return Ok(());
@@ -169,9 +169,16 @@ impl Connection {
                         HostError::ConnectionError(format!("Failed to connect: {}", e))
                     })?;
 
+                // Configure socket options for better reliability
+                // Set TCP_NODELAY to disable Nagle's algorithm (send data immediately)
+                let mut configured_stream = stream_result;
+                if let Err(e) = configured_stream.set_nodelay(true) {
+                    warn!("Failed to set TCP_NODELAY on connection to {}: {}", addr, e);
+                }
+
                 {
-                    let mut conn_guard = stream.write();
-                    *conn_guard = Some(stream_result);
+                    let mut conn_guard = stream.write().await;
+                    *conn_guard = Some(configured_stream);
                 }
 
                 info!("Successfully connected to TCP address: {}", addr);
@@ -292,7 +299,7 @@ impl Connection {
     pub async fn disconnect(&self) -> Result<(), HostError> {
         match &self.connection_type {
             ConnectionType::Tcp { stream, .. } => {
-                let mut conn_guard = stream.write();
+                let mut conn_guard = stream.write().await;
                 *conn_guard = None;
                 Ok(())
             }

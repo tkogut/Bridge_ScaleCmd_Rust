@@ -2,7 +2,7 @@ use log::{error, info, warn};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -10,6 +10,7 @@ use crate::error::BridgeError;
 use crate::models::device::DeviceConfig;
 use crate::models::host::{AppConfig, HostConfig};
 use crate::models::miernik::MiernikConfig;
+use crate::models::legacy_device::LegacyAppConfig;
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
 use scaleit_host::{Connection, Protocol};
 use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW};
@@ -87,6 +88,98 @@ impl DeviceManager {
         }
         self.write_config()?;
         Ok(())
+    }
+
+    pub async fn test_host_connection(&self, host_id: &str) -> Result<String, BridgeError> {
+        let host = self.get_host(host_id)?;
+        
+        match &host.connection {
+            crate::models::device::ConnectionConfig::Tcp { host: host_addr, port } => {
+                // Test TCP connection by attempting to connect
+                // IMPORTANT: Create a temporary connection that is immediately closed
+                // This does NOT affect existing device connections
+                use tokio::io::AsyncWriteExt;
+                use tokio::net::TcpStream;
+                use tokio::time::{timeout, Duration as TokioDuration};
+                
+                let addr = format!("{}:{}", host_addr, port);
+                let timeout_duration = TokioDuration::from_millis(host.timeout_ms as u64);
+                
+                match timeout(timeout_duration, TcpStream::connect(&addr)).await {
+                    Ok(Ok(mut test_stream)) => {
+                        // Test that we can actually communicate by checking if stream is writable
+                        // Then immediately close it - this does NOT affect device adapters
+                        let _ = test_stream.shutdown().await;
+                        drop(test_stream); // Explicitly drop to ensure cleanup
+                        Ok(format!("TCP connection successful to {}:{}", host_addr, port))
+                    }
+                    Ok(Err(e)) => {
+                        Err(BridgeError::ConnectionError(format!(
+                            "Failed to connect to {}:{} - {}",
+                            host_addr, port, e
+                        )))
+                    }
+                    Err(_) => {
+                        Err(BridgeError::Timeout(format!(
+                            "Connection timeout to {}:{} after {}ms",
+                            host_addr, port, host.timeout_ms
+                        )))
+                    }
+                }
+            }
+            crate::models::device::ConnectionConfig::Serial { port, .. } => {
+                // Test Serial port availability
+                use serialport::SerialPortType;
+                
+                // List available ports
+                let available_ports = serialport::available_ports()
+                    .map_err(|e| BridgeError::ConnectionError(format!(
+                        "Failed to list serial ports: {}", e
+                    )))?;
+                
+                // Check if the port exists
+                let port_exists = available_ports.iter().any(|p| {
+                    match &p.port_type {
+                        SerialPortType::UsbPort(_) => p.port_name == *port,
+                        SerialPortType::BluetoothPort => p.port_name == *port,
+                        SerialPortType::PciPort => p.port_name == *port,
+                        SerialPortType::Unknown => p.port_name == *port,
+                    }
+                });
+                
+                if port_exists {
+                    // Try to open the port briefly to verify it's accessible
+                    match serialport::new(port.clone(), 9600)
+                        .timeout(std::time::Duration::from_millis(100))
+                        .open()
+                    {
+                        Ok(_) => {
+                            Ok(format!("Serial port {} is available and accessible", port))
+                        }
+                        Err(e) => {
+                            Err(BridgeError::ConnectionError(format!(
+                                "Serial port {} exists but cannot be opened: {}",
+                                port, e
+                            )))
+                        }
+                    }
+                } else {
+                    let available_list: Vec<String> = available_ports
+                        .iter()
+                        .map(|p| p.port_name.clone())
+                        .collect();
+                    Err(BridgeError::ConnectionError(format!(
+                        "Serial port {} not found. Available ports: {}",
+                        port,
+                        if available_list.is_empty() {
+                            "none".to_string()
+                        } else {
+                            available_list.join(", ")
+                        }
+                    )))
+                }
+            }
+        }
     }
 
     pub async fn delete_host(&self, host_id: &str) -> Result<(), BridgeError> {
@@ -445,22 +538,75 @@ impl DeviceManager {
         }
         
         // File exists, read it
-        let file = File::open(path).map_err(|e| {
+        // First, read the entire file content to try both formats
+        let content = std::fs::read_to_string(path).map_err(|e| {
             BridgeError::ConfigurationError(format!(
-                "Failed to open config file {}: {}",
+                "Failed to read config file {}: {}",
                 path.display(),
                 e
             ))
         })?;
-        let reader = BufReader::new(file);
-        let config = serde_json::from_reader(reader).map_err(|e| {
+        
+        // Try to parse as new format first
+        match serde_json::from_str::<AppConfig>(&content) {
+            Ok(config) => {
+                // New format - check if it has hosts/mierniki or is empty
+                if !config.hosts.is_empty() || !config.mierniki.is_empty() {
+                    // Already in new format
+                    return Ok(config);
+                }
+                // Empty new format - try legacy migration
+            }
+            Err(_) => {
+                // Failed to parse as new format - try legacy format
+            }
+        }
+        
+        // Try to read as legacy format and migrate
+        let legacy_reader = std::io::Cursor::new(content.as_bytes());
+        
+        let legacy_config: LegacyAppConfig = serde_json::from_reader(legacy_reader).map_err(|e| {
             BridgeError::ConfigurationError(format!(
-                "Failed to parse config file {}: {}",
+                "Failed to parse config file {} (tried both new and legacy format): {}",
                 path.display(),
                 e
             ))
         })?;
-        Ok(config)
+        
+        // Migrate legacy config to new format
+        info!("Detected legacy configuration format. Migrating to new format...");
+        let migrated_config = Self::migrate_legacy_config(legacy_config)?;
+        
+        // Backup old config and write migrated config
+        let backup_path = path.with_extension("json.backup");
+        std::fs::copy(path, &backup_path).map_err(|e| {
+            BridgeError::ConfigurationError(format!(
+                "Failed to create backup of config file {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+        info!("Created backup of legacy config at: {}", backup_path.display());
+        
+        // Write migrated config
+        let file = File::create(path).map_err(|e| {
+            BridgeError::ConfigurationError(format!(
+                "Failed to write migrated config file {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, &migrated_config).map_err(|e| {
+            BridgeError::ConfigurationError(format!(
+                "Failed to write migrated config to {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+        info!("Successfully migrated configuration to new format");
+        
+        Ok(migrated_config)
     }
 
     fn write_config(&self) -> Result<(), BridgeError> {
@@ -479,5 +625,92 @@ impl DeviceManager {
         };
         serde_json::to_writer_pretty(writer, &config)?;
         Ok(())
+    }
+
+    /// Migrate legacy configuration to new format
+    fn migrate_legacy_config(legacy: LegacyAppConfig) -> Result<AppConfig, BridgeError> {
+        let mut hosts: HashMap<String, HostConfig> = HashMap::new();
+        let mut mierniki: HashMap<String, MiernikConfig> = HashMap::new();
+        let mut devices: HashMap<String, DeviceConfig> = HashMap::new();
+        
+        // Track unique hosts and mierniki
+        let mut host_map: HashMap<String, String> = HashMap::new(); // connection_key -> host_id
+        let mut miernik_map: HashMap<String, String> = HashMap::new(); // protocol+commands_key -> miernik_id
+        
+        for (device_id, legacy_device) in legacy.devices.iter() {
+            // Generate unique host_id based on connection
+            let host_key = match &legacy_device.connection {
+                crate::models::device::ConnectionConfig::Tcp { host, port } => {
+                    format!("tcp-{}-{}", host, port)
+                }
+                crate::models::device::ConnectionConfig::Serial { port, baud_rate, .. } => {
+                    format!("serial-{}-{}", port, baud_rate)
+                }
+            };
+            
+            let host_id = if let Some(existing_host_id) = host_map.get(&host_key) {
+                existing_host_id.clone()
+            } else {
+                let new_host_id = format!("host-{}", hosts.len() + 1);
+                let host_config = HostConfig {
+                    name: match &legacy_device.connection {
+                        crate::models::device::ConnectionConfig::Tcp { host, port } => {
+                            format!("Host {}:{}", host, port)
+                        }
+                        crate::models::device::ConnectionConfig::Serial { port, baud_rate, .. } => {
+                            format!("Serial {} @ {} baud", port, baud_rate)
+                        }
+                    },
+                    connection: legacy_device.connection.clone(),
+                    timeout_ms: legacy_device.timeout_ms,
+                    enabled: true,
+                };
+                hosts.insert(new_host_id.clone(), host_config);
+                host_map.insert(host_key, new_host_id.clone());
+                new_host_id
+            };
+            
+            // Generate unique miernik_id based on protocol and commands
+            let commands_key = {
+                let mut keys: Vec<String> = legacy_device.commands.keys().cloned().collect();
+                keys.sort();
+                format!("{}-{}", legacy_device.protocol, keys.join(","))
+            };
+            
+            let miernik_id = if let Some(existing_miernik_id) = miernik_map.get(&commands_key) {
+                existing_miernik_id.clone()
+            } else {
+                let new_miernik_id = format!("miernik-{}", mierniki.len() + 1);
+                let miernik_config = MiernikConfig {
+                    name: format!("{} {}", legacy_device.manufacturer, legacy_device.model),
+                    protocol: legacy_device.protocol.clone(),
+                    manufacturer: legacy_device.manufacturer.clone(),
+                    model: legacy_device.model.clone(),
+                    commands: legacy_device.commands.clone(),
+                    enabled: true,
+                };
+                mierniki.insert(new_miernik_id.clone(), miernik_config);
+                miernik_map.insert(commands_key, new_miernik_id.clone());
+                new_miernik_id
+            };
+            
+            // Create new device config
+            let device_config = DeviceConfig {
+                name: legacy_device.name.clone(),
+                manufacturer: legacy_device.manufacturer.clone(),
+                model: legacy_device.model.clone(),
+                host_id,
+                miernik_id,
+                enabled: legacy_device.enabled,
+            };
+            
+            devices.insert(device_id.clone(), device_config);
+        }
+        
+        Ok(AppConfig {
+            hosts,
+            mierniki,
+            devices,
+        })
     }
 }

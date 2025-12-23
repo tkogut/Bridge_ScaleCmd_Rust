@@ -1,9 +1,9 @@
 //! Command execution and communication
 
-use crate::connection::Connection;
+use crate::connection::{Connection, ConnectionType};
 use crate::error::HostError;
 use crate::protocol::Protocol;
-use log::debug;
+use log::{debug, warn};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -42,11 +42,33 @@ impl CommandExecutor {
 
     async fn send_tcp(
         &self,
-        stream: &Arc<parking_lot::RwLock<Option<TcpStream>>>,
+        stream: &Arc<tokio::sync::RwLock<Option<TcpStream>>>,
         command: &str,
     ) -> Result<String, HostError> {
+        // Always reconnect before use - some devices close connection after first use
+        // This ensures we have a fresh connection for each command
+        if let ConnectionType::Tcp { host, port, .. } = &self.connection.connection_type {
+            debug!("Ensuring TCP connection to {}:{}...", host, port);
+            // Clear any existing connection first
+            {
+                let mut guard = stream.write().await;
+                *guard = None;
+            }
+            // Connect fresh
+            if let Err(e) = self.connection.connect_tcp().await {
+                return Err(HostError::ConnectionError(format!(
+                    "Failed to connect to {}:{}: {}",
+                    host, port, e
+                )));
+            }
+        } else {
+            return Err(HostError::ConnectionError(
+                "No active TCP connection".to_string()
+            ));
+        }
+
         let conn_opt = {
-            let mut guard = stream.write();
+            let mut guard = stream.write().await;
             guard.take()
         };
 
@@ -56,40 +78,89 @@ impl CommandExecutor {
 
         let timeout_duration = TokioDuration::from_millis(self.connection.timeout_ms as u64);
 
-        // Write command
-        timeout(timeout_duration, conn.write_all(command.as_bytes()))
-            .await
-            .map_err(|_| {
-                HostError::Timeout(format!(
+        // Write command with flush to ensure data is sent immediately
+        let write_result = timeout(timeout_duration, async {
+            conn.write_all(command.as_bytes()).await?;
+            conn.flush().await?;
+            Ok::<(), std::io::Error>(())
+        })
+        .await;
+
+        // Handle write result
+        let write_error = match write_result {
+            Ok(Ok(())) => None,
+            Ok(Err(e)) => {
+                warn!("TCP write IO error: {}", e);
+                Some(HostError::IoError(e))
+            }
+            Err(_) => {
+                Some(HostError::Timeout(format!(
                     "Write timeout after {}ms",
                     self.connection.timeout_ms
-                ))
-            })?
-            .map_err(|e| HostError::IoError(e))?;
+                )))
+            }
+        };
+
+        // If write failed, return connection and error
+        if let Some(err) = write_error {
+            // Check if it's an IO error - connection may be broken
+            let is_io_error = matches!(err, HostError::IoError(_));
+            {
+                let mut guard = stream.write().await;
+                if is_io_error {
+                    // Clear broken connection
+                    *guard = None;
+                    drop(conn);
+                } else {
+                    // Return connection for timeout (may still be good)
+                    *guard = Some(conn);
+                }
+            }
+            return Err(err);
+        }
 
         // Read response
         let mut buffer = vec![0; 1024];
-        let bytes_read = timeout(timeout_duration, conn.read(&mut buffer))
-            .await
-            .map_err(|_| {
-                HostError::Timeout(format!(
+        let read_result = timeout(timeout_duration, conn.read(&mut buffer))
+            .await;
+
+        // Handle read result and always return connection
+        match read_result {
+            Ok(Ok(bytes_read)) => {
+                let response = String::from_utf8_lossy(&buffer[..bytes_read])
+                    .trim()
+                    .to_string();
+                
+                // Return connection on success
+                {
+                    let mut guard = stream.write().await;
+                    *guard = Some(conn);
+                }
+                
+                Ok(response)
+            }
+            Ok(Err(e)) => {
+                // IO error during read - connection is likely broken
+                warn!("TCP read IO error, clearing connection for reconnect: {}", e);
+                {
+                    let mut guard = stream.write().await;
+                    *guard = None;
+                }
+                drop(conn);
+                Err(HostError::IoError(e))
+            }
+            Err(_) => {
+                // Read timeout - connection may still be good
+                {
+                    let mut guard = stream.write().await;
+                    *guard = Some(conn);
+                }
+                Err(HostError::Timeout(format!(
                     "Read timeout after {}ms",
                     self.connection.timeout_ms
-                ))
-            })?
-            .map_err(|e| HostError::IoError(e))?;
-
-        let response = String::from_utf8_lossy(&buffer[..bytes_read])
-            .trim()
-            .to_string();
-
-        // Return connection
-        {
-            let mut guard = stream.write();
-            *guard = Some(conn);
+                )))
+            }
         }
-
-        Ok(response)
     }
 
     async fn send_serial(

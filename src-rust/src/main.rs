@@ -202,6 +202,21 @@ async fn save_host(
     }))
 }
 
+#[post("/api/hosts/{host_id}/test")]
+async fn test_host_connection(
+    host_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = host_id.into_inner();
+    match state.device_manager.test_host_connection(&id).await {
+        Ok(message) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "message": message
+        })),
+        Err(e) => bridge_error_response(Some(id), None, e),
+    }
+}
+
 #[delete("/api/hosts/{host_id}")]
 async fn delete_host(
     host_id: web::Path<String>,
@@ -614,6 +629,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_hosts)
             .service(get_host)
             .service(save_host)
+            .service(test_host_connection)
             .service(delete_host)
             .service(get_mierniki)
             .service(get_miernik)

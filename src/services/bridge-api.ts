@@ -338,6 +338,22 @@ export async function deleteHost(hostId: string): Promise<void> {
   }
 }
 
+/**
+ * Test host connection (TCP or Serial)
+ */
+export async function testHostConnection(hostId: string): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${BRIDGE_URL}/api/hosts/${hostId}/test`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to test connection (${response.status})`);
+  }
+
+  return response.json();
+}
+
 // --- Miernik Management API ---
 
 export async function getAllMierniki(): Promise<Record<string, MiernikConfig>> {
