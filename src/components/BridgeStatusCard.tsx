@@ -190,12 +190,16 @@ const BridgeStatusCard = () => {
             </div>
             
             {/* Detect Mixed Content / Browser Blocking */}
-            {(data?.status === "BLOCKED" || (
-              (error as any)?.message?.includes("Failed to fetch") ||
-              (error as any)?.message?.includes("ERR_BLOCKED_BY_CLIENT") ||
-              (error as any)?.message?.includes("NetworkError") ||
-              (error as any)?.message?.includes("Network request failed")
-            )) && window.location.protocol === "https:" ? (
+            {(data?.status === "BLOCKED" || (() => {
+              if (!error) return false;
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              return (
+                errorMessage.includes("Failed to fetch") ||
+                errorMessage.includes("ERR_BLOCKED_BY_CLIENT") ||
+                errorMessage.includes("NetworkError") ||
+                errorMessage.includes("Network request failed")
+              );
+            })()) && window.location.protocol === "https:" ? (
               <div className="text-xs bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded">
                 <strong className="text-yellow-800 dark:text-yellow-200">⚠️ Mixed Content Blocked</strong>
                 <p className="mt-1 text-yellow-700 dark:text-yellow-300">

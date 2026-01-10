@@ -1,9 +1,7 @@
 // ScaleIT Bridge API Service
 // Comprehensive API client for ScaleIT Bridge backend
 
-const API_BASE_URL =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_API_URL || "http://localhost:8080";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 // Types
 export interface ScaleCommandRequest {

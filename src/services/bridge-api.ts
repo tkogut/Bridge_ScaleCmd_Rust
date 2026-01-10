@@ -14,10 +14,9 @@ import {
 // For local development: use 127.0.0.1 or localhost
 // For Vercel/external: use your computer's IP (e.g., http://192.168.1.100:8080)
 // Set VITE_BRIDGE_URL environment variable in Vercel to override
-const getBridgeUrl = () => {
+const getBridgeUrl = (): string => {
   // Try environment variable first (for Vercel deployment)
-  const envUrl = (import.meta as any).env?.VITE_BRIDGE_URL || 
-                 (import.meta as any).env?.VITE_API_URL;
+  const envUrl = import.meta.env.VITE_BRIDGE_URL || import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
   
   // Use 127.0.0.1 instead of localhost to avoid some browser blocking issues

@@ -2,12 +2,13 @@
 
 import { HostConfig, MiernikConfig } from "@/types/api";
 
-const BRIDGE_URL = (() => {
-  const envUrl = (import.meta as any).env?.VITE_BRIDGE_URL || 
-                 (import.meta as any).env?.VITE_API_URL;
+const getBridgeUrl = (): string => {
+  const envUrl = import.meta.env.VITE_BRIDGE_URL || import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
   return "http://127.0.0.1:8080";
-})();
+};
+
+const BRIDGE_URL = getBridgeUrl();
 
 // --- Host Management API ---
 

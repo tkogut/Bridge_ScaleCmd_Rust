@@ -150,38 +150,16 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {
-          readGross: "readGross",
-          readNet: "readNet",
-          tare: "tare",
-          zero: "zero",
-        },
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: true,
       },
       DWF: {
         name: "DFW - Dini Argeo",
         manufacturer: "Dini Argeo",
         model: "DFW",
-        protocol: "ASCII",
-        connection: {
-          connection_type: "Serial" as const,
-          port: "COM1",
-          baud_rate: 9600,
-          timeout_ms: 1000,
-        },
-        commands: {
-          readGross: "W",
-          readNet: "N",
-          tare: "T",
-          zero: "Z",
-        },
+        host_id: "host-2",
+        miernik_id: "miernik-2",
         enabled: true,
       },
     };
@@ -202,14 +180,8 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum Scale",
         manufacturer: "Rinstrum",
         model: "Rinstrum C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: true,
       },
     };
@@ -220,8 +192,8 @@ describe("DeviceList Component", () => {
 
     await waitFor(() => {
       expect(screen.getByText("C320 Rinstrum Scale")).toBeInTheDocument();
-      expect(screen.getByText("Rinstrum C320")).toBeInTheDocument();
-      expect(screen.getByText("C320")).toBeInTheDocument();
+      expect(screen.getByText("host-1")).toBeInTheDocument();
+      expect(screen.getByText("miernik-1")).toBeInTheDocument();
     });
   });
 
@@ -231,14 +203,8 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: true,
       },
     };
@@ -260,14 +226,8 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: true,
       },
     };
@@ -288,14 +248,8 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: true,
       },
     };
@@ -321,14 +275,8 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: true,
       },
     };
@@ -362,14 +310,8 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: true,
       },
     };
@@ -438,20 +380,14 @@ describe("DeviceList Component", () => {
     expect(onAddMock).toHaveBeenCalled();
   });
 
-  it("displays correct connection type", async () => {
+  it("displays correct host and miernik IDs", async () => {
     const mockConfigs = {
       C320: {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-tcp-1",
+        miernik_id: "miernik-rincmd-1",
         enabled: true,
       },
     };
@@ -461,7 +397,8 @@ describe("DeviceList Component", () => {
     renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
 
     await waitFor(() => {
-      expect(screen.getByText("192.168.1.100:4001")).toBeInTheDocument();
+      expect(screen.getByText("host-tcp-1")).toBeInTheDocument();
+      expect(screen.getByText("miernik-rincmd-1")).toBeInTheDocument();
     });
   });
 
@@ -471,42 +408,24 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: true,
       },
       DWF: {
         name: "DFW - Dini Argeo",
         manufacturer: "Dini Argeo",
         model: "DFW",
-        protocol: "ASCII",
-        connection: {
-          connection_type: "Serial" as const,
-          port: "COM1",
-          baud_rate: 9600,
-          timeout_ms: 1000,
-        },
-        commands: {},
+        host_id: "host-2",
+        miernik_id: "miernik-2",
         enabled: true,
       },
       CUSTOM: {
         name: "Custom Scale",
         manufacturer: "Custom Corp",
         model: "Custom Model",
-        protocol: "CUSTOM",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "10.0.0.1",
-          port: 8080,
-          timeout_ms: 2000,
-        },
-        commands: {},
+        host_id: "host-3",
+        miernik_id: "miernik-3",
         enabled: false,
       },
     };
@@ -535,14 +454,8 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        protocol: "RINCMD",
-        connection: {
-          connection_type: "Tcp" as const,
-          host: "192.168.1.100",
-          port: 4001,
-          timeout_ms: 5000,
-        },
-        commands: {},
+        host_id: "host-1",
+        miernik_id: "miernik-1",
         enabled: false,
       },
     };
@@ -558,20 +471,14 @@ describe("DeviceList Component", () => {
     });
   });
 
-  it("displays serial connection information correctly", async () => {
+  it("displays miernik ID correctly", async () => {
     const mockConfigs = {
       DWF: {
         name: "DFW - Dini Argeo",
         manufacturer: "Dini Argeo",
         model: "DFW",
-        protocol: "ASCII",
-        connection: {
-          connection_type: "Serial" as const,
-          port: "COM3",
-          baud_rate: 9600,
-          timeout_ms: 1000,
-        },
-        commands: {},
+        host_id: "host-serial-1",
+        miernik_id: "miernik-ascii-1",
         enabled: true,
       },
     };
@@ -581,7 +488,8 @@ describe("DeviceList Component", () => {
     renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
 
     await waitFor(() => {
-      expect(screen.getByText("COM3 (9600 baud)")).toBeInTheDocument();
+      expect(screen.getByText("host-serial-1")).toBeInTheDocument();
+      expect(screen.getByText("miernik-ascii-1")).toBeInTheDocument();
     });
   });
 });
