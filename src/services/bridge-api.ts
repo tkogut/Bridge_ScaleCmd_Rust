@@ -19,6 +19,18 @@ const getBridgeUrl = (): string => {
   const envUrl = import.meta.env.VITE_BRIDGE_URL || import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
   
+  // If frontend is served from the same origin (backend on port 8080), use relative URL
+  // This avoids CORS issues when frontend and backend are on the same host
+  if (typeof window !== 'undefined') {
+    const currentOrigin = window.location.origin;
+    const currentPort = window.location.port;
+    
+    // If we're on port 8080, use relative URL (same origin)
+    if (currentPort === '8080' || currentOrigin.includes(':8080')) {
+      return ''; // Relative URL - same origin, no CORS needed
+    }
+  }
+  
   // Use 127.0.0.1 instead of localhost to avoid some browser blocking issues
   // For Vercel/external access, set VITE_BRIDGE_URL=http://YOUR_IP:8080
   // Your IP addresses: 192.168.1.100 or 192.168.1.50

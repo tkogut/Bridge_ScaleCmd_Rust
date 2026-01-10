@@ -1066,11 +1066,14 @@ async fn main() -> std::io::Result<()> {
             }
             Err(_) => {
                 // Default: localhost origins for development
+                // Include both localhost and 127.0.0.1 on port 8080 (same-origin when served from backend)
                 Cors::default()
                     .allowed_origin("http://localhost:3000")
                     .allowed_origin("http://localhost:5173")
+                    .allowed_origin("http://localhost:8080")
                     .allowed_origin("http://127.0.0.1:3000")
                     .allowed_origin("http://127.0.0.1:5173")
+                    .allowed_origin("http://127.0.0.1:8080")
                     .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
                     .allowed_headers(vec![
                         "Content-Type",

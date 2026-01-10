@@ -5,6 +5,15 @@ import { HostConfig, MiernikConfig } from "@/types/api";
 const getBridgeUrl = (): string => {
   const envUrl = import.meta.env.VITE_BRIDGE_URL || import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
+  
+  // If frontend is served from the same origin (backend on port 8080), use relative URL
+  if (typeof window !== 'undefined') {
+    const currentPort = window.location.port;
+    if (currentPort === '8080' || window.location.origin.includes(':8080')) {
+      return ''; // Relative URL - same origin, no CORS needed
+    }
+  }
+  
   return "http://127.0.0.1:8080";
 };
 

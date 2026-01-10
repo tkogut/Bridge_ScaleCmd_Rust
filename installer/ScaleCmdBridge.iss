@@ -3,7 +3,7 @@
 ; Generates: ScaleCmdBridge-Setup-x64.exe
 
 #define MyAppName "ScaleCmdBridge"
-#define MyAppVersion "0.1.4"
+#define MyAppVersion "0.1.5"
 #define MyAppPublisher "ScaleIT"
 #define MyAppURL "https://github.com/tkogut/Bridge_ScaleCmd_Rust"
 #define MyAppExeName "ScaleCmdBridge.exe"
@@ -27,7 +27,7 @@ LicenseFile=
 InfoBeforeFile=
 InfoAfterFile=
 OutputDir=..\release
-OutputBaseFilename=ScaleCmdBridge-Setup-x64-v0.1.4
+OutputBaseFilename=ScaleCmdBridge-Setup-x64-v0.1.5
 SetupIconFile=
 Compression=lzma
 SolidCompression=yes
