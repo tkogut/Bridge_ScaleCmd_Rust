@@ -1725,7 +1725,7 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
 name = "scaleit-bridge"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix-cors",
  "actix-files",
@@ -1742,6 +1742,8 @@ dependencies = [
  "parking_lot",
  "proptest",
  "regex",
+ "scaleit-host",
+ "scaleit-miernik",
  "serde",
  "serde_json",
  "serialport",
@@ -1750,6 +1752,34 @@ dependencies = [
  "tokio",
  "tokio-test",
  "uuid",
+]
+
+[[package]]
+name = "scaleit-host"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "log",
+ "parking_lot",
+ "serde",
+ "serialport",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
+name = "scaleit-miernik"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "lazy_static",
+ "log",
+ "regex",
+ "scaleit-host",
+ "serde",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

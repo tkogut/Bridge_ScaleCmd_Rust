@@ -3,7 +3,7 @@
 ; Generates: ScaleCmdBridge-Setup-x64.exe
 
 #define MyAppName "ScaleCmdBridge"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.1"
 #define MyAppPublisher "ScaleIT"
 #define MyAppURL "https://github.com/tkogut/Bridge_ScaleCmd_Rust"
 #define MyAppExeName "ScaleCmdBridge.exe"

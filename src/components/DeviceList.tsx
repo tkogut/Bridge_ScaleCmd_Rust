@@ -5,7 +5,6 @@ import {
   deleteDeviceConfig,
   saveDeviceConfig,
 } from "@/services/bridge-api";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -94,41 +93,28 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
 
   if (isLoading) {
     return (
-      <CardContent className="flex justify-center items-center h-48">
+      <div className="flex justify-center items-center h-48">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <span className="ml-3 text-muted-foreground">
           Loading device configurations...
         </span>
-      </CardContent>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <CardContent>
-        <div className="text-destructive p-4 border border-destructive/50 rounded-lg">
-          Error loading configurations: {error.message}
-        </div>
-      </CardContent>
+      <div className="text-destructive p-4 border border-destructive/50 rounded-lg">
+        Error loading configurations: {error.message}
+      </div>
     );
   }
 
   const devices = configs ? Object.entries(configs) : [];
 
-  const renderConnection = (config: DeviceConfig) => {
-    const connection = config.connection;
-    if (connection.connection_type === "Tcp") {
-      return `${connection.host}:${connection.port}`;
-    }
-    if (connection.connection_type === "Serial") {
-      return `${connection.port} (${connection.baud_rate} baud)`;
-    }
-    return connection.connection_type;
-  };
-
   return (
-    <Card>
-      <div className="flex justify-end p-4">
+    <div>
+      <div className="flex justify-end mb-4">
         <Button onClick={onAdd} size="sm">
           <PlusCircle className="h-4 w-4 mr-2" /> Add New Device
         </Button>
@@ -140,9 +126,8 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
             <TableRow>
               <TableHead className="w-[150px]">ID</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Model</TableHead>
-              <TableHead>Protocol</TableHead>
-              <TableHead>Connection</TableHead>
+              <TableHead>Host</TableHead>
+              <TableHead>Miernik</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right w-[100px]">Actions</TableHead>
             </TableRow>
@@ -162,9 +147,16 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
                 <TableRow key={id}>
                   <TableCell className="font-medium">{id}</TableCell>
                   <TableCell>{config.name}</TableCell>
-                  <TableCell>{config.model}</TableCell>
-                  <TableCell>{config.protocol}</TableCell>
-                  <TableCell>{renderConnection(config)}</TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div className="font-medium">{config.host_id}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div className="font-medium">{config.miernik_id}</div>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <Badge variant={config.enabled ? "default" : "secondary"}>
@@ -212,7 +204,7 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
           </TableBody>
         </Table>
       </div>
-    </Card>
+    </div>
   );
 };
 

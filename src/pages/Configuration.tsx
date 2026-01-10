@@ -1,9 +1,12 @@
 import Layout from "@/components/Layout";
 import React, { useState } from "react";
 import DeviceList from "@/components/DeviceList";
+import HostConfigurationTable from "@/components/HostConfigurationTable";
+import IndicatorConfigurationTable from "@/components/IndicatorConfigurationTable";
 import DeviceConfigForm from "@/components/DeviceConfigForm";
 import { DeviceConfig, DeviceId } from "@/types/api";
 import { useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Configuration = () => {
   const queryClient = useQueryClient();
@@ -30,12 +33,42 @@ const Configuration = () => {
   return (
     <Layout>
       <div className="space-y-8">
-        <h2 className="text-3xl font-bold tracking-tight">Device Configuration</h2>
-        <p className="text-muted-foreground">
-          Manage industrial scale devices, connection settings, and command protocols.
-        </p>
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Configuration</h2>
+          <p className="text-muted-foreground">
+            Manage industrial scale devices, host connections, and indicator protocols.
+          </p>
+        </div>
         
-        <DeviceList onEdit={handleEdit} onAdd={handleAdd} />
+        {/* Device Configuration Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Device Configuration - Konfiguracja wagi</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DeviceList onEdit={handleEdit} onAdd={handleAdd} />
+          </CardContent>
+        </Card>
+
+        {/* Host Configuration Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Host Configuration - Konfiguracja Hosta</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <HostConfigurationTable />
+          </CardContent>
+        </Card>
+
+        {/* Indicator Configuration Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Indicator Configuration - Konfiguracja Miernika</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <IndicatorConfigurationTable />
+          </CardContent>
+        </Card>
       </div>
       
       <DeviceConfigForm

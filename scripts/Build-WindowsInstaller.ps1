@@ -69,7 +69,23 @@ if (-not $Version) {
     }
 }
 
+# Get current branch
+$currentBranch = git -C $RepoRoot branch --show-current 2>$null
+if (-not $currentBranch) {
+    $currentBranch = "unknown"
+}
+
+# Determine if we're on a non-main branch
+$isMainBranch = ($currentBranch -eq "main" -or $currentBranch -eq "master")
+$branchSuffix = ""
+if (-not $isMainBranch) {
+    # Sanitize branch name for filename (remove special characters)
+    $sanitizedBranch = $currentBranch -replace '[^\w\-]', '-'
+    $branchSuffix = "-$sanitizedBranch"
+}
+
 Write-Host "Version: $Version" -ForegroundColor Cyan
+Write-Host "Branch: $currentBranch" -ForegroundColor Cyan
 Write-Host "Repository: $RepoRoot" -ForegroundColor Cyan
 Write-Host ""
 
@@ -80,11 +96,47 @@ if (-not $SkipBackend) {
     
     $buildScript = Join-Path $RepoRoot "build-rust-mingw.ps1"
     if (Test-Path $buildScript) {
-        # Build with --skip-tests for installer (tests can fail but build is still valid)
-        & $buildScript --release --skip-tests
-        # Check if executable exists instead of exit code (tests may fail but build succeeded)
+        # Get timestamp before build to verify new file was created
         $exePathCheck = Join-Path $RepoRoot "src-rust\target\release\scaleit-bridge.exe"
         $exePathCheckGnu = Join-Path $RepoRoot "src-rust\target\x86_64-pc-windows-gnu\release\scaleit-bridge.exe"
+        $beforeBuildTime = $null
+        if (Test-Path $exePathCheck) {
+            $beforeBuildTime = (Get-Item $exePathCheck).LastWriteTime
+        } elseif (Test-Path $exePathCheckGnu) {
+            $beforeBuildTime = (Get-Item $exePathCheckGnu).LastWriteTime
+        }
+        
+        # Build with --skip-tests for installer (tests can fail but build is still valid)
+        & $buildScript --release --skip-tests
+        
+        # Wait a moment to ensure file system has updated
+        Start-Sleep -Milliseconds 500
+        
+        # Check if executable exists and was updated
+        $exeUpdated = $false
+        if (Test-Path $exePathCheck) {
+            $afterBuildTime = (Get-Item $exePathCheck).LastWriteTime
+            if ($null -eq $beforeBuildTime -or $afterBuildTime -gt $beforeBuildTime) {
+                $exeUpdated = $true
+                Write-Host "  [OK] Executable updated: $exePathCheck" -ForegroundColor Green
+                Write-Host "  Build time: $afterBuildTime" -ForegroundColor Gray
+            }
+        }
+        if (Test-Path $exePathCheckGnu) {
+            $afterBuildTime = (Get-Item $exePathCheckGnu).LastWriteTime
+            if ($null -eq $beforeBuildTime -or $afterBuildTime -gt $beforeBuildTime) {
+                $exeUpdated = $true
+                Write-Host "  [OK] Executable updated: $exePathCheckGnu" -ForegroundColor Green
+                Write-Host "  Build time: $afterBuildTime" -ForegroundColor Gray
+            }
+        }
+        
+        if (-not $exeUpdated) {
+            Write-Host "WARNING: Executable file was not updated after build!" -ForegroundColor Yellow
+            Write-Host "  This may indicate the build used cached files." -ForegroundColor Yellow
+            Write-Host "  The installer will use the existing executable." -ForegroundColor Yellow
+        }
+        
         if (-not (Test-Path $exePathCheck) -and -not (Test-Path $exePathCheckGnu)) {
             Write-Host "ERROR: Backend build failed - executable not found!" -ForegroundColor Red
             exit 1
@@ -108,6 +160,12 @@ if (-not $SkipBackend) {
             exit 1
         }
     }
+    
+    # Verify executable timestamp and show info
+    $exeInfo = Get-Item $exePath
+    Write-Host "  Using executable: $exePath" -ForegroundColor Gray
+    Write-Host "  Last modified: $($exeInfo.LastWriteTime)" -ForegroundColor Gray
+    Write-Host "  Size: $([math]::Round($exeInfo.Length / 1MB, 2)) MB" -ForegroundColor Gray
     
     # Copy executable to standard location if it's in GNU path (for Inno Setup compatibility)
     $standardPath = Join-Path $RepoRoot "src-rust\target\release\scaleit-bridge.exe"
@@ -263,13 +321,40 @@ if (-not $SkipInstaller) {
     Write-Host "Using Inno Setup: $iscc" -ForegroundColor Gray
     Write-Host "Compiling installer..." -ForegroundColor Gray
     
-    # Update version in ISS file if needed
+    # Read ISS file
     $issContent = Get-Content $issFile -Raw
+    
+    # First, restore default OutputBaseFilename to avoid accumulation
+    $issContent = $issContent -replace 'OutputBaseFilename=ScaleCmdBridge-Setup-x64[^\r\n]*', 'OutputBaseFilename=ScaleCmdBridge-Setup-x64'
+    
+    # Update version in ISS file if needed
     $versionPattern = 'MyAppVersion "' + $Version + '"'
     if ($issContent -notmatch [regex]::Escape($versionPattern)) {
         $issContent = $issContent -replace 'MyAppVersion "([^"]+)"', ('MyAppVersion "' + $Version + '"')
-        Set-Content $issFile $issContent -NoNewline
     }
+    
+    # Build installer filename with version and branch
+    $versionSuffix = "-v$Version"
+    $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
+    
+    # Check if file with this name already exists in release directory
+    $potentialInstallerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
+    if (Test-Path $potentialInstallerPath) {
+        # Add timestamp to make filename unique (preserve old versions)
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix-$timestamp"
+        Write-Host "  [INFO] Installer with same name exists, adding timestamp to preserve old version" -ForegroundColor Yellow
+    }
+    
+    # Update OutputBaseFilename with the final name
+    $newOutputBase = "OutputBaseFilename=$installerBaseName"
+    $issContent = $issContent -replace 'OutputBaseFilename=ScaleCmdBridge-Setup-x64[^\r\n]*', $newOutputBase
+    
+    # Save updated ISS file
+    Set-Content $issFile $issContent -NoNewline
+    
+    Write-Host "Updated ISS file with version and branch info" -ForegroundColor Gray
+    Write-Host "  Output filename: $installerBaseName.exe" -ForegroundColor Gray
     
     # Compile (ISCC.exe uses direct execution, Compil32.exe needs /cc parameter)
     if ($iscc -like "*ISCC.exe") {
@@ -284,12 +369,41 @@ if (-not $SkipInstaller) {
         exit 1
     }
     
-    $installerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
+    # Inno Setup should have created the file with the name from OutputBaseFilename
+    # Use the same $installerBaseName that was set earlier (may include timestamp)
+    $installerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
+    
+    # Check if installer was created with the expected name
+    if (-not (Test-Path $installerPath)) {
+        # Check if installer was created with default name (fallback - should not happen)
+        $defaultInstallerPath = Join-Path $RepoRoot "release\ScaleCmdBridge-Setup-x64.exe"
+        if (Test-Path $defaultInstallerPath) {
+            Write-Host "  [WARN] Installer created with default name, renaming..." -ForegroundColor Yellow
+            # Check if target file already exists (preserve old versions)
+            if (Test-Path $installerPath) {
+                # Add timestamp to make filename unique
+                $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+                $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix-$timestamp"
+                $installerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
+                Write-Host "  [INFO] Installer with same name exists, adding timestamp: $installerBaseName.exe" -ForegroundColor Yellow
+            }
+            # Rename to include version and branch (don't overwrite existing files)
+            Move-Item $defaultInstallerPath $installerPath -Force
+            Write-Host "  [OK] Installer renamed to include version and branch" -ForegroundColor Green
+        } else {
+            Write-Host "ERROR: Installer file not found after compilation!" -ForegroundColor Red
+            Write-Host "  Expected: $installerPath" -ForegroundColor Red
+            Write-Host "  Or default: $defaultInstallerPath" -ForegroundColor Red
+            exit 1
+        }
+    }
+    
     if (Test-Path $installerPath) {
         $fileInfo = Get-Item $installerPath
         Write-Host "  [OK] Installer created successfully" -ForegroundColor Green
         Write-Host "  Location: $installerPath" -ForegroundColor Cyan
         Write-Host "  Size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB" -ForegroundColor Cyan
+        Write-Host "  Created: $($fileInfo.CreationTime)" -ForegroundColor Cyan
     } else {
         Write-Host "ERROR: Installer file not found after compilation!" -ForegroundColor Red
         exit 1
@@ -304,6 +418,10 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host "Build Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host 'Installer ready: release/ScaleCmdBridge-Setup-x64.exe' -ForegroundColor Cyan
+
+# Build installer filename with version and branch
+$versionSuffix = "-v$Version"
+$installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
+Write-Host "Installer ready: release/$installerBaseName.exe" -ForegroundColor Cyan
 Write-Host ""
 
