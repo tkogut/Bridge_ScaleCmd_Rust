@@ -9,20 +9,20 @@ a wagami przemysłowymi (Rinstrum C320, Dini Argeo) poprzez serwer Rust.
 ## 📋 Projekt: Universal Industrial Scale Communication Bridge
 
 ┌────────────────────────┐
-│ React Frontend │
-│ (Vite, port 5173) │
+│ React Frontend         │
+│ (Vite, port 5173)      │
 └──────────┬─────────────┘
 │ HTTP/REST/WebSocket
 ▼
 ┌────────────────────────┐
-│ Rust Backend │
-│ (Actix-web, 8080) │
+│ Rust Backend           │
+│ (Actix-web, 8080)      │
 └──────────┬─────────────┘
 │ TCP/Serial
 ▼
 ┌────────────────────────┐
-│ Industrial Scales │
-│ (Rinstrum, Dini Argeo)│
+│ Industrial Scales      │
+│ (Rinstrum, Dini Argeo) │
 └────────────────────────┘
 
 text
