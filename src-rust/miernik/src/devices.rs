@@ -15,12 +15,12 @@ pub struct RinstrumC320 {
 
 impl RinstrumC320 {
     pub fn new(
-        device_id: String,
+        _device_id: String,
         connection: Arc<Connection>,
         commands: HashMap<String, String>,
     ) -> Self {
         let protocol = Protocol::Rincmd;
-        let device = Device::new(device_id, connection, protocol, commands);
+        let device = Device::new(connection, protocol, commands);
         Self { device }
     }
 
@@ -76,12 +76,12 @@ pub struct DiniArgeoDFW {
 
 impl DiniArgeoDFW {
     pub fn new(
-        device_id: String,
+        _device_id: String,
         connection: Arc<Connection>,
         commands: HashMap<String, String>,
     ) -> Self {
         let protocol = Protocol::DiniAscii;
-        let device = Device::new(device_id, connection, protocol, commands);
+        let device = Device::new(connection, protocol, commands);
         Self { device }
     }
 

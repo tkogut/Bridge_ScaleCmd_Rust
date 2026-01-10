@@ -55,26 +55,45 @@ cargo --version
 
 ## Building the Project
 
-### Backend (Rust)
+### ⚠️ IMPORTANT: Use the Automated Build Script
+
+**ALWAYS use the automated build script for complete rebuilds and installer creation:**
+
+```powershell
+# From repository root - Builds everything (backend + frontend + installer)
+.\scripts\Build-WindowsInstaller.ps1
+```
+
+This script automatically:
+1. Builds Rust backend (release) using MinGW toolchain
+2. Builds React frontend (production)
+3. Sets up NSSM for Windows Service
+4. Creates Inno Setup installer package
+
+**DO NOT use direct `cargo build` commands** - they will fail due to MinGW/AVG/permission issues. The build script handles all of this automatically.
+
+### Backend (Rust) - Manual Build (Only if needed)
+
+If you MUST build backend manually (not recommended):
 
 ```powershell
 # Navigate to backend directory
 cd src-rust
 
-# Run tests
-cargo test --lib --release
-
-# Build release binary
-cargo build --release
+# Use the MinGW build script (handles environment setup)
+..\build-rust-mingw.ps1 --release --skip-tests
 
 # Output will be at: target/release/scaleit-bridge.exe
+# OR target/x86_64-pc-windows-gnu/release/scaleit-bridge.exe
 ```
 
-For automated releases that target the installer bundle, run `powershell.exe -ExecutionPolicy Bypass -File "..\build-rust-mingw.ps1"` from the repository root to configure the MinGW toolchain and produce the `x86_64-pc-windows-gnu` release binary. This script also handles the `PATH` environment, linker overrides and cleanup required for downstream packaging.
+**Note:** Direct `cargo build --release` will likely fail with dlltool/permission errors. Always use `build-rust-mingw.ps1` instead.
 
 > **GNU linker path**: the scripts depend on `ld.exe` living under `D:\msys64\mingw64\x86_64-w64-mingw32\bin`. Make sure that directory is exported into `%PATH%` before the regular `mingw64\bin` so the linker is discoverable when `cargo` invokes `ld`. The scripts (`build-rust-mingw.ps1`, `build-mingw.ps1`, `test-rust-mingw.ps1`) already include that path, so rerunning them will refresh the environment.
 
-### Frontend (React + TypeScript)
+### Frontend (React + TypeScript) - Manual Build (Only if needed)
+
+If you MUST build frontend manually (usually handled by Build-WindowsInstaller.ps1):
 
 ```powershell
 # Install dependencies
@@ -90,11 +109,27 @@ pnpm build
 # Output will be at: dist/
 ```
 
+**Note:** The `Build-WindowsInstaller.ps1` script automatically handles frontend build, so manual build is usually unnecessary.
+
 ---
 
 ## Creating the Installer Package
 
-### Package Structure
+### ⚠️ RECOMMENDED: Automated Installer Creation
+
+**Use the automated installer script (recommended):**
+
+```powershell
+# Builds backend + frontend + creates installer
+.\scripts\Build-WindowsInstaller.ps1
+```
+
+The installer will be created in `release/` directory with a name like:
+`ScaleCmdBridge-Setup-x64-v0.1.1-<branch>-<timestamp>.exe`
+
+### Manual Package Creation (Advanced)
+
+If you need to create the package manually:
 ```
 ScaleIT_Bridge_Windows_v1.0.0/
 ├── bin/

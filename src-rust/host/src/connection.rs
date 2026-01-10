@@ -155,26 +155,30 @@ impl Connection {
                 let connect_future = TcpStream::connect(&addr);
                 let timeout_duration = TokioDuration::from_millis(self.timeout_ms as u64);
 
-                let stream_result = timeout(timeout_duration, connect_future)
-                    .await
-                    .map_err(|_| {
-                        error!("Connection timeout to {} for {}ms", addr, self.timeout_ms);
-                        HostError::Timeout(format!(
-                            "Connection timeout after {}ms",
-                            self.timeout_ms
-                        ))
-                    })?
-                    .map_err(|e| {
-                        error!("Failed to connect to {}: {}", addr, e);
-                        HostError::ConnectionError(format!("Failed to connect: {}", e))
-                    })?;
-
                 // Configure socket options for better reliability
                 // Set TCP_NODELAY to disable Nagle's algorithm (send data immediately)
-                let mut configured_stream = stream_result;
-                if let Err(e) = configured_stream.set_nodelay(true) {
-                    warn!("Failed to set TCP_NODELAY on connection to {}: {}", addr, e);
-                }
+                // Note: set_nodelay() requires &mut self, so we need mut here
+                #[allow(unused_mut)]
+                let configured_stream = {
+                    let mut stream_result = timeout(timeout_duration, connect_future)
+                        .await
+                        .map_err(|_| {
+                            error!("Connection timeout to {} for {}ms", addr, self.timeout_ms);
+                            HostError::Timeout(format!(
+                                "Connection timeout after {}ms",
+                                self.timeout_ms
+                            ))
+                        })?
+                        .map_err(|e| {
+                            error!("Failed to connect to {}: {}", addr, e);
+                            HostError::ConnectionError(format!("Failed to connect: {}", e))
+                        })?;
+                    
+                    if let Err(e) = stream_result.set_nodelay(true) {
+                        warn!("Failed to set TCP_NODELAY on connection to {}: {}", addr, e);
+                    }
+                    stream_result
+                };
 
                 {
                     let mut conn_guard = stream.write().await;

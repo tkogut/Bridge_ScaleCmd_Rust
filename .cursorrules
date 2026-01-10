@@ -1,0 +1,54 @@
+# Cursor AI Rules for ScaleIT Bridge Project
+
+## 🔨 BUILDING AND TESTING - CRITICAL RULE
+
+**ALWAYS use the automated build script for rebuilding the project:**
+
+```powershell
+.\scripts\Build-WindowsInstaller.ps1
+```
+
+**NEVER use direct `cargo build`, `cargo check`, or `cargo run` commands!**
+
+### Why?
+- The project requires MinGW toolchain setup (handled by build-rust-mingw.ps1)
+- AVG firewall blocking issues (handled automatically)
+- Permission and environment configuration (handled automatically)
+- Frontend build integration (handled automatically)
+- Installer creation (handled automatically)
+
+Direct cargo commands will fail with:
+- `dlltool.exe: program not found`
+- `cannot find 'ld'` 
+- Permission denied errors
+- AVG blocking file access
+
+### Build Process
+The `Build-WindowsInstaller.ps1` script:
+1. Calls `build-rust-mingw.ps1 --release --skip-tests` for backend
+2. Calls `npm run build` for frontend
+3. Sets up NSSM for Windows Service
+4. Creates Inno Setup installer
+
+### Quick Reference
+- **Full rebuild + installer:** `.\scripts\Build-WindowsInstaller.ps1`
+- **Backend only (advanced):** `.\build-rust-mingw.ps1 --release --skip-tests`
+- **Frontend only (advanced):** `npm run build`
+
+### Version Management
+- **Main branch:** Version is automatically incremented (patch version: X.Y.Z → X.Y.Z+1)
+  - Cargo.toml is updated automatically
+  - Installer: `ScaleCmdBridge-Setup-x64-v0.1.2.exe`
+- **Feature branches:** Version stays the same, branch name is appended
+  - Installer: `ScaleCmdBridge-Setup-x64-v0.1.1-feature-name.exe`
+
+## Project Structure
+- Backend: `src-rust/` (Rust workspace with host/ and miernik/ sub-projects)
+- Frontend: `src/` (React + TypeScript + Vite)
+- Build scripts: `scripts/` and root directory
+- Installer: `installer/ScaleCmdBridge.iss`
+
+## Testing
+- Backend tests: Run via `build-rust-mingw.ps1` (includes tests by default)
+- Frontend tests: `npm test` or `npm run test:ui`
+- E2E tests: `npm run test:e2e`

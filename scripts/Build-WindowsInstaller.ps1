@@ -52,20 +52,59 @@ Write-Host "ScaleCmdBridge - Windows Installer Builder" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
-# Get version from Cargo.toml if not provided
-if (-not $Version) {
-    $cargoFile = Join-Path $RepoRoot "src-rust\Cargo.toml"
-    if (Test-Path $cargoFile) {
-        $cargoContent = Get-Content $cargoFile
+# Function to increment semantic version patch number (MAJOR.MINOR.PATCH)
+function Update-VersionPatch {
+    param([string]$Version)
+    
+    if ($Version -match '^(\d+)\.(\d+)\.(\d+)(.*)$') {
+        $major = [int]$Matches[1]
+        $minor = [int]$Matches[2]
+        $patch = [int]$Matches[3]
+        $suffix = $Matches[4]
+        
+        # Increment patch version
+        $patch++
+        
+        return "$major.$minor.$patch$suffix"
+    }
+    return $Version
+}
+
+# Function to read version from Cargo.toml
+function Get-VersionFromCargo {
+    param([string]$CargoFile)
+    
+    if (Test-Path $CargoFile) {
+        $cargoContent = Get-Content $CargoFile
         foreach ($line in $cargoContent) {
             if ($line -match '^\s*version\s*=\s*"([^"]+)"') {
-                $Version = $Matches[1]
-                break
+                return $Matches[1]
             }
         }
     }
-    if (-not $Version) {
-        $Version = "1.0.0"
+    return "0.1.0"
+}
+
+# Function to update version in Cargo.toml
+function Update-VersionInCargo {
+    param([string]$CargoFile, [string]$NewVersion)
+    
+    if (Test-Path $CargoFile) {
+        $lines = Get-Content $CargoFile
+        $updated = $false
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^\s*version\s*=\s*"([^"]+)"') {
+                $lines[$i] = $lines[$i] -replace 'version\s*=\s*"[^"]+"', "version = `"$NewVersion`""
+                $updated = $true
+                break
+            }
+        }
+        if ($updated) {
+            Set-Content $CargoFile $lines
+            Write-Host "  [INFO] Updated version in Cargo.toml to $NewVersion" -ForegroundColor Gray
+        } else {
+            Write-Host "  [WARN] Could not find version line in Cargo.toml" -ForegroundColor Yellow
+        }
     }
 }
 
@@ -75,8 +114,24 @@ if (-not $currentBranch) {
     $currentBranch = "unknown"
 }
 
-# Determine if we're on a non-main branch
+# Determine if we're on main branch
 $isMainBranch = ($currentBranch -eq "main" -or $currentBranch -eq "master")
+
+# Get version from Cargo.toml if not provided
+$cargoFile = Join-Path $RepoRoot "src-rust\Cargo.toml"
+if (-not $Version) {
+    $Version = Get-VersionFromCargo -CargoFile $cargoFile
+}
+
+# For main branch: increment version and update Cargo.toml
+if ($isMainBranch) {
+    $originalVersion = $Version
+    $Version = Update-VersionPatch -Version $Version
+    Update-VersionInCargo -CargoFile $cargoFile -NewVersion $Version
+    Write-Host "  [INFO] Main branch detected - incremented version: $originalVersion -> $Version" -ForegroundColor Cyan
+}
+
+# Determine branch suffix for non-main branches
 $branchSuffix = ""
 if (-not $isMainBranch) {
     # Sanitize branch name for filename (remove special characters)
@@ -86,6 +141,11 @@ if (-not $isMainBranch) {
 
 Write-Host "Version: $Version" -ForegroundColor Cyan
 Write-Host "Branch: $currentBranch" -ForegroundColor Cyan
+if ($isMainBranch) {
+    Write-Host "Branch type: Main (version will be auto-incremented)" -ForegroundColor Green
+} else {
+    Write-Host "Branch type: Feature branch (branch name will be added to installer name)" -ForegroundColor Yellow
+}
 Write-Host "Repository: $RepoRoot" -ForegroundColor Cyan
 Write-Host ""
 
@@ -340,10 +400,16 @@ if (-not $SkipInstaller) {
     # Check if file with this name already exists in release directory
     $potentialInstallerPath = Join-Path $RepoRoot "release\$installerBaseName.exe"
     if (Test-Path $potentialInstallerPath) {
-        # Add timestamp to make filename unique (preserve old versions)
-        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix-$timestamp"
-        Write-Host "  [INFO] Installer with same name exists, adding timestamp to preserve old version" -ForegroundColor Yellow
+        if ($isMainBranch) {
+            # For main branch, this shouldn't happen if version was incremented correctly
+            # But if it does, we overwrite (same version rebuild)
+            Write-Host "  [WARN] Installer with same version exists for main branch. Will overwrite." -ForegroundColor Yellow
+        } else {
+            # For non-main branches, add timestamp to preserve old versions
+            $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+            $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix-$timestamp"
+            Write-Host "  [INFO] Installer with same name exists, adding timestamp to preserve old version" -ForegroundColor Yellow
+        }
     }
     
     # Update OutputBaseFilename with the final name
@@ -419,9 +485,21 @@ Write-Host "Build Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
-# Build installer filename with version and branch
-$versionSuffix = "-v$Version"
-$installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
-Write-Host "Installer ready: release/$installerBaseName.exe" -ForegroundColor Cyan
+# Display installer information
+if ($SkipInstaller) {
+    Write-Host "Installer compilation was skipped." -ForegroundColor Yellow
+} else {
+    # Build installer filename (if not already set in installer compilation section)
+    if (-not $installerBaseName) {
+        $versionSuffix = "-v$Version"
+        $installerBaseName = "ScaleCmdBridge-Setup-x64$versionSuffix$branchSuffix"
+    }
+    Write-Host "Installer ready: release/$installerBaseName.exe" -ForegroundColor Cyan
+    if ($isMainBranch) {
+        Write-Host "Version auto-incremented for main branch: $Version" -ForegroundColor Green
+    } elseif ($branchSuffix) {
+        Write-Host "Branch suffix added for feature branch: $branchSuffix" -ForegroundColor Yellow
+    }
+}
 Write-Host ""
 

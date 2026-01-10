@@ -25,7 +25,6 @@ pub trait DeviceAdapter: Send + Sync + std::fmt::Debug {
 /// Device implementation
 #[derive(Debug)]
 pub struct Device {
-    device_id: String,
     connection: Arc<Connection>,
     protocol: Protocol,
     command_executor: CommandExecutor,
@@ -34,14 +33,12 @@ pub struct Device {
 
 impl Device {
     pub fn new(
-        device_id: String,
         connection: Arc<Connection>,
         protocol: Protocol,
         command_map: std::collections::HashMap<String, String>,
     ) -> Self {
         let command_executor = CommandExecutor::new(connection.clone(), protocol.clone());
         Self {
-            device_id,
             connection,
             protocol,
             command_executor,

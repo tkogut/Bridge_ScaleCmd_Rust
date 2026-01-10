@@ -13,11 +13,17 @@ use std::sync::Arc;
 use scaleit_bridge::device_manager::DeviceManager;
 use scaleit_bridge::error::BridgeError;
 use scaleit_bridge::models::device::SaveConfigRequest;
-use scaleit_bridge::models::host::{HostConfig, SaveHostRequest};
-use scaleit_bridge::models::miernik::{MiernikConfig, SaveMiernikRequest};
+use scaleit_bridge::models::host::SaveHostRequest;
+use scaleit_bridge::models::miernik::SaveMiernikRequest;
 use scaleit_bridge::models::weight::{
     DeviceListResponse, HealthResponse, ScaleCommandRequest, ScaleCommandResponse,
 };
+
+// Constants
+const DEFAULT_PORT: u16 = 8080;
+const DEFAULT_CONFIG_PATH: &str = "config/devices.json";
+const DEFAULT_WEB_PATH: &str = "dist";
+const CORS_MAX_AGE: usize = 3600;
 
 struct AppState {
     device_manager: Arc<DeviceManager>,
@@ -27,6 +33,34 @@ impl AppState {
     fn new(device_manager: Arc<DeviceManager>) -> Self {
         Self { device_manager }
     }
+}
+
+/// Determine configuration file path based on platform and environment
+fn determine_config_path() -> String {
+    if cfg!(windows) {
+        let program_data = std::env::var("ProgramData").unwrap_or_else(|_| String::new());
+        if !program_data.is_empty() {
+            let program_data_config = format!("{}\\ScaleCmdBridge\\config\\devices.json", program_data);
+            if std::path::Path::new(&program_data_config).exists() {
+                return program_data_config;
+            }
+        }
+    }
+    std::env::var("CONFIG_PATH").unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string())
+}
+
+/// Determine web frontend files path based on platform and environment
+fn determine_web_path() -> String {
+    if cfg!(windows) {
+        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| String::new());
+        if !program_files.is_empty() {
+            let program_files_web = format!("{}\\ScaleCmdBridge\\web", program_files);
+            if std::path::Path::new(&program_files_web).exists() {
+                return program_files_web;
+            }
+        }
+    }
+    std::env::var("WEB_PATH").unwrap_or_else(|_| DEFAULT_WEB_PATH.to_string())
 }
 
 fn bridge_error_response(
@@ -53,6 +87,24 @@ fn bridge_error_response(
     }
 }
 
+/// Health check endpoint
+/// 
+/// Returns the current status of the bridge service.
+/// Used for monitoring and service discovery.
+/// 
+/// # Example Request
+/// ```http
+/// GET /health
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "status": "OK",
+///   "service": "ScaleIT Bridge",
+///   "version": "0.1.1"
+/// }
+/// ```
 #[get("/health")]
 async fn health_check() -> impl Responder {
     info!("Received health check request");
@@ -64,6 +116,25 @@ async fn health_check() -> impl Responder {
         })
 }
 
+/// List all configured scale devices
+/// 
+/// Returns a list of all enabled scale devices with their IDs, names, and models.
+/// 
+/// # Example Request
+/// ```http
+/// GET /devices
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "devices": [
+///     ["device_id", "Device Name", "Model"],
+///     ["scale1", "Main Scale", "Rinstrum C320"]
+///   ]
+/// }
+/// ```
 #[get("/devices")]
 async fn list_devices(state: Data<AppState>) -> impl Responder {
     info!("Received list devices request");
@@ -73,6 +144,41 @@ async fn list_devices(state: Data<AppState>) -> impl Responder {
     })
 }
 
+/// Execute a command on a scale device
+/// 
+/// Sends a command to a specific scale device and returns the result.
+/// Supported commands depend on the device type and protocol.
+/// 
+/// # Example Request
+/// ```http
+/// POST /scalecmd
+/// Content-Type: application/json
+/// 
+/// {
+///   "device_id": "scale1",
+///   "command": "read_gross"
+/// }
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "device_id": "scale1",
+///   "command": "read_gross",
+///   "result": {
+///     "weight": 123.45,
+///     "unit": "kg",
+///     "is_stable": true
+///   },
+///   "error": null
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `400 Bad Request` - Invalid request (missing device_id)
+/// - `404 Not Found` - Device not found
+/// - `500 Internal Server Error` - Command execution error
 #[post("/scalecmd")]
 async fn handle_scalecmd(
     req_body: web::Json<ScaleCommandRequest>,
@@ -105,11 +211,63 @@ async fn handle_scalecmd(
     }
 }
 
+/// Get all device configurations
+/// 
+/// Returns the complete configuration for all devices (enabled and disabled).
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/config
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "device_id": {
+///     "name": "Device Name",
+///     "manufacturer": "Manufacturer",
+///     "model": "Model",
+///     "protocol": "RINCMD",
+///     "connection": { ... },
+///     "enabled": true
+///   }
+/// }
+/// ```
 #[get("/api/config")]
 async fn get_device_configs(state: Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(state.device_manager.list_configs())
 }
 
+/// Save or update device configuration
+/// 
+/// Saves a new device configuration or updates an existing one.
+/// The configuration is immediately reloaded after saving.
+/// 
+/// # Example Request
+/// ```http
+/// POST /api/config/save
+/// Content-Type: application/json
+/// 
+/// {
+///   "device_id": "scale1",
+///   "config": {
+///     "name": "Main Scale",
+///     "manufacturer": "Rinstrum",
+///     "model": "C320",
+///     "protocol": "RINCMD",
+///     "connection": { ... },
+///     "enabled": true
+///   }
+/// }
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Configuration for scale1 saved and reloaded."
+/// }
+/// ```
 #[post("/api/config/save")]
 async fn save_device_config(
     payload: web::Json<SaveConfigRequest>,
@@ -136,6 +294,26 @@ async fn save_device_config(
     }))
 }
 
+/// Delete a device configuration
+/// 
+/// Removes a device configuration and reloads the configuration.
+/// 
+/// # Example Request
+/// ```http
+/// DELETE /api/config/device_id
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Device device_id deleted and configuration reloaded."
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `404 Not Found` - Device not found
+/// - `500 Internal Server Error` - Failed to reload configuration
 #[delete("/api/config/{device_id}")]
 async fn delete_device_config(
     device_id: web::Path<String>,
@@ -158,12 +336,58 @@ async fn delete_device_config(
     }))
 }
 
-// Host endpoints
+/// List all configured hosts
+/// 
+/// Returns all host configurations (TCP/IP connection endpoints).
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/hosts
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "host_id": {
+///     "name": "Host Name",
+///     "connection": {
+///       "connection_type": "Tcp",
+///       "host": "192.168.1.100",
+///       "port": 4001,
+///       "timeout_ms": 3000
+///     }
+///   }
+/// }
+/// ```
 #[get("/api/hosts")]
 async fn get_hosts(state: Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(state.device_manager.list_hosts())
 }
 
+/// Get a specific host configuration
+/// 
+/// Returns the configuration for a specific host by ID.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/hosts/host_id
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "name": "Host Name",
+///   "connection": {
+///     "connection_type": "Tcp",
+///     "host": "192.168.1.100",
+///     "port": 4001,
+///     "timeout_ms": 3000
+///   }
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `404 Not Found` - Host not found
 #[get("/api/hosts/{host_id}")]
 async fn get_host(
     host_id: web::Path<String>,
@@ -176,6 +400,37 @@ async fn get_host(
     }
 }
 
+/// Save or update host configuration
+/// 
+/// Saves a new host configuration or updates an existing one.
+/// The configuration is immediately reloaded after saving.
+/// 
+/// # Example Request
+/// ```http
+/// POST /api/hosts/save
+/// Content-Type: application/json
+/// 
+/// {
+///   "host_id": "host1",
+///   "config": {
+///     "name": "Main Host",
+///     "connection": {
+///       "connection_type": "Tcp",
+///       "host": "192.168.1.100",
+///       "port": 4001,
+///       "timeout_ms": 3000
+///     }
+///   }
+/// }
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Host host1 saved and configuration reloaded."
+/// }
+/// ```
 #[post("/api/hosts/save")]
 async fn save_host(
     payload: web::Json<SaveHostRequest>,
@@ -202,6 +457,28 @@ async fn save_host(
     }))
 }
 
+/// Test host connection
+/// 
+/// Attempts to establish a connection to the specified host to verify connectivity.
+/// This creates a temporary connection that is immediately closed and does not affect
+/// existing device connections.
+/// 
+/// # Example Request
+/// ```http
+/// POST /api/hosts/host_id/test
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Connection test successful"
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `404 Not Found` - Host not found
+/// - `500 Internal Server Error` - Connection test failed
 #[post("/api/hosts/{host_id}/test")]
 async fn test_host_connection(
     host_id: web::Path<String>,
@@ -217,6 +494,26 @@ async fn test_host_connection(
     }
 }
 
+/// Delete a host configuration
+/// 
+/// Removes a host configuration and reloads the configuration.
+/// 
+/// # Example Request
+/// ```http
+/// DELETE /api/hosts/host_id
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Host host_id deleted and configuration reloaded."
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `404 Not Found` - Host not found
+/// - `500 Internal Server Error` - Failed to reload configuration
 #[delete("/api/hosts/{host_id}")]
 async fn delete_host(
     host_id: web::Path<String>,
@@ -239,12 +536,54 @@ async fn delete_host(
     }))
 }
 
-// Miernik endpoints
+/// List all configured mierniki (indicators)
+/// 
+/// Returns all miernik (indicator) configurations.
+/// Mierniki define the protocol and command mappings for specific scale models.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/mierniki
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "miernik_id": {
+///     "name": "Miernik Name",
+///     "protocol": "RINCMD",
+///     "commands": { ... }
+///   }
+/// }
+/// ```
 #[get("/api/mierniki")]
 async fn get_mierniki(state: Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(state.device_manager.list_mierniki())
 }
 
+/// Get a specific miernik (indicator) configuration
+/// 
+/// Returns the configuration for a specific miernik by ID.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/mierniki/miernik_id
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "name": "Miernik Name",
+///   "protocol": "RINCMD",
+///   "commands": {
+///     "read_gross": "R",
+///     "tare": "T"
+///   }
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `404 Not Found` - Miernik not found
 #[get("/api/mierniki/{miernik_id}")]
 async fn get_miernik(
     miernik_id: web::Path<String>,
@@ -257,6 +596,36 @@ async fn get_miernik(
     }
 }
 
+/// Save or update miernik (indicator) configuration
+/// 
+/// Saves a new miernik configuration or updates an existing one.
+/// The configuration is immediately reloaded after saving.
+/// 
+/// # Example Request
+/// ```http
+/// POST /api/mierniki/save
+/// Content-Type: application/json
+/// 
+/// {
+///   "miernik_id": "rinstrum_c320",
+///   "config": {
+///     "name": "Rinstrum C320",
+///     "protocol": "RINCMD",
+///     "commands": {
+///       "read_gross": "R",
+///       "tare": "T"
+///     }
+///   }
+/// }
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Miernik rinstrum_c320 saved and configuration reloaded."
+/// }
+/// ```
 #[post("/api/mierniki/save")]
 async fn save_miernik(
     payload: web::Json<SaveMiernikRequest>,
@@ -283,6 +652,26 @@ async fn save_miernik(
     }))
 }
 
+/// Delete a miernik (indicator) configuration
+/// 
+/// Removes a miernik configuration and reloads the configuration.
+/// 
+/// # Example Request
+/// ```http
+/// DELETE /api/mierniki/miernik_id
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Miernik miernik_id deleted and configuration reloaded."
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `404 Not Found` - Miernik not found
+/// - `500 Internal Server Error` - Failed to reload configuration
 #[delete("/api/mierniki/{miernik_id}")]
 async fn delete_miernik(
     miernik_id: web::Path<String>,
@@ -305,6 +694,27 @@ async fn delete_miernik(
     }))
 }
 
+/// Gracefully shutdown the server
+/// 
+/// Initiates a graceful shutdown procedure:
+/// 1. Disconnects all active device connections
+/// 2. Stops the HTTP server
+/// 3. Exits the process
+/// 
+/// **Warning:** This endpoint will stop the server. Use with caution.
+/// 
+/// # Example Request
+/// ```http
+/// POST /api/shutdown
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Shutdown initiated. Server will stop after disconnecting all devices."
+/// }
+/// ```
 #[post("/api/shutdown")]
 async fn shutdown_server(state: Data<AppState>) -> impl Responder {
     info!("Shutdown request received");
@@ -325,90 +735,121 @@ async fn shutdown_server(state: Data<AppState>) -> impl Responder {
     }))
 }
 
+/// Start the server process (Windows only)
+/// 
+/// Attempts to start a new instance of the bridge server in the background.
+/// This is a convenience endpoint for remote server management.
+/// 
+/// **Note:** This endpoint is Windows-only. On other platforms, start the server manually.
+/// 
+/// # Example Request
+/// ```http
+/// POST /api/start
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Server start command executed. Please wait a few seconds and check the status."
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `400 Bad Request` - Server executable or run script not found
+/// - `500 Internal Server Error` - Failed to start server process
+/// - `501 Not Implemented` - Not supported on this platform
 #[post("/api/start")]
 async fn start_server() -> impl Responder {
     info!("Start server request received");
     
-    // Get the current executable directory
-    let exe_path = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .unwrap_or_else(|| std::path::PathBuf::from("."));
-    
-    // Try to find the run script or executable
-    let project_root = exe_path
-        .parent()
-        .and_then(|p| p.parent())
-        .unwrap_or_else(|| exe_path.as_path());
-    
-    let run_script = project_root.join("run-backend.ps1");
-    let release_exe = exe_path.join("target").join("release").join("scaleit-bridge.exe");
-    let debug_exe = exe_path.join("target").join("debug").join("scaleit-bridge.exe");
-    
-    // Determine what to run
-    let command = if run_script.exists() {
-        // Use PowerShell script
-        format!(
-            "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{}\"",
-            run_script.display()
-        )
-    } else if release_exe.exists() {
-        // Use release executable
-        format!("\"{}\"", release_exe.display())
-    } else if debug_exe.exists() {
-        // Use debug executable
-        format!("\"{}\"", debug_exe.display())
-    } else {
-        // Fallback: try cargo run from src-rust
-        let src_rust = project_root.join("src-rust");
-        if src_rust.exists() {
-            format!(
-                "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"cd '{}'; cargo run\"",
-                src_rust.display()
-            )
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+        
+        // Get the current executable directory
+        let exe_path = match std::env::current_exe() {
+            Ok(path) => path.parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| std::path::PathBuf::from(".")),
+            Err(e) => {
+                error!("Failed to get current executable path: {}", e);
+                return HttpResponse::InternalServerError().json(json!({
+                    "success": false,
+                    "error": format!("Failed to determine executable path: {}", e)
+                }));
+            }
+        };
+        
+        // Try to find the run script or executable
+        let project_root = exe_path
+            .parent()
+            .and_then(|p| p.parent())
+            .unwrap_or_else(|| exe_path.as_path());
+        
+        let run_script = project_root.join("run-backend.ps1");
+        let release_exe = exe_path.join("target").join("release").join("scaleit-bridge.exe");
+        let debug_exe = exe_path.join("target").join("debug").join("scaleit-bridge.exe");
+        
+        // Determine what to run and spawn process
+        let result = if run_script.exists() {
+            // Use PowerShell script directly
+            info!("Starting server using PowerShell script: {}", run_script.display());
+            Command::new("powershell.exe")
+                .args(&[
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    &run_script.to_string_lossy(),
+                ])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+        } else if release_exe.exists() {
+            info!("Starting server using release executable: {}", release_exe.display());
+            Command::new(&release_exe)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+        } else if debug_exe.exists() {
+            info!("Starting server using debug executable: {}", debug_exe.display());
+            Command::new(&debug_exe)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
         } else {
-            return HttpResponse::BadRequest().json(json!({
-                "success": false,
-                "error": "Could not find server executable or run script. Please start the server manually."
-            }));
-        }
-    };
-    
-        // Start the server in background
-        #[cfg(windows)]
-        {
-            use std::process::Command;
-            
-            let result = if run_script.exists() {
-                // Use PowerShell script directly
-                Command::new("powershell.exe")
-                    .args(&[
-                        "-NoProfile",
-                        "-ExecutionPolicy",
-                        "Bypass",
-                        "-File",
-                        &run_script.to_string_lossy(),
-                    ])
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .spawn()
-            } else if command.contains("powershell.exe") {
-                // For PowerShell commands
+            // Fallback: try cargo run from src-rust
+            let src_rust = project_root.join("src-rust");
+            if src_rust.exists() {
+                warn!("No executable found, attempting to use cargo run from: {}", src_rust.display());
                 Command::new("powershell.exe")
                     .args(&[
                         "-NoProfile",
                         "-ExecutionPolicy",
                         "Bypass",
                         "-Command",
-                        &format!("Start-Process -FilePath '{}' -WindowStyle Hidden", command),
+                        &format!("cd '{}'; cargo run", src_rust.display()),
                     ])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
                     .spawn()
             } else {
-                // For direct executable
-                Command::new("cmd")
-                    .args(&["/C", "start", "/B", &command])
-                    .spawn()
-            };
+                error!("Could not find server executable, run script, or src-rust directory");
+                return HttpResponse::BadRequest().json(json!({
+                    "success": false,
+                    "error": "Could not find server executable or run script. Please start the server manually.",
+                    "details": {
+                        "checked_paths": [
+                            run_script.to_string_lossy().to_string(),
+                            release_exe.to_string_lossy().to_string(),
+                            debug_exe.to_string_lossy().to_string(),
+                            src_rust.to_string_lossy().to_string()
+                        ]
+                    }
+                }));
+            }
+        };
         
         match result {
             Ok(_) => {
@@ -422,7 +863,8 @@ async fn start_server() -> impl Responder {
                 error!("Failed to start server: {}", e);
                 HttpResponse::InternalServerError().json(json!({
                     "success": false,
-                    "error": format!("Failed to start server: {}", e)
+                    "error": format!("Failed to start server: {}", e),
+                    "error_type": e.kind().to_string()
                 }))
             }
         }
@@ -430,7 +872,7 @@ async fn start_server() -> impl Responder {
     
     #[cfg(not(windows))]
     {
-        // For non-Windows, use different approach
+        warn!("Server start endpoint called on non-Windows platform");
         HttpResponse::NotImplemented().json(json!({
             "success": false,
             "error": "Server start is only supported on Windows. Please start the server manually."
@@ -441,22 +883,7 @@ async fn start_server() -> impl Responder {
 // Default handler for SPA routing - serves index.html for non-API routes
 async fn default_handler() -> impl Responder {
     // Use the same path resolution logic as main()
-    let web_path = if cfg!(windows) {
-        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| String::new());
-        if !program_files.is_empty() {
-            let program_files_web = format!("{}\\ScaleCmdBridge\\web", program_files);
-            if std::path::Path::new(&program_files_web).exists() {
-                program_files_web
-            } else {
-                std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
-            }
-        } else {
-            std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
-        }
-    } else {
-        std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
-    };
-    
+    let web_path = determine_web_path();
     let index_path = std::path::Path::new(&web_path).join("index.html");
     
     if index_path.exists() {
@@ -494,24 +921,7 @@ async fn main() -> std::io::Result<()> {
     info!("Starting ScaleIT Bridge v{}", env!("CARGO_PKG_VERSION"));
 
     // Determine config path - use ProgramData on Windows if available, otherwise use CONFIG_PATH or default
-    let config_path = if cfg!(windows) {
-        // Try ProgramData first (production installation)
-        let program_data = std::env::var("ProgramData").unwrap_or_else(|_| String::new());
-        if !program_data.is_empty() {
-            let program_data_config = format!("{}\\ScaleCmdBridge\\config\\devices.json", program_data);
-            if std::path::Path::new(&program_data_config).exists() {
-                program_data_config
-            } else {
-                // Fallback to CONFIG_PATH or default
-                std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/devices.json".to_string())
-            }
-        } else {
-            std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/devices.json".to_string())
-        }
-    } else {
-        std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/devices.json".to_string())
-    };
-    
+    let config_path = determine_config_path();
     info!("Using config path: {}", config_path);
     
     // Ensure config file exists (DeviceManager will create it if missing)
@@ -540,28 +950,30 @@ async fn main() -> std::io::Result<()> {
     dm.connect_all_devices().await;
 
     let host = "0.0.0.0";
-    let port = std::env::var("PORT")
-        .ok()
-        .and_then(|p| p.parse::<u16>().ok())
-        .unwrap_or(8080);
+    let port = match std::env::var("PORT") {
+        Ok(port_str) => {
+            match port_str.parse::<u16>() {
+                Ok(p) if p > 0 => p,
+                Ok(0) => {
+                    warn!("Invalid port number: 0. Using default port {}", DEFAULT_PORT);
+                    DEFAULT_PORT
+                }
+                Ok(_) => {
+                    warn!("Port number out of range. Using default port {}", DEFAULT_PORT);
+                    DEFAULT_PORT
+                }
+                Err(e) => {
+                    warn!("Invalid PORT environment variable '{}': {}. Using default port {}", port_str, e, DEFAULT_PORT);
+                    DEFAULT_PORT
+                }
+            }
+        }
+        Err(_) => DEFAULT_PORT,
+    };
     
     // Path to static files (frontend dist/)
     // On Windows, try Program Files first (production), then WEB_PATH, then default
-    let web_path = if cfg!(windows) {
-        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| String::new());
-        if !program_files.is_empty() {
-            let program_files_web = format!("{}\\ScaleCmdBridge\\web", program_files);
-            if std::path::Path::new(&program_files_web).exists() {
-                program_files_web
-            } else {
-                std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
-            }
-        } else {
-            std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
-        }
-    } else {
-        std::env::var("WEB_PATH").unwrap_or_else(|_| "dist".to_string())
-    };
+    let web_path = determine_web_path();
     
     info!("Server running on http://{}:{}", host, port);
     info!("Serving static files from: {}", web_path);
@@ -593,28 +1005,81 @@ async fn main() -> std::io::Result<()> {
     let dm_for_shutdown = dm.clone();
     ctrlc::set_handler(move || {
         info!("Ctrl-C received, initiating graceful shutdown...");
-        let rt = tokio::runtime::Builder::new_current_thread()
+        match tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .expect("Failed to create Tokio runtime for shutdown handler");
-        rt.block_on(async {
-            dm_for_shutdown.disconnect_all_devices().await;
-            info!("All devices disconnected. Exiting.");
-            std::process::exit(0);
-        });
+        {
+            Ok(rt) => {
+                rt.block_on(async {
+                    dm_for_shutdown.disconnect_all_devices().await;
+                    info!("All devices disconnected. Exiting.");
+                    std::process::exit(0);
+                });
+            }
+            Err(e) => {
+                error!("Failed to create Tokio runtime for shutdown handler: {}", e);
+                eprintln!("Critical error: Failed to create runtime for graceful shutdown");
+                std::process::exit(1);
+            }
+        }
     })
-    .expect("Error setting Ctrl-C handler");
+    .map_err(|e| {
+        error!("Failed to set Ctrl-C handler: {}", e);
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to set Ctrl-C handler: {}", e),
+        )
+    })?;
 
     let web_path_clone = web_path.clone();
     HttpServer::new(move || {
         let state = AppState::new(dm.clone());
-        // CORS configuration - allow all origins, methods, and headers
-        // This is safe for local installations where bridge runs on user's machine
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .max_age(3600);
+        // CORS configuration - configurable via environment variable
+        // Default: allow localhost origins for development
+        // Set ALLOWED_ORIGINS env var to specify allowed origins (comma-separated)
+        let cors = match std::env::var("ALLOWED_ORIGINS") {
+            Ok(origins) => {
+                let origins_vec: Vec<&str> = origins.split(',').map(|s| s.trim()).collect();
+                if origins_vec.contains(&"*") {
+                    // Explicit wildcard for backward compatibility
+                    Cors::default()
+                        .allow_any_origin()
+                        .allow_any_method()
+                        .allow_any_header()
+                        .max_age(Some(CORS_MAX_AGE))
+                } else {
+                    // Build CORS with allowed origins - actix-cors 0.7 requires individual allowed_origin calls
+                    let mut cors_builder = Cors::default()
+                        .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
+                        .allowed_headers(vec![
+                            "Content-Type",
+                            "Authorization",
+                            "Accept",
+                        ])
+                        .max_age(Some(CORS_MAX_AGE));
+                    
+                    for origin in origins_vec {
+                        cors_builder = cors_builder.allowed_origin(origin);
+                    }
+                    cors_builder
+                }
+            }
+            Err(_) => {
+                // Default: localhost origins for development
+                Cors::default()
+                    .allowed_origin("http://localhost:3000")
+                    .allowed_origin("http://localhost:5173")
+                    .allowed_origin("http://127.0.0.1:3000")
+                    .allowed_origin("http://127.0.0.1:5173")
+                    .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
+                    .allowed_headers(vec![
+                        "Content-Type",
+                        "Authorization",
+                        "Accept",
+                    ])
+                    .max_age(Some(CORS_MAX_AGE))
+            }
+        };
         
         let mut app = App::new()
             .wrap(cors)

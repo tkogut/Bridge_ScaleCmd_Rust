@@ -18,14 +18,25 @@
 
 For production deployment on Windows, use the automated installer:
 
-### Building the Installer
+### 🔨 Building the Project and Installer
+
+**⚠️ IMPORTANT: Always use the automated build script for rebuilding!**
 
 ```powershell
-# Build complete Windows installer (automated)
+# Build complete project (backend + frontend + installer) - RECOMMENDED
 .\scripts\Build-WindowsInstaller.ps1
 
-# The installer will be created in: release\ScaleCmdBridge-Setup-x64.exe
+# The installer will be created in: release\ScaleCmdBridge-Setup-x64-v<VERSION>.exe
 ```
+
+**Why use the build script?**
+- ✅ Handles MinGW toolchain setup automatically
+- ✅ Resolves AVG firewall blocking issues
+- ✅ Configures environment properly
+- ✅ Builds both backend (Rust) and frontend (React)
+- ✅ Creates Windows installer package
+
+**❌ DO NOT use direct `cargo build` or `cargo check`** - they will fail due to MinGW/AVG/permission issues. Always use `Build-WindowsInstaller.ps1` instead!
 
 ### Direct Download (GitHub Releases)
 
@@ -88,6 +99,17 @@ For detailed update procedures, see: [docs/UPDATE_STRATEGY.md](docs/UPDATE_STRAT
 
 ## 🚀 Quick Start (Windows Development)
 
+### ⚠️ IMPORTANT: Building the Project
+
+**ALWAYS use the automated build script for complete rebuilds:**
+
+```powershell
+# Complete rebuild: backend + frontend + installer (RECOMMENDED)
+.\scripts\Build-WindowsInstaller.ps1
+```
+
+**Why?** Direct `cargo build` commands will fail due to MinGW/AVG/permission issues. The build script handles everything automatically.
+
 ### Prerequisites Setup
 The project now uses **MinGW/MSYS2** toolchain for Windows builds (GNU instead of MSVC):
 
@@ -97,7 +119,7 @@ The project now uses **MinGW/MSYS2** toolchain for Windows builds (GNU instead o
 powershell.exe -ExecutionPolicy Bypass -File "Setup-MinGW.ps1"
 ```
 
-### Build & Run Backend
+### Build & Run Backend (Advanced - use Build-WindowsInstaller.ps1 instead!)
 ```powershell
 # Method 1: Direct execution in PowerShell (recommended)
 .\build-rust-mingw.ps1              # Debug build (faster compilation)
@@ -127,13 +149,21 @@ cargo run --release          # Release build (optimized)
 - ✅ Correct: `.\build-rust-mingw.ps1 --release`
 - ❌ Wrong: `build-rust-mingw.ps1 --release`
 
-**Build Script Features:**
+**Backend Build Script Features (`build-rust-mingw.ps1`):**
 - ✅ Automatic MinGW toolchain configuration
 - ✅ Cleans previous builds for fresh start
 - ✅ Runs full test suite after build
 - ✅ Stops interfering processes (AVG Firewall, etc.)
 - ✅ Detailed error messages and troubleshooting tips
 - ✅ Supports both debug and release builds
+
+**Complete Build Script Features (`Build-WindowsInstaller.ps1`):**
+- ✅ All features of `build-rust-mingw.ps1` for backend
+- ✅ Automatically builds React frontend (production)
+- ✅ Sets up NSSM for Windows Service
+- ✅ Creates Inno Setup installer package
+- ✅ Handles all environment and permission issues
+- ⚠️ **Use this for complete rebuilds!**
 
 ### Quick Start Scripts (Windows Batch Files)
 
