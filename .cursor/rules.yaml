@@ -11,7 +11,7 @@ project:
     - Rust Backend (Actix-web on port 8080)
     - Device Adapters (Rinstrum C320, Dini Argeo, TCP/Serial)
   repository: https://github.com/tkogut/Bridge_ScaleCmd_Rust
-  version: "0.1.0"
+  version: "0.1.3"
 
 # =============================================================================
 # ROLA 1: BACKEND_ARCHITECT
@@ -173,12 +173,15 @@ roles:
     
     primary_paths:
       - "src-rust/src/adapters/"
-      - "src-rust/src/adapters/rinstrum_adapter.rs"
-      - "src-rust/src/adapters/dini_argeo_adapter.rs"
-      - "src-rust/src/adapters/mod.rs"
+      - "src-rust/src/adapters/rinstrum.rs"
+      - "src-rust/src/adapters/dini_argeo.rs"
+      - "src-rust/src/adapters/adapter.rs"
       - "src-rust/src/device_manager.rs"
-      - "config/devices.json"
+      - "src-rust/config/devices.json"
       - "src-rust/src/models/"
+      - "src-rust/miernik/src/devices.rs"
+      - "src-rust/miernik/src/device.rs"
+      - "src-rust/host/src/connection.rs"
     
     secondary_paths:
       - "docs/scale-connection-manager.md"
@@ -239,12 +242,15 @@ roles:
     
     primary_paths:
       - "scripts/"
+      - "scripts/Build-WindowsInstaller.ps1"  # ⭐ MAIN BUILD SCRIPT - ALWAYS USE!
       - "scripts/Setup-MinGW.ps1"
       - "scripts/build-rust-mingw.ps1"
       - "scripts/run-backend.ps1"
       - ".github/workflows/"
       - "installer/"
       - "BUILD_WINDOWS.md"
+      - ".cursorrules"  # Build instructions
+      - "AI_RULES.md"  # Build rules
     
     secondary_paths:
       - "Cargo.toml"
@@ -253,21 +259,25 @@ roles:
       - "PLAN_WINDOWS_INSTALLER.md"
     
     rules:
+      - "ALWAYS use scripts/Build-WindowsInstaller.ps1 for rebuilding - NEVER use direct cargo build!"
       - "Use Rust 1.91.1 stable-x86_64-pc-windows-gnu"
       - "MinGW path: D:\\msys64\\mingw64\\bin"
       - "Document all environment variables (CARGO_TARGET_*)"
       - "Version in both Cargo.toml and package.json"
+      - "Auto-increment patch version (X.Y.Z → X.Y.Z+1) for main branch builds"
       - "Use GitHub Actions for every major step"
       - "Never commit build artifacts"
       - "Never hardcode absolute paths"
       - "Never skip dependency checks"
       - "Always test build scripts locally first"
       - "Document MinGW setup step-by-step"
+      - "Direct cargo commands will fail - always use build scripts!"
     
     example_commands:
+      - "@build \"Rebuild project using Build-WindowsInstaller.ps1\""
       - "@build \"Fix MinGW linker path in build-rust-mingw.ps1\""
       - "@build \"Create GitHub Actions workflow for automated releases\""
-      - "@build \"Generate Windows installer with version 0.2.0\""
+      - "@build \"Generate Windows installer with auto-incremented version\""
       - "@build \"Debug dlltool not found error\""
       - "@build \"Optimize build time with incremental compilation\""
     
@@ -396,8 +406,7 @@ context_patterns:
 
 # =============================================================================
 # NAMING CONVENTIONS
-#
-=============================================================================
+# =============================================================================
 
 naming_conventions:
   rust:
@@ -450,28 +459,38 @@ naming_conventions:
 # =============================================================================
 
 build_commands:
+  main_build:
+    description: "⭐ MAIN BUILD - Build complete project (backend + frontend + installer)"
+    command: ".\\scripts\\Build-WindowsInstaller.ps1"
+    note: "ALWAYS use this for rebuilding! Handles MinGW, AVG issues, version incrementing"
+    output: "release/ScaleCmdBridge-Setup-x64-v<VERSION>.exe"
+  
   backend:
-    description: "Build Rust backend"
-    command: "cd src-rust && cargo build"
-    flags: "--release"
-    output: "src-rust/target/x86_64-pc-windows-gnu/release/scaleit_bridge.exe"
+    description: "Build Rust backend (advanced - use main_build instead)"
+    command: ".\\build-rust-mingw.ps1 --release --skip-tests"
+    note: "⚠️ Not recommended - use main_build script instead"
+    output: "src-rust/target/x86_64-pc-windows-gnu/release/scaleit-bridge.exe"
   
   backend_debug:
-    description: "Build Rust backend (debug)"
-    command: "cd src-rust && cargo build"
-    output: "src-rust/target/x86_64-pc-windows-gnu/debug/scaleit_bridge.exe"
+    description: "Build Rust backend (debug mode)"
+    command: ".\\build-rust-mingw.ps1"
+    note: "⚠️ Requires MinGW environment setup"
+    output: "src-rust/target/x86_64-pc-windows-gnu/debug/scaleit-bridge.exe"
   
   backend_test:
     description: "Run Rust backend tests"
-    command: "cd src-rust && cargo test"
+    command: ".\\test-rust-mingw.ps1"
+    note: "Or: cd src-rust && cargo test (requires MinGW setup)"
   
   backend_clippy:
     description: "Run Rust linter (clippy)"
     command: "cd src-rust && cargo clippy -- -D warnings"
+    note: "Requires MinGW environment setup"
   
   frontend:
-    description: "Build React frontend (production)"
+    description: "Build React frontend (production) - advanced use"
     command: "npm run build"
+    note: "Usually handled by main_build script"
     output: "dist/"
   
   frontend_dev:
@@ -486,11 +505,6 @@ build_commands:
   frontend_e2e:
     description: "Run E2E tests (Playwright)"
     command: "npm run test:e2e"
-  
-  installer:
-    description: "Generate Windows installer"
-    command: "PowerShell -ExecutionPolicy Bypass -File ./scripts/Create-InstallerPackage.ps1"
-    output: "installer/bridge-scale-setup.exe"
 
 # =============================================================================
 # FOLDER STRUCTURE GUIDE
@@ -513,11 +527,15 @@ folder_structure:
     - "src/error.rs                 # Custom error types"
     - "src/models/                  # Request/Response DTOs"
     - "src/adapters/                # Device adapters"
-    - "src/adapters/rinstrum_adapter.rs"
-    - "src/adapters/dini_argeo_adapter.rs"
-    - "src/lib.rs                   # Library exports"
+    - "src/adapters/rinstrum.rs     # Rinstrum adapter"
+    - "src/adapters/dini_argeo.rs   # Dini Argeo adapter"
+    - "host/                        # Host library (TCP/Serial connections)"
+    - "host/src/connection.rs       # Connection management"
+    - "miernik/                     # Miernik library (device abstractions)"
+    - "miernik/src/devices.rs       # Device implementations"
+    - "miernik/src/device.rs        # Device trait"
     - "tests/                       # Integration tests"
-    - "Cargo.toml                   # Dependencies"
+    - "Cargo.toml                   # Workspace dependencies"
   
   src_react:
     - "pages/                       # React pages"
@@ -697,6 +715,7 @@ git_workflow:
 # =============================================================================
 
 versions:
+  project: "0.1.3"
   rust: "1.91.1"
   rust_toolchain: "stable-x86_64-pc-windows-gnu"
   node: "18.x"
@@ -704,6 +723,23 @@ versions:
   vite: "5.x"
   tailwind: "3.x"
   typescript: "5.x"
+
+versioning_strategy:
+  main_branch:
+    auto_increment: true
+    pattern: "X.Y.Z → X.Y.Z+1 (patch version)"
+    cargo_toml: "Automatically updated by Build-WindowsInstaller.ps1"
+    installer_name: "ScaleCmdBridge-Setup-x64-v0.1.3.exe"
+  
+  feature_branches:
+    auto_increment: false
+    pattern: "Version stays same, branch name appended"
+    installer_name: "ScaleCmdBridge-Setup-x64-v0.1.3-<branch-name>.exe"
+  
+  manual_version:
+    update_files:
+      - "src-rust/Cargo.toml"
+      - "package.json (if applicable)"
 
 critical_crates:
   - "actix-web: 4.x       # Web framework"

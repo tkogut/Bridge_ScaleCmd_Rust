@@ -25,8 +25,6 @@ a wagami przemysłowymi (Rinstrum C320, Dini Argeo) poprzez serwer Rust.
 │ (Rinstrum, Dini Argeo) │
 └────────────────────────┘
 
-text
-
 **Stack:** Rust 1.91.1 | React 18.x | TypeScript 5.x | Vite 5.x | Tailwind 3.x | Windows 10+
 
 ---
@@ -41,8 +39,6 @@ Zawsze wskaż swoją rolę poprzez prefix `@` aby Cursor załadował właściwy 
 @build "polecenie dla build pipeline'u"
 @testing "polecenie dla testowania"
 
-text
-
 **Szczegółowe opisy ról zobacz w:** `.cursor/rules.yaml`
 
 ---
@@ -56,8 +52,6 @@ src-rust/src/
 ├── error.rs # Custom error types
 ├── models/ # Request/Response DTOs
 └── adapters/ # Device adapters
-
-text
 
 **Kluczowe obowiązki:**
 - Architektura serwera Actix-web (port 8080)
@@ -78,8 +72,6 @@ text
 @backend "Add structured logging with tracing crate"
 @backend "Implement graceful shutdown mechanism"
 
-text
-
 ---
 
 ## 🎨 @frontend - Frontend Development
@@ -92,8 +84,6 @@ src/
 ├── context/ # State (Context API)
 ├── hooks/ # Custom hooks
 └── types/ # TypeScript types
-
-text
 
 **Kluczowe obowiązki:**
 - React komponenty (shadcn/ui based)
@@ -117,8 +107,6 @@ text
 @frontend "Implement real-time status with WebSocket updates"
 @frontend "Add new component to src/pages/Index.tsx"
 
-text
-
 ---
 
 ## 🔌 @devices - Device Integration Specialist
@@ -135,8 +123,6 @@ config/
 
 docs/
 └── device-protocols/ # Protocol specs
-
-text
 
 **Kluczowe obowiązki:**
 - Device adapters (DeviceAdapter trait)
@@ -162,8 +148,6 @@ text
 @devices "Debug Rinstrum connection timeout - improve logging"
 @devices "Implement device auto-reconnection with exponential backoff"
 
-text
-
 ---
 
 ## 🛠️ @build - Build & DevOps Engineer
@@ -177,8 +161,6 @@ scripts/
 .github/workflows/ # CI/CD pipelines
 
 installer/ # Inno Setup config
-
-text
 
 **Kluczowe obowiązki:**
 - MinGW toolchain configuration (Windows)
@@ -201,22 +183,25 @@ text
 $mingwPath = "D:\msys64\mingw64"
 $env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "$mingwPath\bin\gcc.exe"
 $env:PATH = "$mingwPath\bin;$mingwPath\x86_64-w64-mingw32\bin;$env:PATH"
-Przykłady:
+```
 
-text
+**Przykłady:**
 @build "Fix MinGW linker path - dlltool not found"
 @build "Create GitHub Actions workflow for release builds"
 @build "Generate Windows installer version 0.2.0"
-🧪 @testing - QA & Testing Specialist
-Gdzie pracujesz:
 
-text
+---
+
+## 🧪 @testing - QA & Testing Specialist
+
+**Gdzie pracujesz:**
 src/test/                   # Frontend unit tests
 src-rust/tests/             # Backend integration tests
 e2e/                        # Playwright E2E tests
 vitest.config.ts            # Frontend test config
 playwright.config.ts        # E2E test config
-Kluczowe obowiązki:
+
+**Kluczowe obowiązki:**
 
 Unit tests (Vitest frontend, Cargo backend)
 
@@ -239,14 +224,15 @@ Reguły:
 ⛔ Nie tylko happy paths
 ⛔ Nie flaky tests
 
-Przykłady:
-
-text
+**Przykłady:**
 @testing "Write unit tests for DeviceConfigForm (90% coverage)"
 @testing "Create E2E test for scale reading workflow"
 @testing "Set up code coverage in GitHub Actions"
-📁 Struktura Katalogów
-text
+
+---
+
+## 📁 Struktura Katalogów
+
 Bridge_ScaleCmd_Rust/
 │
 ├── src-rust/                    # 🏗️ Backend (Rust)
@@ -287,17 +273,25 @@ Bridge_ScaleCmd_Rust/
 └── .cursor/                     # 🤖 Cursor Configuration
     ├── instructions.md          # ← Ten plik (praktyczne instrukcje)
     └── rules.yaml               # Szczegółowe reguły dla każdej roli
-🛠️ Build Commands
-Komenda	Cel
+
+---
+
+## 🛠️ Build Commands
+
+| Komenda | Cel |
 cd src-rust && cargo build	Build backend (debug)
 cd src-rust && cargo build --release	Build backend (release)
 cd src-rust && cargo test	Test backend
 npm run dev	Frontend dev server (5173)
 npm run build	Build frontend (production)
-npm run test	Frontend unit tests
-npm run test:e2e	E2E tests (Playwright)
-📝 Naming Conventions
-Rust:
+npm run test | Frontend unit tests |
+npm run test:e2e | E2E tests (Playwright) |
+
+---
+
+## 📝 Naming Conventions
+
+**Rust:**
 
 Modules: snake_case (device_manager, rinstrum_adapter)
 
@@ -305,9 +299,9 @@ Types: PascalCase (DeviceManager, RinstrumAdapter)
 
 Functions: snake_case (read_weight, connect_device)
 
-Constants: SCREAMING_SNAKE_CASE (DEFAULT_TIMEOUT, MAX_RETRIES)
+- Constants: SCREAMING_SNAKE_CASE (DEFAULT_TIMEOUT, MAX_RETRIES)
 
-TypeScript:
+**TypeScript:**
 
 Components: PascalCase (DeviceStatus, ScaleReader)
 
@@ -317,16 +311,19 @@ Constants: SCREAMING_SNAKE_CASE (DEFAULT_TIMEOUT, API_URL)
 
 Types: PascalCase (DeviceConfig, ScaleReading)
 
-Files: kebab-case (device-status.tsx, scale-reader.tsx)
+- Files: kebab-case (device-status.tsx, scale-reader.tsx)
 
-CSS:
+**CSS:**
 
 Classes: kebab-case (device-status, scale-reader)
 
-Variables: kebab-case (--primary-color, --spacing-lg)
+- Variables: kebab-case (--primary-color, --spacing-lg)
 
-📝 Git Workflow
-Branch naming:
+---
+
+## 📝 Git Workflow
+
+**Branch naming:**
 
 feature/short-description
 
@@ -334,19 +331,23 @@ bugfix/short-description
 
 refactor/short-description
 
-docs/short-description
+- docs/short-description
 
-Commit messages:
-
-text
+**Commit messages:**
+```
 type(scope): description
+```
 
 Examples:
 - feat(backend): Add connection pooling to DeviceManager
 - fix(frontend): Fix TypeScript error in DeviceStatus
 - docs(devices): Add RINCMD protocol documentation
 - test(backend): Add integration tests for TCP connections
-✅ Pre-Commit Checklist
+```
+
+---
+
+## ✅ Pre-Commit Checklist
  Określiłem rolę (@backend/@frontend/@devices/@build/@testing)
 
  Kod następuje konwencjom nazewnictwa
@@ -361,17 +362,23 @@ Examples:
 
  Jeśli nowy komponent: UPDATE src/pages/Index.tsx!
 
- Commit message: type(scope): description
+ - Commit message: type(scope): description
 
-🔗 Ważne Dokumenty
-Dokument	Dla	Opis
+---
+
+## 🔗 Ważne Dokumenty
+
+| Dokument | Dla | Opis |
 .cursor/rules.yaml	Wszystkie role	Szczegółowe definicje ról i reguł
 AI_RULES.md	@frontend	Frontend coding conventions
 BACKEND_GUIDELINES.md	@backend	Backend best practices
 BUILD_WINDOWS.md	@build	Windows build setup
-config/devices.json	@devices	Device configurations
-swagger.yaml	@backend	API specification
-🚀 Szybki Start
+| config/devices.json | @devices | Device configurations |
+| swagger.yaml | @backend | API specification |
+
+---
+
+## 🚀 Szybki Start
 Przeczytaj to: .cursor/instructions.md ← TUTAJ
 
 Poznaj reguły: .cursor/rules.yaml (dla szczegółów)
@@ -380,20 +387,25 @@ Wybierz rolę: Zidentyfikuj swoją rolę (@backend/@frontend/@devices/@build/@te
 
 Pisz kod: Następuj konwencjom dla swojej roli
 
-Commituj: type(scope): description
+- Commituj: type(scope): description
 
-💡 Jak Używać Cursora w Praktyce
-text
+---
+
+## 💡 Jak Używać Cursora w Praktyce
+
+**Przykład 1:**
 Ty: "@backend Review main.rs and optimize for 1000 concurrent connections"
     Cursor: Załaduje src-rust/src/main.rs + kontekst z rules.yaml
     Cursor: Będzie znał Rust best practices z instrukcji
     Cursor: Dostarczy optymalizacji zgodne z regułami
 
+**Przykład 2:**
 Ty: "@frontend Create DeviceConfigPanel component and add to Index.tsx"
     Cursor: Załaduje src/components/ + src/pages/Index.tsx
     Cursor: Będzie wiedział o shadcn/ui + Tailwind
     Cursor: Upewni się że komponent będzie widoczny w Index.tsx
 
+**Przykład 3:**
 Ty: "@devices Debug Rinstrum timeout issue"
     Cursor: Załaduje src-rust/src/adapters/ + config/devices.json
     Cursor: Będzie znał RINCMD protocol i timeout handling
