@@ -129,6 +129,41 @@ if not exist "%ProgramData%\ScaleCmdBridge\config\devices.json" (
 )
 
 echo.
+echo Configuring Windows Firewall...
+echo.
+
+REM Add firewall rule for ScaleIT Bridge (allow from local network)
+set "FIREWALL_RULE_NAME=ScaleIT Bridge - TCP Port 8080"
+set "FIREWALL_RULE_DESC=Allows access to ScaleIT Bridge service from local network (Private profile only)"
+
+REM Check if rule already exists
+netsh advfirewall firewall show rule name="%FIREWALL_RULE_NAME%" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo Firewall rule already exists, updating...
+    netsh advfirewall firewall delete rule name="%FIREWALL_RULE_NAME%" >nul 2>&1
+)
+
+REM Remove old firewall rule if it exists (for backward compatibility)
+netsh advfirewall firewall delete rule name="ScaleCmdBridge" >nul 2>&1
+
+REM Add firewall rule for Private network profile (local network)
+REM This allows connections from any device in the local network (192.168.x.x, 10.x.x.x, etc.)
+netsh advfirewall firewall add rule name="%FIREWALL_RULE_NAME%" ^
+    dir=in ^
+    action=allow ^
+    protocol=TCP ^
+    localport=8080 ^
+    profile=Private ^
+    description="%FIREWALL_RULE_DESC%"
+
+if %errorLevel% equ 0 (
+    echo Firewall rule added successfully (Private network profile)
+) else (
+    echo WARNING: Failed to add firewall rule. You may need to configure it manually.
+    echo Please allow TCP port 8080 in Windows Firewall for private networks.
+)
+
+echo.
 echo Service installed successfully!
 echo.
 echo Service Name: %SERVICE_NAME%
@@ -137,6 +172,11 @@ echo Start Type: Automatic
 echo.
 echo Configuration: %ProgramData%\ScaleCmdBridge\config\devices.json
 echo Logs: %ProgramData%\ScaleCmdBridge\logs\
+echo.
+echo Network Access:
+echo   The service is accessible at http://localhost:8080
+echo   For local network access, use your computer's IP address (e.g., http://192.168.1.100:8080)
+echo   Firewall rule has been configured for Private network profile
 echo.
 
 if %QUIET%==1 (

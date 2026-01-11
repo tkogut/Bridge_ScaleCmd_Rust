@@ -8,12 +8,10 @@ import {
   HostConfig,
   MiernikConfig,
 } from "@/types/api";
+import { getMasterServerUrl } from "./master-discovery";
 
-// Use IP address or environment variable to avoid ERR_BLOCKED_BY_CLIENT
-// when accessing from Vercel (HTTPS) or other external sources
-// For local development: use 127.0.0.1 or localhost
-// For Vercel/external: use your computer's IP (e.g., http://192.168.1.100:8080)
-// Set VITE_BRIDGE_URL environment variable in Vercel to override
+// Get the master server URL dynamically using master discovery
+// Priority: manual config > auto-detected > window.location.hostname > localhost
 const getBridgeUrl = (): string => {
   // Try environment variable first (for Vercel deployment)
   const envUrl = import.meta.env.VITE_BRIDGE_URL || import.meta.env.VITE_API_URL;
@@ -31,13 +29,9 @@ const getBridgeUrl = (): string => {
     }
   }
   
-  // Use 127.0.0.1 instead of localhost to avoid some browser blocking issues
-  // For Vercel/external access, set VITE_BRIDGE_URL=http://YOUR_IP:8080
-  // Your IP addresses: 192.168.1.100 or 192.168.1.50
-  return "http://127.0.0.1:8080";
+  // Use master discovery to get the configured server URL
+  return getMasterServerUrl();
 };
-
-const BRIDGE_URL = getBridgeUrl();
 
 /**
  * Wykonuje komendę na wadze.
@@ -50,7 +44,8 @@ export async function executeScaleCommand(
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
-    const response = await fetch(`${BRIDGE_URL}/scalecmd`, {
+    const bridgeUrl = getBridgeUrl();
+    const response = await fetch(`${bridgeUrl}/scalecmd`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -104,7 +99,8 @@ export async function executeScaleCommand(
  * Pobiera listę skonfigurowanych urządzeń.
  */
 export async function getDevices(): Promise<DevicesResponse> {
-  const response = await fetch(`${BRIDGE_URL}/devices`);
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/devices`);
   if (!response.ok) {
     throw new Error(`Failed to fetch devices (${response.status})`);
   }
@@ -120,7 +116,8 @@ export async function getHealth(): Promise<HealthResponse> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-    const response = await fetch(`${BRIDGE_URL}/health`, {
+    const bridgeUrl = getBridgeUrl();
+    const response = await fetch(`${bridgeUrl}/health`, {
       method: "GET",
       signal: controller.signal,
     });
@@ -174,7 +171,8 @@ export async function getHealth(): Promise<HealthResponse> {
  * Pobiera szczegółową konfigurację wszystkich urządzeń z symulowanego magazynu.
  */
 export async function getAllDeviceConfigs(): Promise<Record<DeviceId, DeviceConfig>> {
-  const response = await fetch(`${BRIDGE_URL}/api/config`);
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/config`);
   if (!response.ok) {
     throw new Error(`Failed to fetch device configs (${response.status})`);
   }
@@ -190,7 +188,8 @@ export async function saveDeviceConfig(
   config: DeviceConfig,
 ): Promise<void> {
   try {
-    const response = await fetch(`${BRIDGE_URL}/api/config/save`, {
+    const bridgeUrl = getBridgeUrl();
+    const response = await fetch(`${bridgeUrl}/api/config/save`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -229,7 +228,8 @@ export async function saveDeviceConfig(
  * W rzeczywistości: DELETE do Bridge API, które usuwa z devices.json i przeładowuje konfigurację.
  */
 export async function deleteDeviceConfig(deviceId: DeviceId): Promise<void> {
-  const response = await fetch(`${BRIDGE_URL}/api/config/${deviceId}`, {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/config/${deviceId}`, {
     method: "DELETE",
   });
 
@@ -244,7 +244,8 @@ export async function deleteDeviceConfig(deviceId: DeviceId): Promise<void> {
  */
 export async function shutdownServer(): Promise<void> {
   try {
-    const response = await fetch(`${BRIDGE_URL}/api/shutdown`, {
+    const bridgeUrl = getBridgeUrl();
+    const response = await fetch(`${bridgeUrl}/api/shutdown`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -274,7 +275,8 @@ export async function shutdownServer(): Promise<void> {
  */
 export async function startServer(): Promise<void> {
   try {
-    const response = await fetch(`${BRIDGE_URL}/api/start`, {
+    const bridgeUrl = getBridgeUrl();
+    const response = await fetch(`${bridgeUrl}/api/start`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -308,7 +310,8 @@ export async function startServer(): Promise<void> {
 // --- Host Management API ---
 
 export async function getAllHosts(): Promise<Record<string, HostConfig>> {
-  const response = await fetch(`${BRIDGE_URL}/api/hosts`);
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/hosts`);
   if (!response.ok) {
     throw new Error(`Failed to fetch hosts (${response.status})`);
   }
@@ -316,7 +319,8 @@ export async function getAllHosts(): Promise<Record<string, HostConfig>> {
 }
 
 export async function getHost(hostId: string): Promise<HostConfig> {
-  const response = await fetch(`${BRIDGE_URL}/api/hosts/${hostId}`);
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/hosts/${hostId}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch host (${response.status})`);
   }
@@ -324,7 +328,8 @@ export async function getHost(hostId: string): Promise<HostConfig> {
 }
 
 export async function saveHost(hostId: string, config: HostConfig): Promise<void> {
-  const response = await fetch(`${BRIDGE_URL}/api/hosts/save`, {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/hosts/save`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -339,7 +344,8 @@ export async function saveHost(hostId: string, config: HostConfig): Promise<void
 }
 
 export async function deleteHost(hostId: string): Promise<void> {
-  const response = await fetch(`${BRIDGE_URL}/api/hosts/${hostId}`, {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/hosts/${hostId}`, {
     method: "DELETE",
   });
 
@@ -353,7 +359,8 @@ export async function deleteHost(hostId: string): Promise<void> {
  * Test host connection (TCP or Serial)
  */
 export async function testHostConnection(hostId: string): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(`${BRIDGE_URL}/api/hosts/${hostId}/test`, {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/hosts/${hostId}/test`, {
     method: "POST",
   });
 
@@ -368,7 +375,8 @@ export async function testHostConnection(hostId: string): Promise<{ success: boo
 // --- Miernik Management API ---
 
 export async function getAllMierniki(): Promise<Record<string, MiernikConfig>> {
-  const response = await fetch(`${BRIDGE_URL}/api/mierniki`);
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/mierniki`);
   if (!response.ok) {
     throw new Error(`Failed to fetch mierniki (${response.status})`);
   }
@@ -376,7 +384,8 @@ export async function getAllMierniki(): Promise<Record<string, MiernikConfig>> {
 }
 
 export async function getMiernik(miernikId: string): Promise<MiernikConfig> {
-  const response = await fetch(`${BRIDGE_URL}/api/mierniki/${miernikId}`);
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/mierniki/${miernikId}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch miernik (${response.status})`);
   }
@@ -384,7 +393,8 @@ export async function getMiernik(miernikId: string): Promise<MiernikConfig> {
 }
 
 export async function saveMiernik(miernikId: string, config: MiernikConfig): Promise<void> {
-  const response = await fetch(`${BRIDGE_URL}/api/mierniki/save`, {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/mierniki/save`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -399,7 +409,8 @@ export async function saveMiernik(miernikId: string, config: MiernikConfig): Pro
 }
 
 export async function deleteMiernik(miernikId: string): Promise<void> {
-  const response = await fetch(`${BRIDGE_URL}/api/mierniki/${miernikId}`, {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/mierniki/${miernikId}`, {
     method: "DELETE",
   });
 

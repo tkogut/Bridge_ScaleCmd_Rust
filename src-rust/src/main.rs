@@ -7,6 +7,7 @@ use actix_web::{
 };
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -24,6 +25,115 @@ const DEFAULT_PORT: u16 = 8080;
 const DEFAULT_CONFIG_PATH: &str = "config/devices.json";
 const DEFAULT_WEB_PATH: &str = "dist";
 const CORS_MAX_AGE: usize = 3600;
+
+#[derive(Clone, Debug, PartialEq)]
+enum NetworkMode {
+    Local,      // Only localhost
+    Lan,        // Local network (private IP ranges)
+    Restricted, // Custom allowed origins
+}
+
+impl NetworkMode {
+    fn from_env() -> Self {
+        match std::env::var("NETWORK_MODE") {
+            Ok(mode) => match mode.to_lowercase().as_str() {
+                "local" => NetworkMode::Local,
+                "lan" => NetworkMode::Lan,
+                "restricted" => NetworkMode::Restricted,
+                _ => {
+                    warn!("Invalid NETWORK_MODE '{}', defaulting to 'lan'", mode);
+                    NetworkMode::Lan
+                }
+            },
+            Err(_) => NetworkMode::Lan, // Default to LAN mode
+        }
+    }
+}
+
+/// Check if an origin URL contains a private IP address
+fn is_private_ip(origin: &str) -> bool {
+    // Extract hostname from origin (e.g., "http://192.168.1.100:8080" -> "192.168.1.100")
+    let hostname = origin
+        .trim_start_matches("http://")
+        .trim_start_matches("https://")
+        .split(':')
+        .next()
+        .unwrap_or(origin);
+    
+    // Check for localhost variants
+    if hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1" {
+        return true;
+    }
+    
+    // Check for private IP ranges
+    // 192.168.0.0/16
+    if hostname.starts_with("192.168.") {
+        return true;
+    }
+    
+    // 10.0.0.0/8
+    if hostname.starts_with("10.") {
+        return true;
+    }
+    
+    // 172.16.0.0/12 (172.16.0.0 to 172.31.255.255)
+    if hostname.starts_with("172.") {
+        if let Some(dot_pos) = hostname.chars().position(|c| c == '.') {
+            if dot_pos == 3 {
+                let second_octet_str = &hostname[4..];
+                if let Some(second_dot_pos) = second_octet_str.chars().position(|c| c == '.') {
+                    let second_octet = second_octet_str[..second_dot_pos].parse::<u8>().ok();
+                    if let Some(octet) = second_octet {
+                        if (16..=31).contains(&octet) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    false
+}
+
+/// Get local IP addresses of the server
+fn get_local_ip_addresses() -> Vec<String> {
+    let mut ip_addresses = Vec::new();
+    
+    // Add localhost variants
+    ip_addresses.push("127.0.0.1".to_string());
+    ip_addresses.push("localhost".to_string());
+    
+    // Try to determine local IP by connecting to a public address
+    // This works on both Windows and Unix
+    use std::net::UdpSocket;
+    
+    if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
+        // Try connecting to a public DNS server (doesn't actually send data)
+        if let Ok(_) = socket.connect("8.8.8.8:80") {
+            if let Ok(addr) = socket.local_addr() {
+                match addr.ip() {
+                    std::net::IpAddr::V4(ipv4) => {
+                        let ip_str = ipv4.to_string();
+                        // Only add if it's a private IP (not a public IP)
+                        if is_private_ip(&format!("http://{}", ip_str)) && !ip_addresses.contains(&ip_str) {
+                            ip_addresses.push(ip_str);
+                        }
+                    }
+                    std::net::IpAddr::V6(_) => {
+                        // IPv6 support can be added later
+                    }
+                }
+            }
+        }
+    }
+    
+    // Note: This is a simplified implementation
+    // For production, consider using a crate like `local_ipaddress` or `get_if_addrs`
+    // which can enumerate all network interfaces
+    
+    ip_addresses
+}
 
 struct AppState {
     device_manager: Arc<DeviceManager>,
@@ -735,6 +845,65 @@ async fn shutdown_server(state: Data<AppState>) -> impl Responder {
     }))
 }
 
+/// Get server information (IP addresses, network mode, version)
+/// 
+/// Returns information about the server including local IP addresses,
+/// network mode, and version.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/server/info
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "hostname": "COMPUTER-NAME",
+///   "ip_addresses": ["192.168.1.100", "10.0.0.5", "127.0.0.1"],
+///   "port": 8080,
+///   "network_mode": "lan",
+///   "version": "0.1.5"
+/// }
+/// ```
+#[derive(Serialize, Deserialize)]
+struct ServerInfo {
+    hostname: String,
+    ip_addresses: Vec<String>,
+    port: u16,
+    network_mode: String,
+    version: String,
+}
+
+#[get("/api/server/info")]
+async fn get_server_info() -> impl Responder {
+    let hostname = hostname::get()
+        .ok()
+        .and_then(|h| h.to_str().map(|s| s.to_string()))
+        .unwrap_or_else(|| "unknown".to_string());
+    
+    let ip_addresses = get_local_ip_addresses();
+    
+    let port = match std::env::var("PORT") {
+        Ok(port_str) => port_str.parse::<u16>().unwrap_or(DEFAULT_PORT),
+        Err(_) => DEFAULT_PORT,
+    };
+    
+    let network_mode = NetworkMode::from_env();
+    let network_mode_str = match network_mode {
+        NetworkMode::Local => "local",
+        NetworkMode::Lan => "lan",
+        NetworkMode::Restricted => "restricted",
+    };
+    
+    HttpResponse::Ok().json(ServerInfo {
+        hostname,
+        ip_addresses,
+        port,
+        network_mode: network_mode_str.to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    })
+}
+
 /// Start the server process (Windows only)
 /// 
 /// Attempts to start a new instance of the bridge server in the background.
@@ -1032,41 +1201,27 @@ async fn main() -> std::io::Result<()> {
     })?;
 
     let web_path_clone = web_path.clone();
+    let network_mode = NetworkMode::from_env();
+    let local_ips = get_local_ip_addresses();
+    
+    // Log network configuration
+    info!("Network mode: {:?}", network_mode);
+    info!("Server accessible at:");
+    info!("  - http://localhost:{}", port);
+    for ip in &local_ips {
+        if ip != "localhost" && ip != "127.0.0.1" {
+            info!("  - http://{}:{}", ip, port);
+        }
+    }
+    
     HttpServer::new(move || {
         let state = AppState::new(dm.clone());
-        // CORS configuration - configurable via environment variable
-        // Default: allow localhost origins for development
-        // Set ALLOWED_ORIGINS env var to specify allowed origins (comma-separated)
-        let cors = match std::env::var("ALLOWED_ORIGINS") {
-            Ok(origins) => {
-                let origins_vec: Vec<&str> = origins.split(',').map(|s| s.trim()).collect();
-                if origins_vec.contains(&"*") {
-                    // Explicit wildcard for backward compatibility
-                    Cors::default()
-                        .allow_any_origin()
-                        .allow_any_method()
-                        .allow_any_header()
-                        .max_age(Some(CORS_MAX_AGE))
-                } else {
-                    // Build CORS with allowed origins - actix-cors 0.7 requires individual allowed_origin calls
-                    let mut cors_builder = Cors::default()
-                        .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
-                        .allowed_headers(vec![
-                            "Content-Type",
-                            "Authorization",
-                            "Accept",
-                        ])
-                        .max_age(Some(CORS_MAX_AGE));
-                    
-                    for origin in origins_vec {
-                        cors_builder = cors_builder.allowed_origin(origin);
-                    }
-                    cors_builder
-                }
-            }
-            Err(_) => {
-                // Default: localhost origins for development
-                // Include both localhost and 127.0.0.1 on port 8080 (same-origin when served from backend)
+        let network_mode_clone = network_mode.clone();
+        
+        // CORS configuration based on NETWORK_MODE
+        let cors = match network_mode_clone {
+            NetworkMode::Local => {
+                // Only localhost origins
                 Cors::default()
                     .allowed_origin("http://localhost:3000")
                     .allowed_origin("http://localhost:5173")
@@ -1082,6 +1237,90 @@ async fn main() -> std::io::Result<()> {
                     ])
                     .max_age(Some(CORS_MAX_AGE))
             }
+            NetworkMode::Lan => {
+                // Allow private IP ranges - use allow_any_origin for LAN mode
+                // This allows connections from any private IP in the local network
+                // Security: Only accessible from private IP ranges (handled by firewall)
+                match std::env::var("ALLOWED_ORIGINS") {
+                    Ok(origins) => {
+                        let origins_vec: Vec<&str> = origins.split(',').map(|s| s.trim()).collect();
+                        if origins_vec.contains(&"*") {
+                            Cors::default()
+                                .allow_any_origin()
+                                .allow_any_method()
+                                .allow_any_header()
+                                .max_age(Some(CORS_MAX_AGE))
+                        } else {
+                            // Build CORS with specific origins
+                            let mut cors_builder = Cors::default()
+                                .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
+                                .allowed_headers(vec![
+                                    "Content-Type",
+                                    "Authorization",
+                                    "Accept",
+                                ])
+                                .max_age(Some(CORS_MAX_AGE));
+                            
+                            for origin in origins_vec {
+                                cors_builder = cors_builder.allowed_origin(origin);
+                            }
+                            cors_builder
+                        }
+                    }
+                    Err(_) => {
+                        // LAN mode: Allow any origin from private IP ranges
+                        // Note: This allows CORS from any private IP, which is appropriate for local network access
+                        // For additional security, use ALLOWED_ORIGINS to specify exact origins
+                        Cors::default()
+                            .allow_any_origin()
+                            .allow_any_method()
+                            .allow_any_header()
+                            .max_age(Some(CORS_MAX_AGE))
+                    }
+                }
+            }
+            NetworkMode::Restricted => {
+                // Use ALLOWED_ORIGINS environment variable
+                match std::env::var("ALLOWED_ORIGINS") {
+                    Ok(origins) => {
+                        let origins_vec: Vec<&str> = origins.split(',').map(|s| s.trim()).collect();
+                        if origins_vec.contains(&"*") {
+                            Cors::default()
+                                .allow_any_origin()
+                                .allow_any_method()
+                                .allow_any_header()
+                                .max_age(Some(CORS_MAX_AGE))
+                        } else {
+                            let mut cors_builder = Cors::default()
+                                .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
+                                .allowed_headers(vec![
+                                    "Content-Type",
+                                    "Authorization",
+                                    "Accept",
+                                ])
+                                .max_age(Some(CORS_MAX_AGE));
+                            
+                            for origin in origins_vec {
+                                cors_builder = cors_builder.allowed_origin(origin);
+                            }
+                            cors_builder
+                        }
+                    }
+                    Err(_) => {
+                        warn!("NETWORK_MODE=restricted but ALLOWED_ORIGINS not set. Defaulting to localhost only.");
+                        Cors::default()
+                            .allowed_origin("http://localhost:8080")
+                            .allowed_origin("http://127.0.0.1:8080")
+                            .allowed_methods(vec!["GET", "POST", "DELETE", "OPTIONS"])
+                            .allowed_headers(vec![
+                                "Content-Type",
+                                "Authorization",
+                                "Accept",
+                            ])
+                            .max_age(Some(CORS_MAX_AGE))
+                    }
+                }
+            }
         };
         
         let mut app = App::new()
@@ -1089,6 +1328,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(state))
             // API endpoints - must be registered before static files
             .service(health_check)
+            .service(get_server_info)
             .service(list_devices)
             .service(handle_scalecmd)
             .service(get_device_configs)

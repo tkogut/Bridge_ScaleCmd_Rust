@@ -1,5 +1,35 @@
 # Rozwiązywanie problemów z siecią
 
+## Dostęp z sieci lokalnej
+
+ScaleIT Bridge może być dostępny z innych komputerów w sieci lokalnej. Zobacz [LOCAL_NETWORK_ACCESS.md](./LOCAL_NETWORK_ACCESS.md) aby dowiedzieć się więcej o konfiguracji dostępu sieciowego.
+
+### Konfiguracja Network Mode
+
+Bridge wspiera różne tryby dostępu sieciowego poprzez zmienną środowiskową `NETWORK_MODE`:
+
+- **`local`** (lub brak zmiennej przed wersją 0.1.5): Tylko localhost (127.0.0.1)
+- **`lan`** (domyślny od wersji 0.1.5): Sieć lokalna (prywatne zakresy IP: 192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+- **`restricted`**: Lista dozwolonych origins zdefiniowana w `ALLOWED_ORIGINS` (zmienna środowiskowa)
+
+Przykład konfiguracji dla sieci lokalnej:
+```powershell
+# W service configuration (NSSM)
+.\nssm.exe set ScaleCmdBridge AppEnvironmentExtra "NETWORK_MODE=lan"
+net restart ScaleCmdBridge
+```
+
+### Firewall Configuration
+
+Bridge automatycznie konfiguruje regułę Windows Firewall podczas instalacji dla profilu "Private" (sieć lokalna). Reguła pozwala na połączenia przychodzące na porcie 8080 z sieci lokalnej.
+
+Jeśli reguła nie została utworzona automatycznie:
+```powershell
+netsh advfirewall firewall add rule name="ScaleIT Bridge - TCP Port 8080" ^
+    dir=in action=allow protocol=TCP localport=8080 profile=Private ^
+    description="Allows access to ScaleIT Bridge service from local network"
+```
+
 ## Problem: Connection timeout do urządzenia
 
 Jeśli Bridge nie może połączyć się z urządzeniem (`Connection timeout to 192.168.1.254:4001`), może to oznaczać problem z siecią.
