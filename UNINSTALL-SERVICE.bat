@@ -90,6 +90,22 @@ if %errorLevel% equ 0 (
     echo.
     echo Service removed successfully!
     echo.
+    echo Removing firewall rules...
+    
+    REM Remove firewall rules (try both old and new rule names for compatibility)
+    set "FIREWALL_RULE_NAME=ScaleIT Bridge - TCP Port 8080"
+    netsh advfirewall firewall delete rule name="%FIREWALL_RULE_NAME%" >nul 2>&1
+    if %errorLevel% equ 0 (
+        echo Firewall rule "%FIREWALL_RULE_NAME%" removed
+    )
+    
+    REM Try old rule name for backward compatibility
+    netsh advfirewall firewall delete rule name="ScaleCmdBridge" >nul 2>&1
+    if %errorLevel% equ 0 (
+        echo Firewall rule "ScaleCmdBridge" removed
+    )
+    
+    echo.
     echo Note: Configuration and logs in %ProgramData%\ScaleCmdBridge\ are preserved.
     echo To remove them completely, delete the directory manually.
 ) else (

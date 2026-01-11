@@ -3,6 +3,11 @@ pub mod device_manager;
 pub mod error;
 pub mod models;
 
+// Future-ready modules (placeholders for external access and MQTT)
+pub mod auth;
+pub mod mqtt;
+pub mod config;
+
 #[cfg(test)]
 mod tests {
     use super::*;

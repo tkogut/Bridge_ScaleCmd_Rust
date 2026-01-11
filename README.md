@@ -89,6 +89,52 @@ cd "C:\Program Files\ScaleCmdBridge"
 - **Logs:** `C:\ProgramData\ScaleCmdBridge\logs\`
 - **Web UI:** `http://localhost:8080` (or your configured port)
 
+### Network Access (Local Network)
+
+ScaleIT Bridge supports access from other computers in your local network. By default, the service runs in `lan` mode (from version 0.1.5+) which allows connections from private IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x).
+
+**To access from another computer:**
+
+**Option 1: Direct Access**
+- Open browser on client computer: `http://<MASTER_IP>:8080`
+- Example: `http://192.168.1.100:8080`
+
+**Option 2: Auto-Detection (Recommended)**
+1. Open Bridge UI on client computer (can be local frontend or master server)
+2. Go to **Configuration** → **Master Server Configuration**
+3. Click **"Auto-Detect Master Server"**
+4. Wait for detection to complete (may take a few minutes)
+
+**Option 3: Manual Configuration**
+1. Find the master server IP (run `ipconfig` on the master computer)
+2. Open Bridge UI on client computer
+3. Go to **Configuration** → **Master Server Configuration**
+4. Enter master server IP (e.g., `192.168.1.100`) and port (`8080`)
+5. Click **"Save Configuration"** and **"Test Connection"**
+
+**Configuration Priority:**
+1. Manual configuration (localStorage `MASTER_IP`)
+2. Auto-detected IP (localStorage `MASTER_IP_AUTO`)
+3. Current window hostname (if not localhost)
+4. Fallback to localhost (`127.0.0.1:8080`)
+
+**Network Mode Configuration:**
+- **`local`**: Only localhost (127.0.0.1)
+- **`lan`** (default): Local network (private IP ranges)
+- **`restricted`**: Custom allowed origins (set `ALLOWED_ORIGINS` env var)
+
+**📖 Testing Guide:** See [docs/TESTING_NETWORK_ACCESS.md](docs/TESTING_NETWORK_ACCESS.md) for step-by-step testing instructions from another computer.
+
+See [docs/LOCAL_NETWORK_ACCESS.md](docs/LOCAL_NETWORK_ACCESS.md) for detailed configuration guide.
+5. Save the configuration
+
+**Network modes:**
+- `local` - Only localhost access (most secure)
+- `lan` - Local network access (default, recommended)
+- `restricted` - Custom allowed origins via `ALLOWED_ORIGINS` env var
+
+For detailed network configuration, see [docs/LOCAL_NETWORK_ACCESS.md](docs/LOCAL_NETWORK_ACCESS.md)
+
 ### Updating
 
 Simply run the new installer over the existing installation. Configuration and logs are automatically preserved.

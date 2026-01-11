@@ -27,7 +27,7 @@ LicenseFile=
 InfoBeforeFile=
 InfoAfterFile=
 OutputDir=..\release
-OutputBaseFilename=ScaleCmdBridge-Setup-x64-v0.1.5
+OutputBaseFilename=ScaleCmdBridge-Setup-x64-v0.1.5-feature-network-access-enhancement
 SetupIconFile=
 Compression=lzma
 SolidCompression=yes
@@ -75,14 +75,15 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 ; Install and start Windows Service
 Filename: "{app}\INSTALL-SERVICE.bat"; Parameters: "/quiet"; Description: "Install and start Windows Service"; Flags: runhidden waituntilterminated; StatusMsg: "Installing Windows Service..."
-; Configure firewall
-Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""{#MyAppName}"" dir=in action=allow protocol=TCP localport={code:GetPort}"; Description: "Configure Windows Firewall"; Flags: runhidden; StatusMsg: "Configuring firewall..."
+; Configure firewall (firewall rule is now configured in INSTALL-SERVICE.bat)
+; The service installation script handles firewall configuration for local network access
 
 [UninstallRun]
 ; Stop and remove service before uninstallation
 Filename: "{app}\UNINSTALL-SERVICE.bat"; Parameters: "/quiet"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
-; Remove firewall rule
-Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""{#MyAppName}"""; Flags: runhidden; RunOnceId: "RemoveFirewall"
+; Remove firewall rules (try both old and new rule names for compatibility)
+Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""{#MyAppName}"""; Flags: runhidden; RunOnceId: "RemoveFirewallOld"
+Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""ScaleIT Bridge - TCP Port 8080"""; Flags: runhidden; RunOnceId: "RemoveFirewall"
 
 [Code]
 var

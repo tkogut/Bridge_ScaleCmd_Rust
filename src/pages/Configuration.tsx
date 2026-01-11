@@ -4,6 +4,7 @@ import DeviceList from "@/components/DeviceList";
 import HostConfigurationTable from "@/components/HostConfigurationTable";
 import IndicatorConfigurationTable from "@/components/IndicatorConfigurationTable";
 import DeviceConfigForm from "@/components/DeviceConfigForm";
+import MasterServerConfig from "@/components/MasterServerConfig";
 import { DeviceConfig, DeviceId } from "@/types/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,6 +70,9 @@ const Configuration = () => {
             <IndicatorConfigurationTable />
           </CardContent>
         </Card>
+
+        {/* Network Settings */}
+        <MasterServerConfig />
       </div>
       
       <DeviceConfigForm

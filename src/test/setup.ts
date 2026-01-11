@@ -7,8 +7,8 @@ import { http, HttpResponse } from 'msw'
 
 // Mock API handlers for testing
 export const handlers = [
-  // Health check endpoint
-  http.get('http://localhost:8080/health', () => {
+  // Health check endpoint - handle any host/port
+  http.get('*/health', () => {
     return HttpResponse.json({
       status: 'OK',
       service: 'ScaleIT Bridge',
@@ -16,8 +16,8 @@ export const handlers = [
     })
   }),
 
-  // Devices list endpoint
-  http.get('http://localhost:8080/devices', () => {
+  // Devices list endpoint - handle any host/port
+  http.get('*/devices', () => {
     return HttpResponse.json({
       success: true,
       devices: [
@@ -27,8 +27,8 @@ export const handlers = [
     })
   }),
 
-  // Scale command endpoint
-  http.post('http://localhost:8080/scalecmd', async ({ request }) => {
+  // Scale command endpoint - handle any host/port
+  http.post('*/scalecmd', async ({ request }) => {
     const body = await request.json() as any
 
     if (body.device_id === 'NONEXISTENT') {
@@ -68,8 +68,19 @@ export const handlers = [
     })
   }),
 
-  // Configuration endpoints
-  http.get('http://localhost:8080/api/config', () => {
+  // Server info endpoint - handle any host/port
+  http.get('*/api/server/info', () => {
+    return HttpResponse.json({
+      hostname: 'TEST-COMPUTER',
+      ip_addresses: ['192.168.1.100', '127.0.0.1'],
+      port: 8080,
+      network_mode: 'lan',
+      version: '0.1.5'
+    })
+  }),
+
+  // Configuration endpoints - handle any host/port
+  http.get('*/api/config', () => {
     return HttpResponse.json({
       'C320': {
         name: 'C320 Rinstrum',
@@ -112,14 +123,14 @@ export const handlers = [
     })
   }),
 
-  http.post('http://localhost:8080/api/config/save', () => {
+  http.post('*/api/config/save', () => {
     return HttpResponse.json({
       success: true,
       message: 'Configuration saved successfully.'
     })
   }),
 
-  http.delete('http://localhost:8080/api/config/:deviceId', ({ params }) => {
+  http.delete('*/api/config/:deviceId', ({ params }) => {
     return HttpResponse.json({
       success: true,
       message: `Device ${params.deviceId} deleted successfully.`
@@ -176,24 +187,34 @@ global.IntersectionObserver = class IntersectionObserver {
   unobserve() {}
 }
 
-// Mock localStorage
+// Mock localStorage with proper storage
+let localStorageStore: Record<string, string> = {};
+
 const localStorageMock = {
   getItem: (key: string) => {
-    return localStorage.getItem(key)
+    return localStorageStore[key] || null;
   },
   setItem: (key: string, value: string) => {
-    localStorage.setItem(key, value)
+    localStorageStore[key] = value;
   },
   removeItem: (key: string) => {
-    localStorage.removeItem(key)
+    delete localStorageStore[key];
   },
   clear: () => {
-    localStorage.clear()
+    localStorageStore = {};
+  },
+  get length() {
+    return Object.keys(localStorageStore).length;
+  },
+  key: (index: number) => {
+    const keys = Object.keys(localStorageStore);
+    return keys[index] || null;
   }
 }
 
 Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock
+  value: localStorageMock,
+  writable: true
 })
 
 // Mock console.error to reduce noise in tests
