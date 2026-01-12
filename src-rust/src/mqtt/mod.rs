@@ -1,9 +1,14 @@
 // MQTT Integration Module
-// Future-ready structure for MQTT pub/sub integration
-// TODO: Implement MQTT publisher and subscriber for weight readings and commands
+// MQTT pub/sub integration for weight readings and commands
 
+use async_trait::async_trait;
+use chrono::Utc;
+use log::{error, info, warn};
+use rumqttc::{AsyncClient, MqttOptions, QoS};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Mutex;
 
 /// MQTT configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,16 +80,25 @@ impl MqttConfig {
 }
 
 /// MQTT publisher trait
-/// TODO: Implement actual MQTT publishing using rumqttc or similar crate
+#[async_trait]
 pub trait MqttPublisher: Send + Sync {
-    fn publish_weight_reading(&self, device_id: &str, weight: f64, unit: &str) -> Result<(), MqttError>;
-    fn publish_device_status(&self, device_id: &str, status: &str) -> Result<(), MqttError>;
+    async fn publish_weight_reading(&self, device_id: &str, weight: f64, unit: &str, is_stable: bool) -> Result<(), MqttError>;
+    async fn publish_device_status(&self, device_id: &str, status: &str) -> Result<(), MqttError>;
 }
 
-/// MQTT subscriber trait
-/// TODO: Implement actual MQTT subscription using rumqttc or similar crate
-pub trait MqttSubscriber: Send + Sync {
-    fn subscribe_commands(&self) -> Result<(), MqttError>;
+/// MQTT subscriber - handles command subscriptions and executes commands via callback
+pub struct RealMqttSubscriber {
+    client: Arc<Mutex<AsyncClient>>,
+    config: MqttConfig,
+}
+
+impl RealMqttSubscriber {
+    pub fn new(client: AsyncClient, config: MqttConfig) -> Self {
+        Self {
+            client: Arc::new(Mutex::new(client)),
+            config,
+        }
+    }
 }
 
 /// MQTT error types
@@ -102,33 +116,100 @@ pub enum MqttError {
     SubscribeError(String),
 }
 
-/// Placeholder MQTT publisher implementation
-pub struct PlaceholderMqttPublisher {
+/// Parse MQTT broker URL to extract host and port
+/// Supports formats: mqtt://host:port, mqtts://host:port, tcp://host:port
+fn parse_broker_url(url: &str) -> Result<(String, u16), MqttError> {
+    // Remove protocol prefix (mqtt://, mqtts://, tcp://)
+    let url = url.trim_start_matches("mqtt://")
+        .trim_start_matches("mqtts://")
+        .trim_start_matches("tcp://")
+        .trim_start_matches("ssl://");
+    
+    // Split host and port
+    let parts: Vec<&str> = url.split(':').collect();
+    match parts.len() {
+        1 => Ok((parts[0].to_string(), 1883)), // Default port
+        2 => {
+            let host = parts[0].to_string();
+            let port = parts[1].parse::<u16>()
+                .map_err(|e| MqttError::ConnectionError(format!("Invalid port in broker URL: {}", e)))?;
+            Ok((host, port))
+        }
+        _ => Err(MqttError::ConnectionError(format!("Invalid broker URL format: {}", url)))
+    }
+}
+
+/// Real MQTT publisher implementation using rumqttc
+pub struct RealMqttPublisher {
+    client: Arc<Mutex<AsyncClient>>,
     config: MqttConfig,
 }
 
-impl PlaceholderMqttPublisher {
-    pub fn new(config: MqttConfig) -> Self {
-        Self { config }
+impl RealMqttPublisher {
+    pub fn new(client: AsyncClient, config: MqttConfig) -> Self {
+        Self {
+            client: Arc::new(Mutex::new(client)),
+            config,
+        }
     }
 }
 
-impl MqttPublisher for PlaceholderMqttPublisher {
-    fn publish_weight_reading(&self, _device_id: &str, _weight: f64, _unit: &str) -> Result<(), MqttError> {
-        if !self.config.enabled {
-            return Err(MqttError::NotEnabled);
-        }
-        // TODO: Implement actual MQTT publishing
-        // Use rumqttc crate: https://github.com/bytebeamio/rumqtt
-        Err(MqttError::NotImplemented)
+#[async_trait]
+impl MqttPublisher for RealMqttPublisher {
+    async fn publish_weight_reading(&self, device_id: &str, weight: f64, unit: &str, is_stable: bool) -> Result<(), MqttError> {
+        let topic = format!("{}/weight/{}", self.config.topic_prefix, device_id);
+        
+        let message = WeightReadingMessage {
+            device_id: device_id.to_string(),
+            weight,
+            unit: unit.to_string(),
+            timestamp: chrono::Utc::now().timestamp() as u64,
+            is_stable,
+        };
+        
+        let payload = serde_json::to_string(&message)
+            .map_err(|e| MqttError::PublishError(format!("Failed to serialize weight reading: {}", e)))?;
+        
+        let qos = match self.config.qos {
+            0 => QoS::AtMostOnce,
+            1 => QoS::AtLeastOnce,
+            2 => QoS::ExactlyOnce,
+            _ => QoS::AtLeastOnce, // Default to QoS 1
+        };
+        
+        let client = self.client.lock().await;
+        client.publish(&topic, qos, self.config.retain, payload.as_bytes())
+            .await
+            .map_err(|e| MqttError::PublishError(format!("Failed to publish weight reading: {}", e)))?;
+        
+        Ok(())
     }
 
-    fn publish_device_status(&self, _device_id: &str, _status: &str) -> Result<(), MqttError> {
-        if !self.config.enabled {
-            return Err(MqttError::NotEnabled);
-        }
-        // TODO: Implement actual MQTT publishing
-        Err(MqttError::NotImplemented)
+    async fn publish_device_status(&self, device_id: &str, status: &str) -> Result<(), MqttError> {
+        let topic = format!("{}/status/{}", self.config.topic_prefix, device_id);
+        
+        let message = DeviceStatusMessage {
+            device_id: device_id.to_string(),
+            status: status.to_string(),
+            timestamp: chrono::Utc::now().timestamp() as u64,
+        };
+        
+        let payload = serde_json::to_string(&message)
+            .map_err(|e| MqttError::PublishError(format!("Failed to serialize device status: {}", e)))?;
+        
+        let qos = match self.config.qos {
+            0 => QoS::AtMostOnce,
+            1 => QoS::AtLeastOnce,
+            2 => QoS::ExactlyOnce,
+            _ => QoS::AtLeastOnce,
+        };
+        
+        let client = self.client.lock().await;
+        client.publish(&topic, qos, self.config.retain, payload.as_bytes())
+            .await
+            .map_err(|e| MqttError::PublishError(format!("Failed to publish device status: {}", e)))?;
+        
+        Ok(())
     }
 }
 
@@ -142,6 +223,14 @@ pub struct WeightReadingMessage {
     pub is_stable: bool,
 }
 
+/// Device status message for MQTT
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeviceStatusMessage {
+    pub device_id: String,
+    pub status: String,
+    pub timestamp: u64,
+}
+
 /// Device command message for MQTT
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeviceCommandMessage {
@@ -151,21 +240,164 @@ pub struct DeviceCommandMessage {
 }
 
 /// Initialize MQTT publisher
-/// TODO: Implement actual MQTT connection initialization
-pub fn init_mqtt_publisher(_config: MqttConfig) -> Result<Arc<dyn MqttPublisher>, MqttError> {
-    // Placeholder implementation
-    // TODO: Create actual MQTT client connection using rumqttc
-    // Example:
-    // let options = MqttOptions::new(config.client_id, config.broker_url, 1883);
-    // let (client, eventloop) = AsyncClient::new(options, 10);
-    // Ok(Arc::new(RealMqttPublisher { client }))
-    Err(MqttError::NotImplemented)
+pub fn init_mqtt_publisher(config: MqttConfig) -> Result<Arc<dyn MqttPublisher>, MqttError> {
+    if !config.enabled {
+        return Err(MqttError::NotEnabled);
+    }
+    
+    // Parse broker URL to extract host and port
+    let (host, port) = parse_broker_url(&config.broker_url)?;
+    
+    // Create MQTT options
+    let mut mqttoptions = MqttOptions::new(&config.client_id, &host, port);
+    mqttoptions.set_keep_alive(Duration::from_secs(60));
+    
+    // Set credentials if provided
+    if let (Some(username), Some(password)) = (&config.username, &config.password) {
+        mqttoptions.set_credentials(username, password);
+    }
+    
+    // Create async client (capacity 10 is buffer size for pending messages)
+    let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
+    
+    // Start event loop in background task (required for AsyncClient to work)
+    // The event loop needs to run to process incoming messages and maintain connection
+    tokio::spawn(async move {
+        let mut reconnect_delay = Duration::from_secs(1);
+        let max_reconnect_delay = Duration::from_secs(60);
+        
+        loop {
+            match eventloop.poll().await {
+                Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_))) => {
+                    // Connection acknowledged - reset reconnect delay
+                    reconnect_delay = Duration::from_secs(1);
+                }
+                Ok(rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
+                    warn!("MQTT publisher disconnecting");
+                }
+                Ok(_) => {
+                    // Event processed successfully
+                }
+                Err(e) => {
+                    error!("MQTT publisher event loop error: {}", e);
+                    // Exponential backoff for reconnection
+                    tokio::time::sleep(reconnect_delay).await;
+                    reconnect_delay = std::cmp::min(reconnect_delay * 2, max_reconnect_delay);
+                }
+            }
+        }
+    });
+    
+    Ok(Arc::new(RealMqttPublisher::new(client, config)))
 }
 
-/// Initialize MQTT subscriber
-/// TODO: Implement actual MQTT subscription initialization
-pub fn init_mqtt_subscriber(_config: MqttConfig) -> Result<Arc<dyn MqttSubscriber>, MqttError> {
-    // Placeholder implementation
-    // TODO: Create actual MQTT subscriber connection
-    Err(MqttError::NotImplemented)
+/// Start MQTT subscriber event loop
+/// This function spawns a background task that subscribes to command topics
+/// and executes commands via DeviceManager
+pub async fn start_mqtt_subscriber_event_loop(
+    config: MqttConfig,
+    device_manager: Arc<crate::device_manager::DeviceManager>,
+    mqtt_publisher: Option<Arc<dyn MqttPublisher>>,
+) -> Result<tokio::task::JoinHandle<()>, MqttError> {
+    if !config.enabled {
+        return Err(MqttError::NotEnabled);
+    }
+    
+    // Parse broker URL
+    let (host, port) = parse_broker_url(&config.broker_url)?;
+    
+    // Create MQTT options with unique client ID for subscriber
+    let client_id = format!("{}-subscriber", config.client_id);
+    let mut mqttoptions = MqttOptions::new(&client_id, &host, port);
+    mqttoptions.set_keep_alive(Duration::from_secs(60));
+    
+    // Set credentials if provided
+    if let (Some(username), Some(password)) = (&config.username, &config.password) {
+        mqttoptions.set_credentials(username, password);
+    }
+    
+    // Create async client
+    let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
+    
+    // Subscribe to command topics
+    let command_topic = format!("{}/command/+", config.topic_prefix);
+    let qos = match config.qos {
+        0 => QoS::AtMostOnce,
+        1 => QoS::AtLeastOnce,
+        2 => QoS::ExactlyOnce,
+        _ => QoS::AtLeastOnce,
+    };
+    
+    client.subscribe(&command_topic, qos).await
+        .map_err(|e| MqttError::SubscribeError(format!("Failed to subscribe to {}: {}", command_topic, e)))?;
+    
+    let topic_prefix = config.topic_prefix.clone();
+    
+    // Spawn event loop task
+    let handle = tokio::spawn(async move {
+        let mut reconnect_delay = Duration::from_secs(1);
+        let max_reconnect_delay = Duration::from_secs(60);
+        
+        loop {
+            match eventloop.poll().await {
+                Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_))) => {
+                    // Connection acknowledged - reset reconnect delay
+                    reconnect_delay = Duration::from_secs(1);
+                    info!("MQTT subscriber connected successfully");
+                }
+                Ok(rumqttc::Event::Incoming(rumqttc::Packet::Publish(publish))) => {
+                    let topic = publish.topic;
+                    let payload = publish.payload;
+                    
+                    // Parse command message from JSON
+                    match serde_json::from_slice::<DeviceCommandMessage>(&payload) {
+                        Ok(cmd_msg) => {
+                            // Create ScaleCommandRequest
+                            let request = crate::models::weight::ScaleCommandRequest {
+                                device_id: cmd_msg.device_id.clone(),
+                                command: cmd_msg.command.clone(),
+                            };
+                            
+                            // Execute command via DeviceManager
+                            match device_manager.execute_command(request.clone()).await {
+                                Ok(response) => {
+                                    // Optionally publish response to response topic
+                                    if let Some(ref mqtt_pub) = mqtt_publisher {
+                                        if let Some(ref reading) = response.result {
+                                            let _ = mqtt_pub.publish_weight_reading(
+                                                &cmd_msg.device_id,
+                                                reading.gross_weight,
+                                                &reading.unit,
+                                                reading.is_stable
+                                            ).await;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("MQTT command execution failed for device {}: {}", cmd_msg.device_id, e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to parse MQTT command message from topic {}: {}", topic, e);
+                        }
+                    }
+                }
+                Ok(rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
+                    warn!("MQTT subscriber disconnecting");
+                }
+                Ok(_) => {
+                    // Other events - ignore
+                }
+                Err(e) => {
+                    error!("MQTT subscriber event loop error: {}", e);
+                    // Exponential backoff for reconnection
+                    tokio::time::sleep(reconnect_delay).await;
+                    reconnect_delay = std::cmp::min(reconnect_delay * 2, max_reconnect_delay);
+                }
+            }
+        }
+    });
+    
+    Ok(handle)
 }

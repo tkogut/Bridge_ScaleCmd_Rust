@@ -12,6 +12,7 @@ use crate::models::host::{AppConfig, HostConfig};
 use crate::models::miernik::MiernikConfig;
 use crate::models::legacy_device::LegacyAppConfig;
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
+use crate::mqtt::MqttPublisher;
 use scaleit_host::{Connection, Protocol};
 use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW};
 
@@ -22,6 +23,7 @@ pub struct DeviceManager {
     mierniki: RwLock<HashMap<String, MiernikConfig>>,
     devices: RwLock<HashMap<String, DeviceConfig>>,
     adapters: RwLock<HashMap<String, Arc<dyn DeviceAdapter + Send + Sync>>>,
+    mqtt_publisher: RwLock<Option<Arc<dyn MqttPublisher>>>,
 }
 
 impl DeviceManager {
@@ -44,6 +46,7 @@ impl DeviceManager {
             mierniki: RwLock::new(mierniki),
             devices: RwLock::new(devices),
             adapters: RwLock::new(adapters),
+            mqtt_publisher: RwLock::new(None),
         })
     }
 
@@ -226,6 +229,13 @@ impl DeviceManager {
         Ok(())
     }
 
+    /// Set MQTT publisher for publishing weight readings
+    pub fn set_mqtt_publisher(&self, publisher: Arc<dyn MqttPublisher>) {
+        let mut mqtt_pub = self.mqtt_publisher.write();
+        *mqtt_pub = Some(publisher);
+        info!("MQTT publisher set for DeviceManager");
+    }
+
     pub async fn execute_command(
         &self,
         request: ScaleCommandRequest,
@@ -262,13 +272,38 @@ impl DeviceManager {
                     is_stable: weight_reading.is_stable,
                     timestamp: weight_reading.timestamp,
                 };
-                Ok(ScaleCommandResponse {
+                
+                let response = ScaleCommandResponse {
                     success: true,
-                    device_id: request.device_id,
-                    command: request.command,
-                    result: Some(reading),
+                    device_id: request.device_id.clone(),
+                    command: request.command.clone(),
+                    result: Some(reading.clone()),
                     error: None,
-                })
+                };
+                
+                // Publish to MQTT if enabled
+                {
+                    let mqtt_pub = self.mqtt_publisher.read();
+                    if let Some(ref mqtt) = *mqtt_pub {
+                        // Publish weight reading (use gross_weight, fallback to net_weight if gross is 0)
+                        let weight_to_publish = if reading.gross_weight > 0.0 {
+                            reading.gross_weight
+                        } else {
+                            reading.net_weight
+                        };
+                        
+                        if let Err(e) = mqtt.publish_weight_reading(
+                            &request.device_id,
+                            weight_to_publish,
+                            &reading.unit,
+                            reading.is_stable
+                        ).await {
+                            warn!("Failed to publish weight reading to MQTT for device {}: {}", request.device_id, e);
+                        }
+                    }
+                }
+                
+                Ok(response)
             }
             Err(e) => {
                 error!(

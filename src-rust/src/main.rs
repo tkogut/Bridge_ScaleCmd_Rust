@@ -19,6 +19,7 @@ use scaleit_bridge::models::miernik::SaveMiernikRequest;
 use scaleit_bridge::models::weight::{
     DeviceListResponse, HealthResponse, ScaleCommandRequest, ScaleCommandResponse,
 };
+use scaleit_bridge::mqtt;
 
 // Constants
 const DEFAULT_PORT: u16 = 8080;
@@ -1115,6 +1116,49 @@ async fn main() -> std::io::Result<()> {
         "Configuration loaded successfully. Devices: {:?}",
         dm.list_configs().keys()
     );
+
+    // Initialize MQTT if enabled
+    let mqtt_config = mqtt::MqttConfig::from_env();
+    let mqtt_publisher = if mqtt_config.enabled {
+        match mqtt::init_mqtt_publisher(mqtt_config.clone()) {
+            Ok(pub) => {
+                info!("MQTT publisher initialized successfully");
+                Some(pub)
+            }
+            Err(e) => {
+                warn!("Failed to initialize MQTT publisher: {}", e);
+                None
+            }
+        }
+    } else {
+        info!("MQTT is disabled (MQTT_ENABLED not set or false)");
+        None
+    };
+
+    // Set MQTT publisher in DeviceManager if available
+    if let Some(ref mqtt) = mqtt_publisher {
+        dm.set_mqtt_publisher(mqtt.clone());
+    }
+
+    // Start MQTT subscriber event loop if enabled
+    let _mqtt_subscriber_handle = if mqtt_config.enabled {
+        let dm_for_mqtt = dm.clone();
+        let mqtt_config_clone = mqtt_config.clone();
+        let mqtt_pub_clone = mqtt_publisher.clone();
+        
+        match mqtt::start_mqtt_subscriber_event_loop(mqtt_config_clone, dm_for_mqtt, mqtt_pub_clone).await {
+            Ok(handle) => {
+                info!("MQTT subscriber event loop started");
+                Some(handle)
+            }
+            Err(e) => {
+                warn!("Failed to start MQTT subscriber event loop: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     dm.connect_all_devices().await;
 

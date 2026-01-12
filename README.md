@@ -135,6 +135,52 @@ See [docs/LOCAL_NETWORK_ACCESS.md](docs/LOCAL_NETWORK_ACCESS.md) for detailed co
 
 For detailed network configuration, see [docs/LOCAL_NETWORK_ACCESS.md](docs/LOCAL_NETWORK_ACCESS.md)
 
+### MQTT Integration
+
+ScaleIT Bridge supports MQTT (Message Queuing Telemetry Transport) for publishing weight readings and executing commands via MQTT brokers.
+
+**Features:**
+- ✅ **Publish weight readings** to MQTT topics automatically
+- ✅ **Execute commands** via MQTT subscription
+- ✅ **Automatic reconnection** with exponential backoff
+- ✅ **SSL/TLS support** for secure connections
+- ✅ **Integration ready** for Home Assistant, Node-RED, and other IoT systems
+
+**Quick Setup:**
+
+```powershell
+# Enable MQTT
+$env:MQTT_ENABLED="true"
+$env:MQTT_BROKER_URL="mqtt://localhost:1883"
+$env:MQTT_TOPIC_PREFIX="scaleit"
+
+# For Windows Service (using NSSM)
+cd "C:\Program Files\ScaleCmdBridge"
+.\nssm.exe set ScaleCmdBridge AppEnvironmentExtra "MQTT_ENABLED=true MQTT_BROKER_URL=mqtt://localhost:1883 MQTT_TOPIC_PREFIX=scaleit"
+net restart ScaleCmdBridge
+```
+
+**MQTT Topics:**
+- **Weight readings:** `{topic_prefix}/weight/{device_id}` - Published automatically when commands are executed
+- **Device status:** `{topic_prefix}/status/{device_id}` - Published when device status changes
+- **Commands:** `{topic_prefix}/command/{device_id}` - Subscribe to execute commands via MQTT
+
+**Example - Execute command via MQTT:**
+```bash
+# Publish command
+mosquitto_pub -h localhost -t "scaleit/command/C320" -m '{"device_id": "C320", "command": "readGross"}'
+
+# Subscribe to weight readings
+mosquitto_sub -h localhost -t "scaleit/weight/+"
+```
+
+**📖 Full Documentation:** See [docs/MQTT_INTEGRATION.md](docs/MQTT_INTEGRATION.md) for:
+- Complete configuration guide
+- Environment variables reference
+- Integration examples (Home Assistant, Node-RED)
+- Troubleshooting guide
+- Security best practices
+
 ### Updating
 
 Simply run the new installer over the existing installation. Configuration and logs are automatically preserved.
