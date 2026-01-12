@@ -1121,9 +1121,9 @@ async fn main() -> std::io::Result<()> {
     let mqtt_config = mqtt::MqttConfig::from_env();
     let mqtt_publisher = if mqtt_config.enabled {
         match mqtt::init_mqtt_publisher(mqtt_config.clone()) {
-            Ok(pub) => {
+            Ok(publisher) => {
                 info!("MQTT publisher initialized successfully");
-                Some(pub)
+                Some(publisher)
             }
             Err(e) => {
                 warn!("Failed to initialize MQTT publisher: {}", e);

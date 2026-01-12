@@ -16,7 +16,6 @@ use crate::mqtt::MqttPublisher;
 use scaleit_host::{Connection, Protocol};
 use scaleit_miernik::{DeviceAdapter, RinstrumC320, DiniArgeoDFW};
 
-#[derive(Debug)]
 pub struct DeviceManager {
     config_path: PathBuf,
     hosts: RwLock<HashMap<String, HostConfig>>,
@@ -283,8 +282,13 @@ impl DeviceManager {
                 
                 // Publish to MQTT if enabled
                 {
-                    let mqtt_pub = self.mqtt_publisher.read();
-                    if let Some(ref mqtt) = *mqtt_pub {
+                    // Clone Arc before await to avoid Send issues with parking_lot::RwLockReadGuard
+                    let mqtt_publisher_clone = {
+                        let mqtt_pub = self.mqtt_publisher.read();
+                        mqtt_pub.as_ref().map(|p| p.clone())
+                    };
+                    
+                    if let Some(mqtt) = mqtt_publisher_clone {
                         // Publish weight reading (use gross_weight, fallback to net_weight if gross is 0)
                         let weight_to_publish = if reading.gross_weight > 0.0 {
                             reading.gross_weight

@@ -87,11 +87,13 @@ pub trait MqttPublisher: Send + Sync {
 }
 
 /// MQTT subscriber - handles command subscriptions and executes commands via callback
+#[allow(dead_code)]
 pub struct RealMqttSubscriber {
     client: Arc<Mutex<AsyncClient>>,
     config: MqttConfig,
 }
 
+#[allow(dead_code)]
 impl RealMqttSubscriber {
     pub fn new(client: AsyncClient, config: MqttConfig) -> Self {
         Self {
@@ -163,7 +165,7 @@ impl MqttPublisher for RealMqttPublisher {
             device_id: device_id.to_string(),
             weight,
             unit: unit.to_string(),
-            timestamp: chrono::Utc::now().timestamp() as u64,
+            timestamp: Utc::now().timestamp() as u64,
             is_stable,
         };
         
@@ -191,7 +193,7 @@ impl MqttPublisher for RealMqttPublisher {
         let message = DeviceStatusMessage {
             device_id: device_id.to_string(),
             status: status.to_string(),
-            timestamp: chrono::Utc::now().timestamp() as u64,
+            timestamp: Utc::now().timestamp() as u64,
         };
         
         let payload = serde_json::to_string(&message)
@@ -330,8 +332,6 @@ pub async fn start_mqtt_subscriber_event_loop(
     
     client.subscribe(&command_topic, qos).await
         .map_err(|e| MqttError::SubscribeError(format!("Failed to subscribe to {}: {}", command_topic, e)))?;
-    
-    let topic_prefix = config.topic_prefix.clone();
     
     // Spawn event loop task
     let handle = tokio::spawn(async move {
