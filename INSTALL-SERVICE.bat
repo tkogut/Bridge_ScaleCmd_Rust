@@ -96,10 +96,10 @@ echo Configuring service...
 "%NSSM_EXE%" set "%SERVICE_NAME%" Description "%SERVICE_DESCRIPTION%"
 "%NSSM_EXE%" set "%SERVICE_NAME%" Start SERVICE_AUTO_START
 
-REM Set environment variables
-"%NSSM_EXE%" set "%SERVICE_NAME%" AppEnvironmentExtra "CONFIG_PATH=%ProgramData%\ScaleCmdBridge\config\devices.json"
-"%NSSM_EXE%" set "%SERVICE_NAME%" AppEnvironmentExtra "WEB_PATH=%INSTALL_DIR%\web"
-"%NSSM_EXE%" set "%SERVICE_NAME%" AppEnvironmentExtra "PORT=8080"
+REM Set environment variables (all at once using PowerShell for proper newline handling)
+echo Configuring environment variables...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$env = 'CONFIG_PATH=%ProgramData%\ScaleCmdBridge\config\devices.json' + [Environment]::NewLine + 'WEB_PATH=%INSTALL_DIR%\web' + [Environment]::NewLine + 'PORT=8080' + [Environment]::NewLine + 'MQTT_ENABLED=true' + [Environment]::NewLine + 'MQTT_BROKER_URL=mqtt://localhost:1883' + [Environment]::NewLine + 'MQTT_TOPIC_PREFIX=scaleit'; & '%NSSM_EXE%' set '%SERVICE_NAME%' AppEnvironmentExtra $env"
 
 REM Configure logging
 "%NSSM_EXE%" set "%SERVICE_NAME%" AppStdout "%ProgramData%\ScaleCmdBridge\logs\service-stdout.log"

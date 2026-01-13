@@ -27,7 +27,7 @@ LicenseFile=
 InfoBeforeFile=
 InfoAfterFile=
 OutputDir=..\release
-OutputBaseFilename=ScaleCmdBridge-Setup-x64-v0.1.5-feature-network-access-enhancement
+OutputBaseFilename=ScaleCmdBridge-Setup-x64-v0.1.5-feature-network-access-enhancement-20260113-203621
 SetupIconFile=
 Compression=lzma
 SolidCompression=yes
@@ -48,6 +48,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "startmenu"; Description: "Create Start Menu shortcuts"; GroupDescription: "Shortcuts"; Flags: checkedonce
+Name: "installmosquitto"; Description: "Install Mosquitto MQTT Broker (recommended for MQTT support)"; GroupDescription: "MQTT Broker"; Flags: checkedonce
 
 [Files]
 ; Backend executable (renamed from scaleit-bridge.exe)
@@ -66,6 +67,10 @@ Source: "..\STOP-SERVICE.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\src-rust\config\devices.json"; DestDir: "{app}\config"; Flags: ignoreversion
 ; Documentation
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+; MQTT Broker installation scripts
+Source: "..\scripts\Start-Mosquitto-Task.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "..\scripts\Install-Mosquitto.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "..\scripts\Uninstall-Mosquitto.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -73,6 +78,8 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
+; Install Mosquitto MQTT Broker as Task Scheduler job (optional)
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Start-Mosquitto-Task.ps1"""; Description: "Install Mosquitto MQTT Broker"; Flags: runhidden waituntilterminated; StatusMsg: "Installing Mosquitto MQTT Broker..."; Tasks: installmosquitto
 ; Install and start Windows Service
 Filename: "{app}\INSTALL-SERVICE.bat"; Parameters: "/quiet"; Description: "Install and start Windows Service"; Flags: runhidden waituntilterminated; StatusMsg: "Installing Windows Service..."
 ; Configure firewall (firewall rule is now configured in INSTALL-SERVICE.bat)
@@ -81,6 +88,8 @@ Filename: "{app}\INSTALL-SERVICE.bat"; Parameters: "/quiet"; Description: "Insta
 [UninstallRun]
 ; Stop and remove service before uninstallation
 Filename: "{app}\UNINSTALL-SERVICE.bat"; Parameters: "/quiet"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
+; Uninstall Mosquitto MQTT Broker Task Scheduler job (if it was installed)
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Start-Mosquitto-Task.ps1"" -Uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "UninstallMosquitto"
 ; Remove firewall rules (try both old and new rule names for compatibility)
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""{#MyAppName}"""; Flags: runhidden; RunOnceId: "RemoveFirewallOld"
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""ScaleIT Bridge - TCP Port 8080"""; Flags: runhidden; RunOnceId: "RemoveFirewall"

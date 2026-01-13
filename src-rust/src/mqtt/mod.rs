@@ -273,6 +273,7 @@ pub fn init_mqtt_publisher(config: MqttConfig) -> Result<Arc<dyn MqttPublisher>,
                 Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_))) => {
                     // Connection acknowledged - reset reconnect delay
                     reconnect_delay = Duration::from_secs(1);
+                    info!("MQTT publisher connected successfully");
                 }
                 Ok(rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
                     warn!("MQTT publisher disconnecting");
@@ -299,7 +300,7 @@ pub fn init_mqtt_publisher(config: MqttConfig) -> Result<Arc<dyn MqttPublisher>,
 pub async fn start_mqtt_subscriber_event_loop(
     config: MqttConfig,
     device_manager: Arc<crate::device_manager::DeviceManager>,
-    mqtt_publisher: Option<Arc<dyn MqttPublisher>>,
+    _mqtt_publisher: Option<Arc<dyn MqttPublisher>>,
 ) -> Result<tokio::task::JoinHandle<()>, MqttError> {
     if !config.enabled {
         return Err(MqttError::NotEnabled);
@@ -359,19 +360,10 @@ pub async fn start_mqtt_subscriber_event_loop(
                             };
                             
                             // Execute command via DeviceManager
+                            // Note: DeviceManager will automatically publish the result to MQTT
                             match device_manager.execute_command(request.clone()).await {
-                                Ok(response) => {
-                                    // Optionally publish response to response topic
-                                    if let Some(ref mqtt_pub) = mqtt_publisher {
-                                        if let Some(ref reading) = response.result {
-                                            let _ = mqtt_pub.publish_weight_reading(
-                                                &cmd_msg.device_id,
-                                                reading.gross_weight,
-                                                &reading.unit,
-                                                reading.is_stable
-                                            ).await;
-                                        }
-                                    }
+                                Ok(_response) => {
+                                    info!("MQTT command executed successfully for device {}", cmd_msg.device_id);
                                 }
                                 Err(e) => {
                                     error!("MQTT command execution failed for device {}: {}", cmd_msg.device_id, e);

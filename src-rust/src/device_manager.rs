@@ -296,13 +296,19 @@ impl DeviceManager {
                             reading.net_weight
                         };
                         
-                        if let Err(e) = mqtt.publish_weight_reading(
+                        match mqtt.publish_weight_reading(
                             &request.device_id,
                             weight_to_publish,
                             &reading.unit,
                             reading.is_stable
                         ).await {
-                            warn!("Failed to publish weight reading to MQTT for device {}: {}", request.device_id, e);
+                            Ok(_) => {
+                                info!("Published weight reading to MQTT for device {}: {} {}", 
+                                    request.device_id, weight_to_publish, reading.unit);
+                            }
+                            Err(e) => {
+                                warn!("Failed to publish weight reading to MQTT for device {}: {}", request.device_id, e);
+                            }
                         }
                     }
                 }
