@@ -1,0 +1,10 @@
+{
+  "agent": "backend",
+  "status": "pending",
+  "current_task": null,
+  "completed_tasks": [],
+  "blocked_by": [],
+  "provides_for": ["frontend", "testing"],
+  "last_update": "2026-01-14T12:00:00Z",
+  "notes": "Waiting for coordination setup to complete. Ready to start B1-B3."
+}

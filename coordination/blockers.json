@@ -1,0 +1,5 @@
+{
+  "blockers": [],
+  "last_update": "2026-01-14T12:00:00Z",
+  "notes": "No blockers at initialization. Frontend blocked by backend is expected dependency, not a blocker."
+}

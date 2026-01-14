@@ -1,0 +1,10 @@
+{
+  "agent": "infrastructure",
+  "status": "pending",
+  "current_task": null,
+  "completed_tasks": [],
+  "blocked_by": [],
+  "provides_for": [],
+  "last_update": "2026-01-14T12:00:00Z",
+  "notes": "Waiting for coordination setup. Ready to start I1-I3 (firewall rules)."
+}

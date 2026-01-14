@@ -1,0 +1,10 @@
+{
+  "agent": "frontend",
+  "status": "pending",
+  "current_task": null,
+  "completed_tasks": [],
+  "blocked_by": ["backend"],
+  "provides_for": ["testing"],
+  "last_update": "2026-01-14T12:00:00Z",
+  "notes": "Blocked by backend. Waiting for B1-B3 (MQTT API endpoints) to be completed."
+}
