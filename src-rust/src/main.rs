@@ -138,11 +138,22 @@ fn get_local_ip_addresses() -> Vec<String> {
 
 struct AppState {
     device_manager: Arc<DeviceManager>,
+    mqtt_history_store: Option<Arc<mqtt::MqttHistoryStore>>,
 }
 
 impl AppState {
     fn new(device_manager: Arc<DeviceManager>) -> Self {
-        Self { device_manager }
+        Self { 
+            device_manager,
+            mqtt_history_store: None,
+        }
+    }
+    
+    fn with_mqtt_history(device_manager: Arc<DeviceManager>, history_store: Arc<mqtt::MqttHistoryStore>) -> Self {
+        Self {
+            device_manager,
+            mqtt_history_store: Some(history_store),
+        }
     }
 }
 
@@ -805,6 +816,335 @@ async fn delete_miernik(
     }))
 }
 
+// ============================================================================
+// MQTT History API Endpoints
+// ============================================================================
+
+/// Query parameters for history endpoint
+#[derive(Debug, Deserialize)]
+struct HistoryQueryParams {
+    /// Maximum number of entries to return (default: 100)
+    limit: Option<usize>,
+    /// Offset for pagination (default: 0)
+    offset: Option<usize>,
+    /// Filter entries since this Unix timestamp
+    since: Option<i64>,
+}
+
+/// Get weight readings history for a device
+/// 
+/// Returns historical weight readings for the specified device from the MQTT history store.
+/// Supports pagination and time-based filtering.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/history/scale1?limit=50&offset=0
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "device_id": "scale1",
+///   "readings": [
+///     {
+///       "device_id": "scale1",
+///       "weight": 123.45,
+///       "unit": "kg",
+///       "is_stable": true,
+///       "timestamp": "2026-01-14T12:00:00Z",
+///       "mqtt_timestamp": 1736856000
+///     }
+///   ],
+///   "total_count": 150,
+///   "offset": 0,
+///   "limit": 50
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `503 Service Unavailable` - MQTT history store not enabled
+#[get("/api/mqtt/history/{device_id}")]
+async fn get_mqtt_history(
+    device_id: web::Path<String>,
+    query: web::Query<HistoryQueryParams>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    
+    let Some(ref store) = state.mqtt_history_store else {
+        return HttpResponse::ServiceUnavailable().json(json!({
+            "success": false,
+            "error": "MQTT history store is not enabled. Set MQTT_ENABLED=true to enable."
+        }));
+    };
+    
+    let since = query.since.map(|ts| {
+        chrono::DateTime::from_timestamp(ts, 0)
+            .unwrap_or_else(|| chrono::Utc::now())
+    });
+    
+    let readings = store.get_weight_readings(
+        &id,
+        query.limit,
+        query.offset,
+        since,
+    ).await;
+    
+    let stats = store.get_device_stats(&id).await;
+    let total_count = stats.map(|s| s.weight_readings_count).unwrap_or(readings.len());
+    
+    HttpResponse::Ok().json(mqtt::WeightHistoryResponse {
+        device_id: id,
+        readings,
+        total_count,
+        offset: query.offset.unwrap_or(0),
+        limit: query.limit.unwrap_or(100),
+    })
+}
+
+/// Get latest weight reading for a device
+/// 
+/// Returns the most recent weight reading for the specified device.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/history/scale1/latest
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "device_id": "scale1",
+///   "weight": 123.45,
+///   "unit": "kg",
+///   "is_stable": true,
+///   "timestamp": "2026-01-14T12:00:00Z",
+///   "mqtt_timestamp": 1736856000
+/// }
+/// ```
+/// 
+/// # Errors
+/// - `404 Not Found` - No readings found for device
+/// - `503 Service Unavailable` - MQTT history store not enabled
+#[get("/api/mqtt/history/{device_id}/latest")]
+async fn get_mqtt_latest(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    
+    let Some(ref store) = state.mqtt_history_store else {
+        return HttpResponse::ServiceUnavailable().json(json!({
+            "success": false,
+            "error": "MQTT history store is not enabled. Set MQTT_ENABLED=true to enable."
+        }));
+    };
+    
+    match store.get_latest_weight_reading(&id).await {
+        Some(reading) => HttpResponse::Ok().json(reading),
+        None => HttpResponse::NotFound().json(json!({
+            "success": false,
+            "error": format!("No weight readings found for device {}", id)
+        })),
+    }
+}
+
+/// Get device status history
+/// 
+/// Returns historical device status entries (connected, disconnected, etc.)
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/history/scale1/status?limit=20
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "device_id": "scale1",
+///   "statuses": [
+///     {
+///       "device_id": "scale1",
+///       "status": "connected",
+///       "timestamp": "2026-01-14T12:00:00Z",
+///       "mqtt_timestamp": 1736856000
+///     }
+///   ]
+/// }
+/// ```
+#[get("/api/mqtt/history/{device_id}/status")]
+async fn get_mqtt_status_history(
+    device_id: web::Path<String>,
+    query: web::Query<HistoryQueryParams>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    
+    let Some(ref store) = state.mqtt_history_store else {
+        return HttpResponse::ServiceUnavailable().json(json!({
+            "success": false,
+            "error": "MQTT history store is not enabled. Set MQTT_ENABLED=true to enable."
+        }));
+    };
+    
+    let statuses = store.get_device_status_history(&id, query.limit).await;
+    
+    HttpResponse::Ok().json(json!({
+        "device_id": id,
+        "statuses": statuses
+    }))
+}
+
+/// Get statistics for a device's history
+/// 
+/// Returns statistics about stored history for a specific device.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/history/scale1/stats
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "device_id": "scale1",
+///   "weight_readings_count": 150,
+///   "status_entries_count": 10,
+///   "oldest_reading": "2026-01-14T10:00:00Z",
+///   "newest_reading": "2026-01-14T12:00:00Z"
+/// }
+/// ```
+#[get("/api/mqtt/history/{device_id}/stats")]
+async fn get_mqtt_device_stats(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    
+    let Some(ref store) = state.mqtt_history_store else {
+        return HttpResponse::ServiceUnavailable().json(json!({
+            "success": false,
+            "error": "MQTT history store is not enabled. Set MQTT_ENABLED=true to enable."
+        }));
+    };
+    
+    match store.get_device_stats(&id).await {
+        Some(stats) => HttpResponse::Ok().json(stats),
+        None => HttpResponse::NotFound().json(json!({
+            "success": false,
+            "error": format!("No history found for device {}", id)
+        })),
+    }
+}
+
+/// List all devices with history
+/// 
+/// Returns a list of all device IDs that have history stored.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/devices
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "devices": ["scale1", "scale2", "scale3"]
+/// }
+/// ```
+#[get("/api/mqtt/devices")]
+async fn get_mqtt_devices(state: Data<AppState>) -> impl Responder {
+    let Some(ref store) = state.mqtt_history_store else {
+        return HttpResponse::ServiceUnavailable().json(json!({
+            "success": false,
+            "error": "MQTT history store is not enabled. Set MQTT_ENABLED=true to enable."
+        }));
+    };
+    
+    let device_ids = store.get_device_ids().await;
+    
+    HttpResponse::Ok().json(json!({
+        "devices": device_ids
+    }))
+}
+
+/// Clear history for a device
+/// 
+/// Removes all stored history for the specified device.
+/// 
+/// # Example Request
+/// ```http
+/// DELETE /api/mqtt/history/scale1
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "History cleared for device scale1"
+/// }
+/// ```
+#[delete("/api/mqtt/history/{device_id}")]
+async fn clear_mqtt_history(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    
+    let Some(ref store) = state.mqtt_history_store else {
+        return HttpResponse::ServiceUnavailable().json(json!({
+            "success": false,
+            "error": "MQTT history store is not enabled. Set MQTT_ENABLED=true to enable."
+        }));
+    };
+    
+    store.clear_device_history(&id).await;
+    
+    HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": format!("History cleared for device {}", id)
+    }))
+}
+
+/// Get MQTT status
+/// 
+/// Returns the status of the MQTT integration including whether it's enabled
+/// and the number of devices with history.
+/// 
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/status
+/// ```
+/// 
+/// # Example Response
+/// ```json
+/// {
+///   "enabled": true,
+///   "history_enabled": true,
+///   "devices_with_history": 3
+/// }
+/// ```
+#[get("/api/mqtt/status")]
+async fn get_mqtt_status(state: Data<AppState>) -> impl Responder {
+    let mqtt_config = mqtt::MqttConfig::from_env();
+    
+    let (history_enabled, devices_count) = match &state.mqtt_history_store {
+        Some(store) => {
+            let device_ids = store.get_device_ids().await;
+            (true, device_ids.len())
+        }
+        None => (false, 0),
+    };
+    
+    HttpResponse::Ok().json(json!({
+        "enabled": mqtt_config.enabled,
+        "history_enabled": history_enabled,
+        "devices_with_history": devices_count,
+        "broker_url": if mqtt_config.enabled { Some(mqtt_config.broker_url) } else { None },
+        "topic_prefix": if mqtt_config.enabled { Some(mqtt_config.topic_prefix) } else { None }
+    }))
+}
+
 /// Gracefully shutdown the server
 /// 
 /// Initiates a graceful shutdown procedure:
@@ -1140,15 +1480,30 @@ async fn main() -> std::io::Result<()> {
         dm.set_mqtt_publisher(mqtt.clone());
     }
 
-    // Start MQTT subscriber event loop if enabled
+    // Create MQTT history store if MQTT is enabled
+    let mqtt_history_store: Option<Arc<mqtt::MqttHistoryStore>> = if mqtt_config.enabled {
+        let store = mqtt::create_history_store();
+        info!("MQTT history store initialized");
+        Some(store)
+    } else {
+        None
+    };
+
+    // Start MQTT subscriber event loop if enabled (with history store)
     let _mqtt_subscriber_handle = if mqtt_config.enabled {
         let dm_for_mqtt = dm.clone();
         let mqtt_config_clone = mqtt_config.clone();
         let mqtt_pub_clone = mqtt_publisher.clone();
+        let history_store_clone = mqtt_history_store.clone();
         
-        match mqtt::start_mqtt_subscriber_event_loop(mqtt_config_clone, dm_for_mqtt, mqtt_pub_clone).await {
+        match mqtt::start_mqtt_subscriber_with_history(
+            mqtt_config_clone, 
+            dm_for_mqtt, 
+            mqtt_pub_clone,
+            history_store_clone
+        ).await {
             Ok(handle) => {
-                info!("MQTT subscriber event loop started");
+                info!("MQTT subscriber event loop started with history store");
                 Some(handle)
             }
             Err(e) => {
@@ -1258,8 +1613,14 @@ async fn main() -> std::io::Result<()> {
         }
     }
     
+    // Clone mqtt_history_store for use in HttpServer closure
+    let mqtt_history_store_for_server = mqtt_history_store.clone();
+    
     HttpServer::new(move || {
-        let state = AppState::new(dm.clone());
+        let state = match mqtt_history_store_for_server.clone() {
+            Some(store) => AppState::with_mqtt_history(dm.clone(), store),
+            None => AppState::new(dm.clone()),
+        };
         let network_mode_clone = network_mode.clone();
         
         // CORS configuration based on NETWORK_MODE
@@ -1387,6 +1748,14 @@ async fn main() -> std::io::Result<()> {
             .service(get_miernik)
             .service(save_miernik)
             .service(delete_miernik)
+            // MQTT History endpoints
+            .service(get_mqtt_history)
+            .service(get_mqtt_latest)
+            .service(get_mqtt_status_history)
+            .service(get_mqtt_device_stats)
+            .service(get_mqtt_devices)
+            .service(clear_mqtt_history)
+            .service(get_mqtt_status)
             .service(shutdown_server)
             .service(start_server);
         

@@ -1,7 +1,7 @@
 {
   "agent": "Backend",
   "branch": "cursor/backend-e158",
-  "last_updated": "2026-01-14T12:00:00Z",
+  "last_updated": "2026-01-14T14:00:00Z",
   "tasks": {
     "B1": {
       "name": "Add history module to mqtt/mod.rs",
@@ -9,18 +9,40 @@
       "description": "Created mqtt/history.rs module for storing weight readings and device status history",
       "started_at": "2026-01-14T00:00:00Z",
       "completed_at": "2026-01-14T12:00:00Z",
-      "files_created": [
-        "src-rust/src/mqtt/history.rs"
-      ],
-      "files_modified": [
-        "src-rust/src/mqtt/mod.rs",
-        "src-rust/src/lib.rs"
-      ],
+      "files_created": ["src-rust/src/mqtt/history.rs"],
+      "files_modified": ["src-rust/src/mqtt/mod.rs", "src-rust/src/lib.rs"],
       "tests_added": 7,
+      "tests_passing": true
+    },
+    "B2": {
+      "name": "Integrate MqttHistoryStore with MQTT subscriber",
+      "status": "completed",
+      "description": "Updated MQTT subscriber to automatically store weight readings and device status in history store",
+      "started_at": "2026-01-14T12:00:00Z",
+      "completed_at": "2026-01-14T13:00:00Z",
+      "files_modified": ["src-rust/src/mqtt/mod.rs", "src-rust/src/main.rs"],
+      "tests_passing": true
+    },
+    "B3": {
+      "name": "Add API endpoints for MQTT history queries",
+      "status": "completed",
+      "description": "Added REST API endpoints for querying MQTT history: GET/DELETE /api/mqtt/history/{device_id}, /latest, /status, /stats, GET /api/mqtt/devices, /api/mqtt/status",
+      "started_at": "2026-01-14T13:00:00Z",
+      "completed_at": "2026-01-14T14:00:00Z",
+      "files_modified": ["src-rust/src/main.rs"],
+      "endpoints_added": [
+        "GET /api/mqtt/history/{device_id}",
+        "GET /api/mqtt/history/{device_id}/latest",
+        "GET /api/mqtt/history/{device_id}/status",
+        "GET /api/mqtt/history/{device_id}/stats",
+        "GET /api/mqtt/devices",
+        "GET /api/mqtt/status",
+        "DELETE /api/mqtt/history/{device_id}"
+      ],
       "tests_passing": true
     }
   },
-  "completed_tasks": ["B1"],
+  "completed_tasks": ["B1", "B2", "B3"],
   "blocked_by": [],
-  "notes": "Task B1 completed. History module provides: MqttHistoryStore, WeightReadingEntry, DeviceStatusEntry, pagination support, time-based filtering, automatic cleanup of old entries."
+  "notes": "All MQTT history tasks completed. System now supports: in-memory storage of weight readings and device status, automatic history recording from MQTT subscriber, REST API for querying history with pagination and filtering."
 }
