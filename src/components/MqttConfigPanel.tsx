@@ -109,7 +109,7 @@ const MqttConfigPanel = () => {
     },
   });
 
-  const devices = devicesData?.devices || [];
+  const devices = React.useMemo(() => devicesData?.devices || [], [devicesData?.devices]);
   const isLoading = isLoadingDevices || isLoadingLatest || isLoadingStats || isLoadingHistory;
 
   // Auto-select first device if none selected
