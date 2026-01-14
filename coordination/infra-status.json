@@ -1,20 +1,15 @@
 {
   "agent": "Infrastructure Agent",
   "branch": "cursor/infrastructure-b355",
-  "status": "ready_for_phase2",
+  "status": "awaiting_phase2",
   "current_task": null,
-  "last_updated": "2026-01-14T18:45:00Z",
+  "last_updated": "2026-01-14T20:00:00Z",
+  "instructions_file": "coordination/INSTRUCTIONS_INFRASTRUCTURE_AGENT.md",
   "phase1_completed": {
     "I1": {
       "status": "completed",
       "description": "Verify Mosquitto configuration in Start-Mosquitto-Task.ps1",
-      "completed_at": "2026-01-14T10:15:00Z",
-      "changes": [
-        "Added persistence configuration",
-        "Added file-based logging",
-        "Added firewall rule for port 1883",
-        "Created data and logs directories"
-      ]
+      "completed_at": "2026-01-14T10:15:00Z"
     },
     "I2": {
       "status": "completed",
@@ -27,23 +22,24 @@
       "status": "pending",
       "priority": "high",
       "description": "Update Inno Setup installer for MQTT",
-      "output_file": "installer/ScaleCmdBridge.iss",
-      "changes_needed": [
-        "Add checkbox option 'Enable MQTT on startup'",
-        "Add MQTT_ENABLED=true to environment variables if checked",
+      "target_file": "installer/ScaleCmdBridge.iss",
+      "requirements": [
+        "Add checkbox 'Enable MQTT on startup'",
+        "Add MQTT_ENABLED environment variable if checked",
         "Add MQTT_BROKER_URL default value",
-        "Update post-install to configure MQTT if selected"
+        "Add MQTT_CLIENT_ID default value",
+        "Add MQTT_TOPIC_PREFIX default value"
       ]
     },
     "I4": {
       "status": "pending",
       "priority": "medium",
       "description": "Add MQTT tests to CI/CD pipeline",
-      "output_file": ".github/workflows/ci-cd.yml",
-      "changes_needed": [
-        "Add MQTT environment variables for test",
-        "Add step to start Mosquitto for integration tests",
-        "Add MQTT API endpoint health check"
+      "target_file": ".github/workflows/ci-cd.yml",
+      "requirements": [
+        "Add MQTT environment variables for tests",
+        "Optional: Add Mosquitto startup step for integration tests",
+        "Add MQTT API health check"
       ],
       "depends_on": ["I3"]
     },
@@ -51,11 +47,12 @@
       "status": "pending",
       "priority": "medium",
       "description": "Create MQTT Windows Service configuration script",
-      "output_file": "scripts/Configure-MQTT-Service.ps1",
-      "functionality": [
-        "Configure NSSM environment variables for MQTT",
-        "Set MQTT_ENABLED, MQTT_BROKER_URL, MQTT_CLIENT_ID",
-        "Restart ScaleCmdBridge service after configuration"
+      "target_file": "scripts/Configure-MQTT-Service.ps1",
+      "requirements": [
+        "Parameter -Enable to enable MQTT",
+        "Parameter -Disable to disable MQTT",
+        "Configure NSSM environment variables",
+        "Restart service after configuration"
       ],
       "depends_on": ["I3"]
     },
@@ -63,21 +60,22 @@
       "status": "pending",
       "priority": "low",
       "description": "Update Windows installation documentation",
-      "output_file": "docs/WINDOWS_INSTALLATION_GUIDE.md",
-      "sections_to_add": [
-        "MQTT Configuration section",
-        "Mosquitto installation steps",
-        "Firewall configuration for MQTT",
-        "Troubleshooting MQTT connection issues"
+      "target_file": "docs/WINDOWS_INSTALLATION_GUIDE.md",
+      "requirements": [
+        "Add MQTT Configuration section",
+        "Add Mosquitto installation steps",
+        "Add firewall configuration",
+        "Add troubleshooting section"
       ],
       "depends_on": ["I3", "I4", "I5"]
     }
   },
-  "instructions": "START with I3 (ScaleCmdBridge.iss). Wait for Testing Agent to complete T2-T3 before starting I4.",
   "reference_files": [
     "installer/ScaleCmdBridge.iss",
     "scripts/Start-Mosquitto-Task.ps1",
     "scripts/Install-Mosquitto.ps1",
-    ".github/workflows/ci-cd.yml"
-  ]
+    ".github/workflows/ci-cd.yml",
+    "docs/MQTT_INTEGRATION.md"
+  ],
+  "execution_order": ["I3", "I4", "I5", "I6"]
 }
