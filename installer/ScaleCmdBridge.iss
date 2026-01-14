@@ -49,6 +49,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "startmenu"; Description: "Create Start Menu shortcuts"; GroupDescription: "Shortcuts"; Flags: checkedonce
 Name: "installmosquitto"; Description: "Install Mosquitto MQTT Broker (recommended for MQTT support)"; GroupDescription: "MQTT Broker"; Flags: checkedonce
+Name: "mqttenable"; Description: "Enable MQTT on startup (requires Mosquitto broker)"; GroupDescription: "MQTT Configuration"; Flags: unchecked
 
 [Files]
 ; Backend executable (renamed from scaleit-bridge.exe)
@@ -71,6 +72,7 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\scripts\Start-Mosquitto-Task.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "..\scripts\Install-Mosquitto.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "..\scripts\Uninstall-Mosquitto.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "..\scripts\Configure-MQTT-Service.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -82,6 +84,8 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Start-Mosquitto-Task.ps1"""; Description: "Install Mosquitto MQTT Broker"; Flags: runhidden waituntilterminated; StatusMsg: "Installing Mosquitto MQTT Broker..."; Tasks: installmosquitto
 ; Install and start Windows Service
 Filename: "{app}\INSTALL-SERVICE.bat"; Parameters: "/quiet"; Description: "Install and start Windows Service"; Flags: runhidden waituntilterminated; StatusMsg: "Installing Windows Service..."
+; Configure MQTT for service (if enabled)
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Configure-MQTT-Service.ps1"" -Enable"; Description: "Enable MQTT for service"; Flags: runhidden waituntilterminated; StatusMsg: "Configuring MQTT..."; Tasks: mqttenable
 ; Configure firewall (firewall rule is now configured in INSTALL-SERVICE.bat)
 ; The service installation script handles firewall configuration for local network access
 
