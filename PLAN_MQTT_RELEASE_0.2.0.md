@@ -100,22 +100,24 @@ Ten dokument opisuje plan wdrożenia funkcjonalności MQTT w ScaleIT Bridge w we
 
 ---
 
-### 🧪 Testing Agent (`cursor/testing-693d`)
+### 🧪 Testing Agent (`cursor/frontend-3ccc`)
 
 | ID | Zadanie | Status | Priorytet | Opis |
 |----|---------|--------|-----------|------|
 | T1 | MQTT_NETWORK_TESTING.md | ✅ DONE | High | Dokumentacja testów |
-| T2 | Unit tests for mqtt-api.ts | 🔄 TODO | High | Testy serwisu API |
-| T3 | Component tests | 🔄 TODO | High | MqttStatusCard, MqttConfigPanel |
-| T4 | Integration tests | 🔄 TODO | Medium | Backend MQTT API |
-| T5 | E2E tests | 🔄 TODO | Medium | Playwright MQTT flow |
+| T2 | Unit tests for mqtt-api.ts | ✅ DONE | High | 33 testy serwisu API |
+| T3 | Component tests | ✅ DONE | High | 25 testów MqttStatusCard, MqttConfigPanel |
+| T4 | Integration tests | 🔄 TODO | Medium | Backend MQTT API (Backend Agent) |
+| T5 | E2E tests | ✅ DONE | Medium | 21 testów Playwright MQTT flow |
 
-**Pliki do utworzenia (T2-T5):**
-- `src/services/mqtt-api.test.ts`
-- `src/components/MqttStatusCard.test.tsx`
-- `src/components/MqttConfigPanel.test.tsx`
-- `src-rust/tests/mqtt_api_tests.rs`
-- `e2e/mqtt.spec.ts`
+**Pliki utworzone (T2, T3, T5):**
+- `src/services/mqtt-api.test.ts` ✅ (33 tests)
+- `src/components/MqttStatusCard.test.tsx` ✅ (14 tests)
+- `src/components/MqttConfigPanel.test.tsx` ✅ (11 tests)
+- `e2e/mqtt.spec.ts` ✅ (21 tests)
+- `src/test/setup.ts` (modified - MQTT handlers)
+
+**Łącznie: 79 testów MQTT**
 
 ---
 
@@ -129,10 +131,12 @@ FAZA 1 - UKOŃCZONA ✅
 └── Testing: T1
 
 FAZA 2 - W TRAKCIE 🔄
-├── 1. Testing: T2, T3 (testy dla nowego kodu) ← PRIORYTET
-├── 2. Infrastructure: I3 (installer update)
-├── 3. Testing: T4, T5 (testy integracyjne)
-└── 4. Infrastructure: I4, I5, I6 (CI/CD, docs)
+├── 1. Testing: T2 (unit tests) ✅ DONE - 33 tests
+├── 2. Testing: T3 (component tests) ✅ DONE - 25 tests
+├── 3. Testing: T5 (E2E tests) ✅ DONE - 21 tests
+├── 4. Testing: T4 (backend integration) 🔄 PENDING (Backend Agent)
+├── 5. Infrastructure: I3 (installer update) 🔄 TODO
+└── 6. Infrastructure: I4, I5, I6 (CI/CD, docs) 🔄 TODO
 
 FAZA 3 - OPCJONALNA ⏸️
 ├── Backend: B4, B5, B6
@@ -173,13 +177,13 @@ I4, I5 ──────────────► (zależą od I3)
 - [x] UI do przeglądania statusu MQTT
 - [x] UI do przeglądania historii MQTT
 - [x] Dokumentacja testowania MQTT
-- [ ] Testy jednostkowe dla nowego kodu
+- [x] Testy jednostkowe dla nowego kodu (33 unit + 25 component = 58 tests)
 - [ ] Installer zaktualizowany o MQTT
 
 ### Pożądane (Should Have)
 
-- [ ] Testy integracyjne
-- [ ] Testy E2E
+- [ ] Testy integracyjne backend (T4 - pending)
+- [x] Testy E2E (21 tests)
 - [ ] CI/CD z testami MQTT
 - [ ] Zaktualizowana dokumentacja instalacji
 
