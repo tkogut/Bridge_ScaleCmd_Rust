@@ -1,0 +1,85 @@
+{
+  "agent": "Testing Agent",
+  "branch": "cursor/testing-693d",
+  "status": "ready_for_phase2",
+  "current_task": null,
+  "last_updated": "2026-01-14T18:45:00Z",
+  "phase1_completed": {
+    "T1": {
+      "status": "completed",
+      "description": "Create MQTT_NETWORK_TESTING.md",
+      "output": "docs/MQTT_NETWORK_TESTING.md",
+      "completed_at": "2026-01-14T00:00:00Z"
+    }
+  },
+  "phase2_tasks": {
+    "T2": {
+      "status": "pending",
+      "priority": "high",
+      "description": "Unit tests for mqtt-api.ts service",
+      "output_file": "src/services/mqtt-api.test.ts",
+      "depends_on": ["F3"],
+      "test_coverage": [
+        "getMqttStatus()",
+        "getMqttDevices()",
+        "getMqttHistory()",
+        "getMqttLatest()",
+        "getMqttDeviceStatus()",
+        "getMqttStats()",
+        "deleteMqttHistory()"
+      ]
+    },
+    "T3": {
+      "status": "pending",
+      "priority": "high",
+      "description": "Component tests for MQTT React components",
+      "output_files": [
+        "src/components/MqttStatusCard.test.tsx",
+        "src/components/MqttConfigPanel.test.tsx"
+      ],
+      "depends_on": ["F1", "F2"],
+      "test_scenarios": [
+        "Renders loading state",
+        "Renders connected state",
+        "Renders disconnected state",
+        "Renders error state",
+        "Device selection works",
+        "History display works",
+        "Delete confirmation works"
+      ]
+    },
+    "T4": {
+      "status": "pending",
+      "priority": "medium",
+      "description": "Integration tests for Rust MQTT API",
+      "output_file": "src-rust/tests/mqtt_api_tests.rs",
+      "depends_on": ["B3"],
+      "test_endpoints": [
+        "GET /api/mqtt/status",
+        "GET /api/mqtt/devices",
+        "GET /api/mqtt/history/{device_id}",
+        "DELETE /api/mqtt/history/{device_id}"
+      ]
+    },
+    "T5": {
+      "status": "pending",
+      "priority": "medium",
+      "description": "E2E tests for MQTT UI flow",
+      "output_file": "e2e/mqtt.spec.ts",
+      "depends_on": ["F4", "B3"],
+      "test_flows": [
+        "MQTT status card displays correctly",
+        "MQTT history panel loads devices",
+        "Device selection updates history",
+        "Delete history flow works"
+      ]
+    }
+  },
+  "instructions": "START with T2 (mqtt-api.test.ts). Use existing test patterns from src/services/api.test.ts. After T2, proceed to T3.",
+  "reference_files": [
+    "src/services/mqtt-api.ts",
+    "src/components/MqttStatusCard.tsx",
+    "src/components/MqttConfigPanel.tsx",
+    "src/services/api.test.ts"
+  ]
+}
