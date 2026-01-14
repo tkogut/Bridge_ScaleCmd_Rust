@@ -15,8 +15,8 @@
     "F3": { "status": "pending", "description": "API service (mqtt-api.ts)" },
     "F4": { "status": "pending", "description": "Integration & types" }
   },
-  "last_updated": "2026-01-14T17:22:00Z",
+  "last_updated": "2026-01-14T17:44:00Z",
   "polling_since": "2026-01-14T15:34:00Z",
-  "total_polling_time": "~110 minutes",
+  "total_polling_time": "~130 minutes",
   "notes": "Backend B1 completed (mqtt/history.rs module). Backend status unchanged since 12:00 - over 5 hours. Continuously polling for B2/B3 completion. Will start F1 immediately when B3 is done."
 }
