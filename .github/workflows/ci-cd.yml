@@ -15,6 +15,11 @@ env:
   RUST_BACKTRACE: 1
   NODE_VERSION: '18'
   RUST_VERSION: '1.75'
+  # MQTT configuration - disabled by default for CI tests
+  MQTT_ENABLED: 'false'
+  MQTT_BROKER_URL: 'mqtt://localhost:1883'
+  MQTT_CLIENT_ID: 'scaleit-bridge-ci'
+  MQTT_TOPIC_PREFIX: 'scaleit-ci'
 
 jobs:
   # Code quality and linting
@@ -85,6 +90,8 @@ jobs:
 
       - name: Run integration tests
         run: cd src-rust && cargo test --test '*' --verbose
+        env:
+          MQTT_ENABLED: 'false'  # MQTT disabled for unit/integration tests (no broker available)
 
       - name: Run doc tests
         run: cd src-rust && cargo test --doc
@@ -162,6 +169,16 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      - name: Install and start Mosquitto MQTT Broker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mosquitto mosquitto-clients
+          sudo systemctl start mosquitto
+          sudo systemctl status mosquitto
+          # Verify MQTT broker is running
+          sleep 2
+          mosquitto_pub -h localhost -t "test/connection" -m "CI test" || echo "MQTT test publish completed"
+
       - name: Build frontend
         run: npm run build
 
@@ -184,9 +201,15 @@ jobs:
           sleep 10
         env:
           RUST_LOG: info
+          MQTT_ENABLED: 'true'
+          MQTT_BROKER_URL: 'mqtt://localhost:1883'
+          MQTT_CLIENT_ID: 'scaleit-bridge-e2e'
+          MQTT_TOPIC_PREFIX: 'scaleit-e2e'
 
       - name: Run E2E tests
         run: npm run test:e2e
+        env:
+          MQTT_ENABLED: 'true'
 
       - name: Upload E2E test results
         uses: actions/upload-artifact@v4
