@@ -15,7 +15,7 @@
     "F3": { "status": "completed", "description": "API service (mqtt-api.ts)" },
     "F4": { "status": "completed", "description": "Integration with Index.tsx" }
   },
-  "last_updated": "2026-01-14T18:30:00Z",
+  "last_updated": "2026-01-14T18:35:00Z",
   "files_created": [
     "src/services/mqtt-api.ts",
     "src/components/MqttStatusCard.tsx",
@@ -24,5 +24,10 @@
   "files_modified": [
     "src/pages/Index.tsx"
   ],
-  "notes": "All Frontend tasks (F1-F4) completed! Created MQTT API service, MqttStatusCard and MqttConfigPanel components, and integrated them into the main Dashboard."
+  "commits": [
+    "d3fa8c6 - feat(frontend): Add MQTT status and history components",
+    "2092819 - fix(frontend): Fix React hooks exhaustive-deps warning in MqttConfigPanel"
+  ],
+  "lint_status": "passed (no new errors)",
+  "notes": "All Frontend tasks (F1-F4) completed! Created MQTT API service, MqttStatusCard and MqttConfigPanel components, and integrated them into the main Dashboard. Lint passed with no new errors."
 }
