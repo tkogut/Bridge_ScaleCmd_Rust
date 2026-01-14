@@ -1,0 +1,20 @@
+{
+  "agent": "Frontend Agent",
+  "branch": "cursor/frontend-3ccc",
+  "status": "waiting_for_backend",
+  "current_task": null,
+  "waiting_for": ["B2", "B3"],
+  "backend_progress": {
+    "B1": "completed",
+    "B2": "pending",
+    "B3": "pending"
+  },
+  "tasks": {
+    "F1": { "status": "pending", "description": "MqttStatusCard component" },
+    "F2": { "status": "pending", "description": "MqttConfigPanel component" },
+    "F3": { "status": "pending", "description": "API service (mqtt-api.ts)" },
+    "F4": { "status": "pending", "description": "Integration & types" }
+  },
+  "last_updated": "2026-01-14T16:19:00Z",
+  "notes": "Backend B1 completed (mqtt/history.rs module). Still waiting for B2 (API endpoints) and B3 (config endpoints). Continuously polling backend-status.json."
+}
