@@ -135,6 +135,160 @@ export const handlers = [
       success: true,
       message: `Device ${params.deviceId} deleted successfully.`
     })
+  }),
+
+  // MQTT API handlers
+  http.get('*/api/mqtt/status', () => {
+    return HttpResponse.json({
+      enabled: true,
+      connected: true,
+      broker_url: 'mqtt://localhost:1883',
+      client_id: 'scaleit-bridge',
+      topic_prefix: 'scaleit',
+      devices_with_history: 2,
+      total_weight_readings: 150,
+      total_status_updates: 45
+    })
+  }),
+
+  http.get('*/api/mqtt/devices', () => {
+    return HttpResponse.json({
+      devices: [
+        {
+          device_id: 'c320tcp',
+          weight_readings_count: 100,
+          status_updates_count: 30,
+          last_weight_reading: {
+            device_id: 'c320tcp',
+            weight: 42.5,
+            unit: 'kg',
+            timestamp: 1705250400,
+            is_stable: true,
+            recorded_at: '2026-01-14T12:00:00Z'
+          },
+          last_status_update: {
+            device_id: 'c320tcp',
+            status: 'connected',
+            timestamp: 1705250400,
+            recorded_at: '2026-01-14T12:00:00Z'
+          }
+        },
+        {
+          device_id: 'dini01',
+          weight_readings_count: 50,
+          status_updates_count: 15,
+          last_weight_reading: {
+            device_id: 'dini01',
+            weight: 125.3,
+            unit: 'kg',
+            timestamp: 1705250300,
+            is_stable: true,
+            recorded_at: '2026-01-14T11:58:20Z'
+          },
+          last_status_update: null
+        }
+      ],
+      total_count: 2
+    })
+  }),
+
+  http.get('*/api/mqtt/history/:deviceId', ({ params }) => {
+    const deviceId = params.deviceId as string
+    return HttpResponse.json({
+      device_id: deviceId,
+      weight_readings: [
+        {
+          device_id: deviceId,
+          weight: 42.5,
+          unit: 'kg',
+          timestamp: 1705250400,
+          is_stable: true,
+          recorded_at: '2026-01-14T12:00:00Z'
+        },
+        {
+          device_id: deviceId,
+          weight: 41.2,
+          unit: 'kg',
+          timestamp: 1705250340,
+          is_stable: true,
+          recorded_at: '2026-01-14T11:59:00Z'
+        }
+      ],
+      status_updates: [
+        {
+          device_id: deviceId,
+          status: 'connected',
+          timestamp: 1705250400,
+          recorded_at: '2026-01-14T12:00:00Z'
+        }
+      ],
+      total_weight_readings: 100,
+      total_status_updates: 30
+    })
+  }),
+
+  http.get('*/api/mqtt/history/:deviceId/latest', ({ params }) => {
+    const deviceId = params.deviceId as string
+    return HttpResponse.json({
+      device_id: deviceId,
+      latest_weight: {
+        device_id: deviceId,
+        weight: 42.5,
+        unit: 'kg',
+        timestamp: 1705250400,
+        is_stable: true,
+        recorded_at: '2026-01-14T12:00:00Z'
+      },
+      latest_status: {
+        device_id: deviceId,
+        status: 'connected',
+        timestamp: 1705250400,
+        recorded_at: '2026-01-14T12:00:00Z'
+      }
+    })
+  }),
+
+  http.get('*/api/mqtt/history/:deviceId/status', ({ params }) => {
+    const deviceId = params.deviceId as string
+    return HttpResponse.json({
+      device_id: deviceId,
+      status_updates: [
+        {
+          device_id: deviceId,
+          status: 'connected',
+          timestamp: 1705250400,
+          recorded_at: '2026-01-14T12:00:00Z'
+        },
+        {
+          device_id: deviceId,
+          status: 'disconnected',
+          timestamp: 1705250000,
+          recorded_at: '2026-01-14T11:53:20Z'
+        }
+      ],
+      total_count: 30
+    })
+  }),
+
+  http.get('*/api/mqtt/history/:deviceId/stats', ({ params }) => {
+    const deviceId = params.deviceId as string
+    return HttpResponse.json({
+      device_id: deviceId,
+      weight_readings_count: 100,
+      status_updates_count: 30,
+      first_weight_reading: '2026-01-14T10:00:00Z',
+      last_weight_reading: '2026-01-14T12:00:00Z',
+      first_status_update: '2026-01-14T10:00:00Z',
+      last_status_update: '2026-01-14T12:00:00Z'
+    })
+  }),
+
+  http.delete('*/api/mqtt/history/:deviceId', ({ params }) => {
+    const deviceId = params.deviceId as string
+    return HttpResponse.json({
+      success: true,
+      message: `History for device ${deviceId} deleted successfully`
+    })
   })
 ]
 
