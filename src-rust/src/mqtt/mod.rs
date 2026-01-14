@@ -1,6 +1,8 @@
 // MQTT Integration Module
 // MQTT pub/sub integration for weight readings and commands
 
+pub mod history;
+
 use async_trait::async_trait;
 use chrono::Utc;
 use log::{error, info, warn};
@@ -302,6 +304,18 @@ pub async fn start_mqtt_subscriber_event_loop(
     device_manager: Arc<crate::device_manager::DeviceManager>,
     _mqtt_publisher: Option<Arc<dyn MqttPublisher>>,
 ) -> Result<tokio::task::JoinHandle<()>, MqttError> {
+    start_mqtt_subscriber_with_history(config, device_manager, _mqtt_publisher, None).await
+}
+
+/// Start MQTT subscriber event loop with optional history store
+/// This function spawns a background task that subscribes to command and weight topics,
+/// executes commands via DeviceManager, and optionally stores readings in history
+pub async fn start_mqtt_subscriber_with_history(
+    config: MqttConfig,
+    device_manager: Arc<crate::device_manager::DeviceManager>,
+    _mqtt_publisher: Option<Arc<dyn MqttPublisher>>,
+    history_store: Option<Arc<history::MqttHistoryStore>>,
+) -> Result<tokio::task::JoinHandle<()>, MqttError> {
     if !config.enabled {
         return Err(MqttError::NotEnabled);
     }
@@ -324,6 +338,9 @@ pub async fn start_mqtt_subscriber_event_loop(
     
     // Subscribe to command topics
     let command_topic = format!("{}/command/+", config.topic_prefix);
+    let weight_topic = format!("{}/weight/+", config.topic_prefix);
+    let status_topic = format!("{}/status/+", config.topic_prefix);
+    
     let qos = match config.qos {
         0 => QoS::AtMostOnce,
         1 => QoS::AtLeastOnce,
@@ -333,6 +350,17 @@ pub async fn start_mqtt_subscriber_event_loop(
     
     client.subscribe(&command_topic, qos).await
         .map_err(|e| MqttError::SubscribeError(format!("Failed to subscribe to {}: {}", command_topic, e)))?;
+    
+    // Subscribe to weight and status topics if history store is provided
+    if history_store.is_some() {
+        client.subscribe(&weight_topic, qos).await
+            .map_err(|e| MqttError::SubscribeError(format!("Failed to subscribe to {}: {}", weight_topic, e)))?;
+        client.subscribe(&status_topic, qos).await
+            .map_err(|e| MqttError::SubscribeError(format!("Failed to subscribe to {}: {}", status_topic, e)))?;
+        info!("MQTT history store enabled - subscribing to weight and status topics");
+    }
+    
+    let topic_prefix = config.topic_prefix.clone();
     
     // Spawn event loop task
     let handle = tokio::spawn(async move {
@@ -347,31 +375,77 @@ pub async fn start_mqtt_subscriber_event_loop(
                     info!("MQTT subscriber connected successfully");
                 }
                 Ok(rumqttc::Event::Incoming(rumqttc::Packet::Publish(publish))) => {
-                    let topic = publish.topic;
+                    let topic = publish.topic.clone();
                     let payload = publish.payload;
                     
-                    // Parse command message from JSON
-                    match serde_json::from_slice::<DeviceCommandMessage>(&payload) {
-                        Ok(cmd_msg) => {
-                            // Create ScaleCommandRequest
-                            let request = crate::models::weight::ScaleCommandRequest {
-                                device_id: cmd_msg.device_id.clone(),
-                                command: cmd_msg.command.clone(),
-                            };
-                            
-                            // Execute command via DeviceManager
-                            // Note: DeviceManager will automatically publish the result to MQTT
-                            match device_manager.execute_command(request.clone()).await {
-                                Ok(_response) => {
-                                    info!("MQTT command executed successfully for device {}", cmd_msg.device_id);
+                    // Determine topic type based on prefix
+                    let command_prefix = format!("{}/command/", topic_prefix);
+                    let weight_prefix = format!("{}/weight/", topic_prefix);
+                    let status_prefix = format!("{}/status/", topic_prefix);
+                    
+                    if topic.starts_with(&command_prefix) {
+                        // Handle command message
+                        match serde_json::from_slice::<DeviceCommandMessage>(&payload) {
+                            Ok(cmd_msg) => {
+                                let request = crate::models::weight::ScaleCommandRequest {
+                                    device_id: cmd_msg.device_id.clone(),
+                                    command: cmd_msg.command.clone(),
+                                };
+                                
+                                match device_manager.execute_command(request.clone()).await {
+                                    Ok(_response) => {
+                                        info!("MQTT command executed successfully for device {}", cmd_msg.device_id);
+                                    }
+                                    Err(e) => {
+                                        error!("MQTT command execution failed for device {}: {}", cmd_msg.device_id, e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to parse MQTT command message from topic {}: {}", topic, e);
+                            }
+                        }
+                    } else if topic.starts_with(&weight_prefix) {
+                        // Handle weight reading message - store in history if available
+                        if let Some(ref store) = history_store {
+                            match serde_json::from_slice::<WeightReadingMessage>(&payload) {
+                                Ok(msg) => {
+                                    let entry = history::WeightReadingEntry {
+                                        device_id: msg.device_id.clone(),
+                                        weight: msg.weight,
+                                        unit: msg.unit.clone(),
+                                        is_stable: msg.is_stable,
+                                        timestamp: Utc::now(),
+                                        mqtt_timestamp: Some(msg.timestamp),
+                                    };
+                                    store.add_weight_reading(entry).await;
+                                    info!("Stored weight reading from device {}: {} {}", 
+                                        msg.device_id, msg.weight, msg.unit);
                                 }
                                 Err(e) => {
-                                    error!("MQTT command execution failed for device {}: {}", cmd_msg.device_id, e);
+                                    warn!("Failed to parse weight message from topic {}: {}", topic, e);
                                 }
                             }
                         }
-                        Err(e) => {
-                            warn!("Failed to parse MQTT command message from topic {}: {}", topic, e);
+                    } else if topic.starts_with(&status_prefix) {
+                        // Handle device status message - store in history if available
+                        if let Some(ref store) = history_store {
+                            match serde_json::from_slice::<DeviceStatusMessage>(&payload) {
+                                Ok(msg) => {
+                                    let entry = history::DeviceStatusEntry {
+                                        device_id: msg.device_id.clone(),
+                                        status: msg.status.clone(),
+                                        timestamp: Utc::now(),
+                                        mqtt_timestamp: Some(msg.timestamp),
+                                    };
+                                    store.add_device_status(entry).await;
+                                    info!("Stored device status from device {}: {}", 
+                                        msg.device_id, msg.status);
+                                }
+                                Err(e) => {
+                                    warn!("Failed to parse status message from topic {}: {}", topic, e);
+                                }
+                            }
                         }
                     }
                 }
@@ -392,4 +466,24 @@ pub async fn start_mqtt_subscriber_event_loop(
     });
     
     Ok(handle)
+}
+
+// Re-export history types for convenience
+pub use history::{
+    DeviceHistoryStats,
+    DeviceStatusEntry,
+    HistoryConfig,
+    MqttHistoryStore,
+    WeightHistoryResponse,
+    WeightReadingEntry,
+};
+
+/// Create a new MQTT history store with default configuration
+pub fn create_history_store() -> Arc<MqttHistoryStore> {
+    Arc::new(MqttHistoryStore::new())
+}
+
+/// Create a new MQTT history store with custom configuration
+pub fn create_history_store_with_config(config: HistoryConfig) -> Arc<MqttHistoryStore> {
+    Arc::new(MqttHistoryStore::with_config(config))
 }
