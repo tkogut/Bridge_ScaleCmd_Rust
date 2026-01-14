@@ -1,6 +1,8 @@
 import Layout from "@/components/Layout";
 import BridgeStatusCard from "@/components/BridgeStatusCard";
+import MqttStatusCard from "@/components/MqttStatusCard";
 import ScaleOperationsPanel from "@/components/ScaleOperationsPanel";
+import MqttConfigPanel from "@/components/MqttConfigPanel";
 import RecentRequestsLog from "@/components/RecentRequestsLog";
 
 const Index = () => {
@@ -16,14 +18,22 @@ const Index = () => {
           {/* Bridge Status Card */}
           <BridgeStatusCard />
           
+          {/* MQTT Status Card */}
+          <MqttStatusCard />
+          
           {/* Scale Operations Panel */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-1">
             <ScaleOperationsPanel />
           </div>
         </div>
         
-        {/* Recent Requests Log */}
-        <RecentRequestsLog />
+        {/* MQTT History Panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MqttConfigPanel />
+          
+          {/* Recent Requests Log */}
+          <RecentRequestsLog />
+        </div>
       </div>
     </Layout>
   );
