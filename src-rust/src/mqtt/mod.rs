@@ -1,6 +1,8 @@
 // MQTT Integration Module
 // MQTT pub/sub integration for weight readings and commands
 
+pub mod history;
+
 use async_trait::async_trait;
 use chrono::Utc;
 use log::{error, info, warn};
@@ -393,3 +395,13 @@ pub async fn start_mqtt_subscriber_event_loop(
     
     Ok(handle)
 }
+
+// Re-export history types for convenience
+pub use history::{
+    DeviceHistoryStats,
+    DeviceStatusEntry,
+    HistoryConfig,
+    MqttHistoryStore,
+    WeightHistoryResponse,
+    WeightReadingEntry,
+};
