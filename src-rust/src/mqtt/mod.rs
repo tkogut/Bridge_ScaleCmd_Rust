@@ -6,6 +6,7 @@ use chrono::Utc;
 use log::{error, info, warn};
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -84,6 +85,7 @@ impl MqttConfig {
 pub trait MqttPublisher: Send + Sync {
     async fn publish_weight_reading(&self, device_id: &str, weight: f64, unit: &str, is_stable: bool) -> Result<(), MqttError>;
     async fn publish_device_status(&self, device_id: &str, status: &str) -> Result<(), MqttError>;
+    async fn publish_custom_message(&self, topic: &str, payload: &serde_json::Value, qos: i32, retain: bool) -> Result<(), MqttError>;
 }
 
 /// MQTT subscriber - handles command subscriptions and executes commands via callback
@@ -189,28 +191,47 @@ impl MqttPublisher for RealMqttPublisher {
 
     async fn publish_device_status(&self, device_id: &str, status: &str) -> Result<(), MqttError> {
         let topic = format!("{}/status/{}", self.config.topic_prefix, device_id);
-        
+
         let message = DeviceStatusMessage {
             device_id: device_id.to_string(),
             status: status.to_string(),
             timestamp: Utc::now().timestamp() as u64,
         };
-        
+
         let payload = serde_json::to_string(&message)
             .map_err(|e| MqttError::PublishError(format!("Failed to serialize device status: {}", e)))?;
-        
+
         let qos = match self.config.qos {
             0 => QoS::AtMostOnce,
             1 => QoS::AtLeastOnce,
             2 => QoS::ExactlyOnce,
             _ => QoS::AtLeastOnce,
         };
-        
+
         let client = self.client.lock().await;
         client.publish(&topic, qos, self.config.retain, payload.as_bytes())
             .await
             .map_err(|e| MqttError::PublishError(format!("Failed to publish device status: {}", e)))?;
-        
+
+        Ok(())
+    }
+
+    async fn publish_custom_message(&self, topic: &str, payload: &serde_json::Value, qos: i32, retain: bool) -> Result<(), MqttError> {
+        let payload_str = serde_json::to_string(payload)
+            .map_err(|e| MqttError::PublishError(format!("Failed to serialize custom message: {}", e)))?;
+
+        let qos_level = match qos {
+            0 => QoS::AtMostOnce,
+            1 => QoS::AtLeastOnce,
+            2 => QoS::ExactlyOnce,
+            _ => QoS::AtLeastOnce, // Default to QoS 1
+        };
+
+        let client = self.client.lock().await;
+        client.publish(topic, qos_level, retain, payload_str.as_bytes())
+            .await
+            .map_err(|e| MqttError::PublishError(format!("Failed to publish custom message: {}", e)))?;
+
         Ok(())
     }
 }
@@ -241,26 +262,205 @@ pub struct DeviceCommandMessage {
     pub parameters: Option<serde_json::Value>,
 }
 
+/// Weight reading entry for history storage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WeightReadingEntry {
+    pub device_id: String,
+    pub weight: f64,
+    pub unit: String,
+    pub timestamp: u64,
+    pub is_stable: bool,
+}
+
+/// Device status entry for history storage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceStatusEntry {
+    pub device_id: String,
+    pub status: String,
+    pub timestamp: u64,
+}
+
+/// MQTT History Store - in-memory storage for MQTT data
+#[derive(Debug, Clone)]
+pub struct MqttHistoryStore {
+    weight_readings: Arc<Mutex<HashMap<String, Vec<WeightReadingEntry>>>>,
+    device_status: Arc<Mutex<HashMap<String, Vec<DeviceStatusEntry>>>>,
+    max_entries_per_device: usize,
+}
+
+impl MqttHistoryStore {
+    /// Create a new MQTT history store
+    pub fn new(max_entries_per_device: usize) -> Self {
+        Self {
+            weight_readings: Arc::new(Mutex::new(HashMap::new())),
+            device_status: Arc::new(Mutex::new(HashMap::new())),
+            max_entries_per_device,
+        }
+    }
+
+    /// Add a weight reading to history
+    pub async fn add_weight_reading(&self, entry: WeightReadingEntry) {
+        let mut readings = self.weight_readings.lock().await;
+        let device_entries = readings.entry(entry.device_id.clone()).or_insert_with(Vec::new);
+
+        device_entries.push(entry);
+
+        // Keep only the most recent entries
+        if device_entries.len() > self.max_entries_per_device {
+            // Remove oldest entries (keep the newest)
+            let to_remove = device_entries.len() - self.max_entries_per_device;
+            device_entries.drain(0..to_remove);
+        }
+    }
+
+    /// Add a device status to history
+    pub async fn add_device_status(&self, entry: DeviceStatusEntry) {
+        let mut statuses = self.device_status.lock().await;
+        let device_entries = statuses.entry(entry.device_id.clone()).or_insert_with(Vec::new);
+
+        device_entries.push(entry);
+
+        // Keep only the most recent entries
+        if device_entries.len() > self.max_entries_per_device {
+            let to_remove = device_entries.len() - self.max_entries_per_device;
+            device_entries.drain(0..to_remove);
+        }
+    }
+
+    /// Get weight readings for a device
+    pub async fn get_weight_readings(&self, device_id: &str) -> Vec<WeightReadingEntry> {
+        let readings = self.weight_readings.lock().await;
+        readings.get(device_id).cloned().unwrap_or_default()
+    }
+
+    /// Get device status history for a device
+    pub async fn get_device_status(&self, device_id: &str) -> Vec<DeviceStatusEntry> {
+        let statuses = self.device_status.lock().await;
+        statuses.get(device_id).cloned().unwrap_or_default()
+    }
+
+    /// Get latest weight reading for a device
+    pub async fn get_latest_weight_reading(&self, device_id: &str) -> Option<WeightReadingEntry> {
+        let readings = self.weight_readings.lock().await;
+        readings.get(device_id)
+            .and_then(|entries| entries.last())
+            .cloned()
+    }
+
+    /// Get latest device status for a device
+    pub async fn get_latest_device_status(&self, device_id: &str) -> Option<DeviceStatusEntry> {
+        let statuses = self.device_status.lock().await;
+        statuses.get(device_id)
+            .and_then(|entries| entries.last())
+            .cloned()
+    }
+
+    /// Get all devices that have history data
+    pub async fn get_devices_with_history(&self) -> Vec<String> {
+        let readings = self.weight_readings.lock().await;
+        let mut devices: Vec<String> = readings.keys().cloned().collect();
+
+        let statuses = self.device_status.lock().await;
+        for device in statuses.keys() {
+            if !devices.contains(device) {
+                devices.push(device.clone());
+            }
+        }
+
+        devices.sort();
+        devices
+    }
+
+    /// Get statistics for a device's weight readings
+    pub async fn get_weight_stats(&self, device_id: &str) -> Option<WeightStats> {
+        let readings = self.get_weight_readings(device_id).await;
+        if readings.is_empty() {
+            return None;
+        }
+
+        let count = readings.len();
+        let weights: Vec<f64> = readings.iter().map(|r| r.weight).collect();
+        let min_weight = weights.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let max_weight = weights.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let avg_weight = weights.iter().sum::<f64>() / weights.len() as f64;
+
+        Some(WeightStats {
+            device_id: device_id.to_string(),
+            count,
+            min_weight,
+            max_weight,
+            avg_weight,
+            unit: readings[0].unit.clone(),
+        })
+    }
+
+    /// Clear history for a specific device
+    pub async fn clear_device_history(&self, device_id: &str) {
+        let mut readings = self.weight_readings.lock().await;
+        readings.remove(device_id);
+
+        let mut statuses = self.device_status.lock().await;
+        statuses.remove(device_id);
+    }
+
+    /// Clear all history
+    pub async fn clear_all_history(&self) {
+        let mut readings = self.weight_readings.lock().await;
+        readings.clear();
+
+        let mut statuses = self.device_status.lock().await;
+        statuses.clear();
+    }
+
+    /// Get total count of all weight readings across all devices
+    pub async fn get_all_weight_readings_count(&self) -> usize {
+        let readings = self.weight_readings.lock().await;
+        readings.values().map(|entries| entries.len()).sum()
+    }
+
+    /// Get total count of all status updates across all devices
+    pub async fn get_all_status_updates_count(&self) -> usize {
+        let statuses = self.device_status.lock().await;
+        statuses.values().map(|entries| entries.len()).sum()
+    }
+}
+
+/// Weight statistics for a device
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WeightStats {
+    pub device_id: String,
+    pub count: usize,
+    pub min_weight: f64,
+    pub max_weight: f64,
+    pub avg_weight: f64,
+    pub unit: String,
+}
+
 /// Initialize MQTT publisher
 pub fn init_mqtt_publisher(config: MqttConfig) -> Result<Arc<dyn MqttPublisher>, MqttError> {
     if !config.enabled {
         return Err(MqttError::NotEnabled);
     }
-    
+
+    info!("Initializing MQTT publisher with broker_url: {}, client_id: {}", config.broker_url, config.client_id);
+
     // Parse broker URL to extract host and port
     let (host, port) = parse_broker_url(&config.broker_url)?;
-    
+    info!("Parsed broker URL: {}:{}", host, port);
+
     // Create MQTT options
     let mut mqttoptions = MqttOptions::new(&config.client_id, &host, port);
     mqttoptions.set_keep_alive(Duration::from_secs(60));
-    
+
     // Set credentials if provided
     if let (Some(username), Some(password)) = (&config.username, &config.password) {
         mqttoptions.set_credentials(username, password);
     }
-    
+
+    info!("Creating MQTT client...");
     // Create async client (capacity 10 is buffer size for pending messages)
     let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
+    info!("MQTT client created successfully");
     
     // Start event loop in background task (required for AsyncClient to work)
     // The event loop needs to run to process incoming messages and maintain connection
@@ -301,6 +501,7 @@ pub async fn start_mqtt_subscriber_event_loop(
     config: MqttConfig,
     device_manager: Arc<crate::device_manager::DeviceManager>,
     _mqtt_publisher: Option<Arc<dyn MqttPublisher>>,
+    history_store: Option<Arc<MqttHistoryStore>>,
 ) -> Result<tokio::task::JoinHandle<()>, MqttError> {
     if !config.enabled {
         return Err(MqttError::NotEnabled);
@@ -347,31 +548,94 @@ pub async fn start_mqtt_subscriber_event_loop(
                     info!("MQTT subscriber connected successfully");
                 }
                 Ok(rumqttc::Event::Incoming(rumqttc::Packet::Publish(publish))) => {
-                    let topic = publish.topic;
+                    let topic = publish.topic.clone();
                     let payload = publish.payload;
-                    
-                    // Parse command message from JSON
-                    match serde_json::from_slice::<DeviceCommandMessage>(&payload) {
-                        Ok(cmd_msg) => {
-                            // Create ScaleCommandRequest
-                            let request = crate::models::weight::ScaleCommandRequest {
-                                device_id: cmd_msg.device_id.clone(),
-                                command: cmd_msg.command.clone(),
-                            };
-                            
-                            // Execute command via DeviceManager
-                            // Note: DeviceManager will automatically publish the result to MQTT
-                            match device_manager.execute_command(request.clone()).await {
-                                Ok(_response) => {
-                                    info!("MQTT command executed successfully for device {}", cmd_msg.device_id);
+
+                    // Check if this is a command topic
+                    if topic.starts_with(&format!("{}/command/", config.topic_prefix)) {
+                        // Extract device_id from topic: {prefix}/command/{device_id}
+                        let topic_parts: Vec<&str> = topic.split('/').collect();
+                        let device_id = if topic_parts.len() >= 3 {
+                            topic_parts[2].to_string() // Third part is device_id
+                        } else {
+                            warn!("Invalid command topic format: {}", topic);
+                            continue;
+                        };
+
+                        // Try to parse as full DeviceCommandMessage first
+                        let command = if let Ok(cmd_msg) = serde_json::from_slice::<DeviceCommandMessage>(&payload) {
+                            cmd_msg.command
+                        } else {
+                            // Try to parse as simple command object (for MQTT Explorer compatibility)
+                            #[derive(Deserialize)]
+                            struct SimpleCommand {
+                                command: String,
+                            }
+
+                            match serde_json::from_slice::<SimpleCommand>(&payload) {
+                                Ok(simple_cmd) => simple_cmd.command,
+                                Err(e) => {
+                                    warn!("Failed to parse MQTT command message from topic {}: {}", topic, e);
+                                    continue;
+                                }
+                            }
+                        };
+
+                        // Create ScaleCommandRequest
+                        let request = crate::models::weight::ScaleCommandRequest {
+                            device_id: device_id.clone(),
+                            command: command.clone(),
+                        };
+
+                        // Execute command via DeviceManager
+                        // Note: DeviceManager will automatically publish the result to MQTT
+                        match device_manager.execute_command(request.clone()).await {
+                            Ok(_response) => {
+                                info!("MQTT command executed successfully for device {}: {}", device_id, command);
+                            }
+                            Err(e) => {
+                                error!("MQTT command execution failed for device {}: {}", device_id, e);
+                            }
+                        }
+                    }
+                    // Check if this is a weight reading topic
+                    else if topic.starts_with(&format!("{}/weight/", config.topic_prefix)) {
+                        if let Some(ref store) = history_store {
+                            match serde_json::from_slice::<WeightReadingMessage>(&payload) {
+                                Ok(weight_msg) => {
+                                    let entry = WeightReadingEntry {
+                                        device_id: weight_msg.device_id,
+                                        weight: weight_msg.weight,
+                                        unit: weight_msg.unit,
+                                        timestamp: weight_msg.timestamp,
+                                        is_stable: weight_msg.is_stable,
+                                    };
+                                    store.add_weight_reading(entry).await;
+                                    info!("Stored weight reading for device from MQTT topic: {}", topic);
                                 }
                                 Err(e) => {
-                                    error!("MQTT command execution failed for device {}: {}", cmd_msg.device_id, e);
+                                    warn!("Failed to parse weight reading message from topic {}: {}", topic, e);
                                 }
                             }
                         }
-                        Err(e) => {
-                            warn!("Failed to parse MQTT command message from topic {}: {}", topic, e);
+                    }
+                    // Check if this is a device status topic
+                    else if topic.starts_with(&format!("{}/status/", config.topic_prefix)) {
+                        if let Some(ref store) = history_store {
+                            match serde_json::from_slice::<DeviceStatusMessage>(&payload) {
+                                Ok(status_msg) => {
+                                    let entry = DeviceStatusEntry {
+                                        device_id: status_msg.device_id,
+                                        status: status_msg.status,
+                                        timestamp: status_msg.timestamp,
+                                    };
+                                    store.add_device_status(entry).await;
+                                    info!("Stored device status for device from MQTT topic: {}", topic);
+                                }
+                                Err(e) => {
+                                    warn!("Failed to parse device status message from topic {}: {}", topic, e);
+                                }
+                            }
                         }
                     }
                 }

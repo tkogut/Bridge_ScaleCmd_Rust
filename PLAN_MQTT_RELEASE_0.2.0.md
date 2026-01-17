@@ -4,11 +4,19 @@
 
 Ten dokument opisuje plan wdrożenia funkcjonalności MQTT w ScaleIT Bridge w wersji 0.2.0.
 
-## Status: W TRAKCIE REALIZACJI
+## Status: FAZA 2 ROZSZERZONA - MQTT TERMINAL GOTOWY
 
 **Data utworzenia:** 2026-01-14
+**Data zakończenia Fazy 1:** 2026-01-15
+**Data zakończenia rozszerzenia:** 2026-01-16
 **Koordynator:** Cursor AI Coordinator
-**Szacowany czas:** 2-3 dni
+**Czas realizacji:** 2 dni
+
+### 🆕 NOWA FUNKCJONALNOŚĆ: MQTT Terminal (Real Implementation)
+- ✅ **Real MQTT Command Sending** - Zastąpiono symulację prawdziwym publikowaniem MQTT
+- ✅ **POST /api/mqtt/send** - Nowy endpoint API dla wysyłania poleceń MQTT
+- ✅ **MqttTerminal Component** - Terminal diagnostyczny w Diagnostics.tsx
+- ✅ **Device Command Publishing** - Wysyłanie poleceń do tematów `scaleit/command/{device_id}`
 
 ---
 
@@ -30,10 +38,17 @@ Ten dokument opisuje plan wdrożenia funkcjonalności MQTT w ScaleIT Bridge w we
 │  ┌─────────────┐     ┌──────────────┐     ┌─────────────────────┐  │
 │  │ MqttStatus  │     │ MQTT History │     │   External          │  │
 │  │ MqttConfig  │     │ Store        │     │   Clients           │  │
-│  │ Components  │     │ API          │     │   (HA, Node-RED)    │  │
+│  │ MqttTerminal│     │ API          │     │   (HA, Node-RED)    │  │
 │  └─────────────┘     └──────────────┘     └─────────────────────┘  │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
+```
+
+### 🆕 MQTT Terminal Flow
+```
+Frontend (MqttTerminal) ──► API POST /api/mqtt/send ──► Backend ──► MQTT Publish
+       │                                                         │
+       └─────────────────────────────── Response ────────────────┘
 ```
 
 ---
@@ -47,11 +62,12 @@ Ten dokument opisuje plan wdrożenia funkcjonalności MQTT w ScaleIT Bridge w we
 | B1 | Add history module to mqtt/mod.rs | ✅ DONE | High | MqttHistoryStore, WeightReadingEntry, DeviceStatusEntry |
 | B2 | Integrate MqttHistoryStore with subscriber | ✅ DONE | High | Automatyczne zapisywanie odczytów |
 | B3 | Add API endpoints for MQTT history | ✅ DONE | High | GET/DELETE /api/mqtt/* endpoints |
+| B7 | Add MQTT command sending API | ✅ DONE | High | POST /api/mqtt/send endpoint |
 | B4 | WebSocket for real-time updates | ⏸️ OPTIONAL | Low | Push updates do frontend |
 | B5 | MQTT configuration API | ⏸️ OPTIONAL | Low | GET/POST /api/mqtt/config |
 | B6 | Prometheus MQTT metrics | ⏸️ OPTIONAL | Low | Metryki dla Grafana |
 
-**Endpoints utworzone (B3):**
+**Endpoints utworzone (B3, B7):**
 - `GET /api/mqtt/status` - Status MQTT
 - `GET /api/mqtt/devices` - Lista urządzeń z historią
 - `GET /api/mqtt/history/{device_id}` - Historia urządzenia
@@ -59,6 +75,7 @@ Ten dokument opisuje plan wdrożenia funkcjonalności MQTT w ScaleIT Bridge w we
 - `GET /api/mqtt/history/{device_id}/status` - Historia statusów
 - `GET /api/mqtt/history/{device_id}/stats` - Statystyki
 - `DELETE /api/mqtt/history/{device_id}` - Usuwanie historii
+- `POST /api/mqtt/send` - Wysyłanie poleceń MQTT (B7)
 
 ---
 
@@ -70,6 +87,7 @@ Ten dokument opisuje plan wdrożenia funkcjonalności MQTT w ScaleIT Bridge w we
 | F2 | MqttConfigPanel component | ✅ DONE | High | Panel historii i konfiguracji |
 | F3 | mqtt-api.ts service | ✅ DONE | High | API client dla MQTT |
 | F4 | Integration with Index.tsx | ✅ DONE | High | Dodanie do Dashboard |
+| F8 | MqttTerminal component | ✅ DONE | High | Terminal do wysyłania poleceń MQTT |
 | F5 | MQTT Configuration Form | ⏸️ OPTIONAL | Low | UI do konfiguracji MQTT |
 | F6 | Weight history chart | ⏸️ OPTIONAL | Low | Wykres odczytów (recharts) |
 | F7 | Export to CSV | ⏸️ OPTIONAL | Low | Eksport historii |
@@ -78,6 +96,11 @@ Ten dokument opisuje plan wdrożenia funkcjonalności MQTT w ScaleIT Bridge w we
 - `src/services/mqtt-api.ts`
 - `src/components/MqttStatusCard.tsx`
 - `src/components/MqttConfigPanel.tsx`
+- `src/components/MqttTerminal.tsx` (F8)
+
+**Backend pliki:**
+- `src-rust/src/models/mqtt.rs` (SendMqttRequest model)
+- `src-rust/src/mqtt/mod.rs` (publish_custom_message method)
 
 ---
 
@@ -121,7 +144,18 @@ Ten dokument opisuje plan wdrożenia funkcjonalności MQTT w ScaleIT Bridge w we
 
 ---
 
-## Kolejność Realizacji (Faza 2)
+## Frontend Compatibility - UKOŃCZONA ✅
+
+**Data zakończenia:** 2026-01-15
+
+The backend now provides all the endpoints expected by the frontend MQTT components:
+
+- **MqttStatusCard** can use `/api/mqtt/status` for connection status and history statistics
+- **MqttConfigPanel** can use history endpoints for displaying and managing MQTT data
+- All API endpoints match the frontend service expectations
+- Components are integrated into the main dashboard (Index.tsx)
+
+### Kolejność Realizacji (Rozszerzona Implementacja)
 
 ```
 FAZA 1 - UKOŃCZONA ✅
@@ -129,6 +163,20 @@ FAZA 1 - UKOŃCZONA ✅
 ├── Frontend: F1, F2, F3, F4
 ├── Infrastructure: I1, I2
 └── Testing: T1
+
+MQTT TERMINAL - UKOŃCZONA ✅
+├── ✅ Backend: B7 (POST /api/mqtt/send endpoint)
+├── ✅ Frontend: F8 (MqttTerminal component)
+├── ✅ Real MQTT publishing (no simulation)
+├── ✅ Device command validation
+└── ✅ Error handling and user feedback
+
+FRONTEND COMPATIBILITY - ROZSZERZONA ✅
+├── ✅ MqttStatusCard uses /api/mqtt/status
+├── ✅ MqttConfigPanel uses history endpoints
+├── ✅ MqttTerminal uses /api/mqtt/send
+├── ✅ Components integrated in dashboard + diagnostics
+└── ✅ All API contracts match expectations
 
 FAZA 2 - W TRAKCIE 🔄
 ├── 1. Testing: T2 (unit tests) ✅ DONE - 33 tests
@@ -174,10 +222,15 @@ I4, I5 ──────────────► (zależą od I3)
 - [x] MQTT publisher/subscriber działa
 - [x] Historia MQTT zapisywana w pamięci
 - [x] API endpoints dla historii MQTT
+- [x] API endpoint dla wysyłania poleceń MQTT (POST /api/mqtt/send)
 - [x] UI do przeglądania statusu MQTT
 - [x] UI do przeglądania historii MQTT
+- [x] **UI do wysyłania poleceń MQTT (MqttTerminal)**
+- [x] **Real MQTT command publishing (no simulation)**
+- [x] **FRONTEND COMPATIBILITY** - Backend endpoints match frontend expectations
 - [x] Dokumentacja testowania MQTT
 - [x] Testy jednostkowe dla nowego kodu (33 unit + 25 component = 58 tests)
+- [x] Testy E2E MQTT (21 tests)
 - [ ] Installer zaktualizowany o MQTT
 
 ### Pożądane (Should Have)
@@ -218,6 +271,36 @@ I4, I5 ──────────────► (zależą od I3)
 4. Aktualizuj status po każdym zadaniu
 5. Push do: cursor/infrastructure-b355
 ```
+
+---
+
+## 🆕 MQTT Terminal - Szczegóły Implementacji
+
+### Funkcjonalność
+- **Real MQTT Publishing**: Terminal wysyła prawdziwe polecenia MQTT do brokera zamiast symulacji
+- **Device Selection**: Wybór urządzenia z listy dostępnych (z historią MQTT)
+- **Command Input**: Ręczne wprowadzanie poleceń (read_gross, tare, zero, itp.)
+- **Quick Commands**: Przyciski szybkiego dostępu do popularnych poleceń
+- **Message History**: Wyświetlanie wysłanych i odebranych wiadomości MQTT
+- **Error Handling**: Obsługa błędów połączenia i walidacja danych
+
+### Techniczne Detale
+- **Backend**: `POST /api/mqtt/send` endpoint z walidacją MQTT publisher
+- **Frontend**: `MqttTerminal` component w `Diagnostics.tsx` z pełną obsługą błędów
+- **Topic Format**: `scaleit/command/{device_id}` dla poleceń, `scaleit/weight/{device_id}` dla odpowiedzi
+- **QoS**: Konfigurowalne Quality of Service (domyślnie 1)
+- **Retain**: Opcjonalne zachowywanie wiadomości w brokerze
+
+### Przepływ Komend
+```
+Użytkownik → MqttTerminal → sendMqttCommand() → POST /api/mqtt/send → DeviceManager → MQTT Publisher → Broker
+```
+
+### Status Implementacji
+- ✅ **Backend API**: Gotowe i przetestowane
+- ✅ **Frontend UI**: Gotowe z pełną walidacją
+- ✅ **Error Handling**: Kompletne obsługiwanie błędów
+- ✅ **Integration**: Zintegrowane z istniejącymi komponentami MQTT
 
 ---
 

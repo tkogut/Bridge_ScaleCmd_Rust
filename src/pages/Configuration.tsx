@@ -5,14 +5,17 @@ import HostConfigurationTable from "@/components/HostConfigurationTable";
 import IndicatorConfigurationTable from "@/components/IndicatorConfigurationTable";
 import DeviceConfigForm from "@/components/DeviceConfigForm";
 import MasterServerConfig from "@/components/MasterServerConfig";
+import MqttConfigForm from "@/components/MqttConfigForm";
 import { DeviceConfig, DeviceId } from "@/types/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const Configuration = () => {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<{ id: DeviceId; config: DeviceConfig } | undefined>(undefined);
+  const [isMqttFormOpen, setIsMqttFormOpen] = useState(false);
 
   const handleAdd = () => {
     setEditingDevice(undefined);
@@ -29,6 +32,12 @@ const Configuration = () => {
     queryClient.invalidateQueries({ queryKey: ["deviceConfigs"] });
     // Ponadto, inwalidujemy listę urządzeń używaną w ScaleOperationsPanel
     queryClient.invalidateQueries({ queryKey: ["devices"] });
+  };
+
+  const handleMqttSaveSuccess = () => {
+    // Invalidate MQTT-related queries
+    queryClient.invalidateQueries({ queryKey: ["mqttConfig"] });
+    queryClient.invalidateQueries({ queryKey: ["mqttStatus"] });
   };
 
   return (
@@ -71,6 +80,24 @@ const Configuration = () => {
           </CardContent>
         </Card>
 
+        {/* MQTT Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle>MQTT Configuration - Konfiguracja MQTT</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Configure MQTT settings for publishing weight readings and receiving commands.
+                This enables real-time communication with external systems via MQTT broker.
+              </p>
+              <Button onClick={() => setIsMqttFormOpen(true)}>
+                Configure MQTT Settings
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Network Settings */}
         <MasterServerConfig />
       </div>
@@ -80,6 +107,12 @@ const Configuration = () => {
         onOpenChange={setIsFormOpen}
         initialConfig={editingDevice}
         onSaveSuccess={handleSaveSuccess}
+      />
+
+      <MqttConfigForm
+        open={isMqttFormOpen}
+        onOpenChange={setIsMqttFormOpen}
+        onSaveSuccess={handleMqttSaveSuccess}
       />
     </Layout>
   );

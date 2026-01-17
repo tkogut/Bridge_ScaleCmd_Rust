@@ -13,24 +13,24 @@ const Index = () => {
         <p className="text-muted-foreground">
           Visual control panel for ScaleIT Bridge management.
         </p>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Bridge Status Card */}
           <BridgeStatusCard />
-          
+
           {/* MQTT Status Card */}
           <MqttStatusCard />
-          
+
           {/* Scale Operations Panel */}
           <div className="lg:col-span-1">
             <ScaleOperationsPanel />
           </div>
         </div>
-        
-        {/* MQTT History Panel */}
+
+        {/* MQTT History Panel - Temporarily disabled for testing */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <MqttConfigPanel />
-          
+
           {/* Recent Requests Log */}
           <RecentRequestsLog />
         </div>

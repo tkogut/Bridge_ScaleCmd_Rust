@@ -28,9 +28,9 @@ export interface MqttStatus {
   broker_url: string;
   client_id: string;
   topic_prefix: string;
-  devices_with_history: number;
-  total_weight_readings: number;
-  total_status_updates: number;
+  devices_with_history: number | null;
+  total_weight_readings: number | null;
+  total_status_updates: number | null;
 }
 
 export interface MqttDeviceInfo {
@@ -90,6 +90,24 @@ export interface MqttStatsResponse {
 export interface MqttDevicesResponse {
   devices: MqttDeviceInfo[];
   total_count: number;
+}
+
+export interface MqttConfig {
+  enabled: boolean;
+  broker_url: string;
+  client_id: string;
+  topic_prefix: string;
+  username?: string;
+  password?: string;
+  qos: number;
+  retain: boolean;
+}
+
+export interface SendMqttRequest {
+  topic: string;
+  payload: any;
+  qos?: number;
+  retain?: boolean;
 }
 
 /**
@@ -221,9 +239,114 @@ export async function deleteMqttHistory(deviceId: string): Promise<void> {
   const response = await fetch(`${bridgeUrl}/api/mqtt/history/${encodeURIComponent(deviceId)}`, {
     method: 'DELETE',
   });
-  
+
   if (!response.ok) {
     throw new Error(`Failed to delete MQTT history for ${deviceId} (${response.status})`);
+  }
+}
+
+/**
+ * Get MQTT configuration
+ */
+export async function getMqttConfig(): Promise<MqttConfig> {
+  const bridgeUrl = getBridgeUrl();
+  try {
+    const response = await fetch(`${bridgeUrl}/api/mqtt/config`);
+
+    if (!response.ok) {
+      // If the endpoint doesn't exist yet (404), return default config
+      if (response.status === 404) {
+        return {
+          enabled: false,
+          broker_url: "mqtt://localhost:1883",
+          client_id: "scaleit-bridge",
+          topic_prefix: "scaleit",
+          qos: 1,
+          retain: false,
+        };
+      }
+      throw new Error(`Failed to fetch MQTT config (${response.status})`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // If network error or endpoint doesn't exist, return default config
+    console.warn('MQTT config API not available, using defaults:', error);
+    return {
+      enabled: false,
+      broker_url: "mqtt://localhost:1883",
+      client_id: "scaleit-bridge",
+      topic_prefix: "scaleit",
+      qos: 1,
+      retain: false,
+    };
+  }
+}
+
+/**
+ * Save MQTT configuration
+ */
+export async function saveMqttConfig(config: MqttConfig): Promise<{ success: boolean; message: string }> {
+  const bridgeUrl = getBridgeUrl();
+  try {
+    const response = await fetch(`${bridgeUrl}/api/mqtt/config`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ config }),
+    });
+
+    if (!response.ok) {
+      // If the endpoint doesn't exist yet (404), show appropriate message
+      if (response.status === 404) {
+        throw new Error('MQTT configuration API not available. Please rebuild the backend first.');
+      }
+      throw new Error(`Failed to save MQTT config (${response.status})`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // If network error, provide helpful message
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Cannot connect to server. Please check if the backend is running.');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Send custom MQTT message
+ */
+export async function sendMqttCommand(request: SendMqttRequest): Promise<{ success: boolean; message: string }> {
+  const bridgeUrl = getBridgeUrl();
+  try {
+    const response = await fetch(`${bridgeUrl}/api/mqtt/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      // If the endpoint doesn't exist yet (404), show appropriate message
+      if (response.status === 404) {
+        throw new Error('MQTT send API not available. Please rebuild the backend first.');
+      }
+      if (response.status === 503) {
+        throw new Error('MQTT is not enabled or not connected');
+      }
+      throw new Error(`Failed to send MQTT message (${response.status})`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // If network error, provide helpful message
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Cannot connect to server. Please check if the backend is running.');
+    }
+    throw error;
   }
 }
 
@@ -236,4 +359,7 @@ export default {
   getMqttDeviceStatus,
   getMqttStats,
   deleteMqttHistory,
+  getMqttConfig,
+  saveMqttConfig,
+  sendMqttCommand,
 };

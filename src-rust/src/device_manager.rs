@@ -10,6 +10,7 @@ use crate::error::BridgeError;
 use crate::models::device::DeviceConfig;
 use crate::models::host::{AppConfig, HostConfig};
 use crate::models::miernik::MiernikConfig;
+use crate::mqtt::MqttConfig;
 use crate::models::legacy_device::LegacyAppConfig;
 use crate::models::weight::{ScaleCommandRequest, ScaleCommandResponse};
 use crate::mqtt::MqttPublisher;
@@ -21,6 +22,7 @@ pub struct DeviceManager {
     hosts: RwLock<HashMap<String, HostConfig>>,
     mierniki: RwLock<HashMap<String, MiernikConfig>>,
     devices: RwLock<HashMap<String, DeviceConfig>>,
+    mqtt_config: RwLock<Option<MqttConfig>>,
     adapters: RwLock<HashMap<String, Arc<dyn DeviceAdapter + Send + Sync>>>,
     mqtt_publisher: RwLock<Option<Arc<dyn MqttPublisher>>>,
 }
@@ -37,6 +39,7 @@ impl DeviceManager {
         let hosts = config.hosts;
         let mierniki = config.mierniki;
         let devices = config.devices;
+        let mqtt_config = config.mqtt;
         let adapters = Self::build_adapters(&hosts, &mierniki, &devices)?;
 
         Ok(Self {
@@ -44,6 +47,7 @@ impl DeviceManager {
             hosts: RwLock::new(hosts),
             mierniki: RwLock::new(mierniki),
             devices: RwLock::new(devices),
+            mqtt_config: RwLock::new(mqtt_config),
             adapters: RwLock::new(adapters),
             mqtt_publisher: RwLock::new(None),
         })
@@ -228,11 +232,39 @@ impl DeviceManager {
         Ok(())
     }
 
+    // MQTT configuration methods
+    pub fn get_mqtt_config(&self) -> Option<MqttConfig> {
+        self.mqtt_config.read().clone()
+    }
+
+    pub async fn save_mqtt_config(&self, config: MqttConfig) -> Result<(), BridgeError> {
+        {
+            let mut mqtt_config = self.mqtt_config.write();
+            *mqtt_config = Some(config);
+        }
+        self.write_config()?;
+        Ok(())
+    }
+
+    pub async fn delete_mqtt_config(&self) -> Result<(), BridgeError> {
+        {
+            let mut mqtt_config = self.mqtt_config.write();
+            *mqtt_config = None;
+        }
+        self.write_config()?;
+        Ok(())
+    }
+
     /// Set MQTT publisher for publishing weight readings
     pub fn set_mqtt_publisher(&self, publisher: Arc<dyn MqttPublisher>) {
         let mut mqtt_pub = self.mqtt_publisher.write();
         *mqtt_pub = Some(publisher);
         info!("MQTT publisher set for DeviceManager");
+    }
+
+    /// Get MQTT publisher for custom publishing
+    pub fn get_mqtt_publisher(&self) -> Option<Arc<dyn MqttPublisher>> {
+        self.mqtt_publisher.read().as_ref().map(|p| p.clone())
     }
 
     pub async fn execute_command(
@@ -383,6 +415,10 @@ impl DeviceManager {
         {
             let mut devices = self.devices.write();
             *devices = config_from_disk.devices;
+        }
+        {
+            let mut mqtt_config = self.mqtt_config.write();
+            *mqtt_config = config_from_disk.mqtt;
         }
         self.rebuild_adapters().await
     }
@@ -559,6 +595,7 @@ impl DeviceManager {
                 hosts: HashMap::new(),
                 mierniki: HashMap::new(),
                 devices: HashMap::new(),
+                mqtt: None,
             };
             
             // Write default config to file
@@ -667,6 +704,7 @@ impl DeviceManager {
             hosts: self.hosts.read().clone(),
             mierniki: self.mierniki.read().clone(),
             devices: self.devices.read().clone(),
+            mqtt: self.mqtt_config.read().clone(),
         };
         serde_json::to_writer_pretty(writer, &config)?;
         Ok(())
@@ -756,6 +794,7 @@ impl DeviceManager {
             hosts,
             mierniki,
             devices,
+            mqtt: None,
         })
     }
 }

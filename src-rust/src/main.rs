@@ -14,12 +14,13 @@ use std::sync::Arc;
 use scaleit_bridge::device_manager::DeviceManager;
 use scaleit_bridge::error::BridgeError;
 use scaleit_bridge::models::device::SaveConfigRequest;
-use scaleit_bridge::models::host::SaveHostRequest;
+use scaleit_bridge::models::host::{SaveHostRequest, SaveMqttRequest};
 use scaleit_bridge::models::miernik::SaveMiernikRequest;
 use scaleit_bridge::models::weight::{
     DeviceListResponse, HealthResponse, ScaleCommandRequest, ScaleCommandResponse,
 };
-use scaleit_bridge::mqtt;
+use scaleit_bridge::models::mqtt::SendMqttRequest;
+use scaleit_bridge::mqtt::{self, MqttHistoryStore, MqttPublisher};
 
 // Constants
 const DEFAULT_PORT: u16 = 8080;
@@ -138,11 +139,12 @@ fn get_local_ip_addresses() -> Vec<String> {
 
 struct AppState {
     device_manager: Arc<DeviceManager>,
+    mqtt_history: Arc<MqttHistoryStore>,
 }
 
 impl AppState {
-    fn new(device_manager: Arc<DeviceManager>) -> Self {
-        Self { device_manager }
+    fn new(device_manager: Arc<DeviceManager>, mqtt_history: Arc<MqttHistoryStore>) -> Self {
+        Self { device_manager, mqtt_history }
     }
 }
 
@@ -805,6 +807,378 @@ async fn delete_miernik(
     }))
 }
 
+/// Get MQTT configuration
+///
+/// Returns the current MQTT configuration stored in the config file.
+///
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/config
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "enabled": true,
+///   "broker_url": "mqtt://localhost:1883",
+///   "client_id": "scaleit-bridge",
+///   "topic_prefix": "scaleit",
+///   "username": null,
+///   "password": null,
+///   "qos": 1,
+///   "retain": false
+/// }
+/// ```
+#[get("/api/mqtt/config")]
+async fn get_mqtt_config(state: Data<AppState>) -> impl Responder {
+    match state.device_manager.get_mqtt_config() {
+        Some(config) => HttpResponse::Ok().json(config),
+        None => HttpResponse::Ok().json(mqtt::MqttConfig::default()),
+    }
+}
+
+/// Save MQTT configuration
+///
+/// Saves or updates the MQTT configuration and reloads the configuration.
+///
+/// # Example Request
+/// ```http
+/// POST /api/mqtt/config
+/// Content-Type: application/json
+///
+/// {
+///   "config": {
+///     "enabled": true,
+///     "broker_url": "mqtt://localhost:1883",
+///     "client_id": "scaleit-bridge",
+///     "topic_prefix": "scaleit",
+///     "username": null,
+///     "password": null,
+///     "qos": 1,
+///     "retain": false
+///   }
+/// }
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "MQTT configuration saved and reloaded."
+/// }
+/// ```
+#[post("/api/mqtt/config")]
+async fn save_mqtt_config(
+    payload: web::Json<SaveMqttRequest>,
+    state: Data<AppState>,
+) -> impl Responder {
+    if let Err(e) = state
+        .device_manager
+        .save_mqtt_config(payload.config.clone())
+        .await
+    {
+        error!("Failed to save MQTT config: {:?}", e);
+        return bridge_error_response(None, None, e);
+    }
+
+    // Note: MQTT configuration changes require server restart to take effect
+    // We save the config but don't reload MQTT connections here
+    HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": "MQTT configuration saved. Restart the server for changes to take effect."
+    }))
+}
+
+/// Get MQTT status
+///
+/// Returns the current status of MQTT connectivity and configuration.
+///
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/status
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "enabled": true,
+///   "connected": true,
+///   "broker_url": "mqtt://localhost:1883",
+///   "topic_prefix": "scaleit",
+///   "client_id": "scaleit-bridge"
+/// }
+/// ```
+#[get("/api/mqtt/status")]
+async fn get_mqtt_status(state: Data<AppState>) -> impl Responder {
+    // Check saved configuration first, fall back to environment variables
+    let mqtt_config = state.device_manager.get_mqtt_config()
+        .unwrap_or_else(|| mqtt::MqttConfig::from_env());
+
+    // Check if MQTT publisher actually exists (meaning MQTT is initialized and connected)
+    let publisher_exists = state.device_manager.get_mqtt_publisher().is_some();
+
+    HttpResponse::Ok().json(json!({
+        "enabled": mqtt_config.enabled,
+        "connected": publisher_exists, // True only if publisher actually exists
+        "broker_url": mqtt_config.broker_url,
+        "topic_prefix": mqtt_config.topic_prefix,
+        "client_id": mqtt_config.client_id,
+        "devices_with_history": state.mqtt_history.get_devices_with_history().await.len(),
+        "total_weight_readings": state.mqtt_history.get_all_weight_readings_count().await,
+        "total_status_updates": state.mqtt_history.get_all_status_updates_count().await
+    }))
+}
+
+/// Get devices with MQTT history
+///
+/// Returns a list of all devices that have MQTT history data.
+///
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/devices
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "devices": ["scale1", "scale2"]
+/// }
+/// ```
+#[get("/api/mqtt/devices")]
+async fn get_mqtt_devices(state: Data<AppState>) -> impl Responder {
+    let devices = state.mqtt_history.get_devices_with_history().await;
+    HttpResponse::Ok().json(json!({
+        "devices": devices
+    }))
+}
+
+/// Get MQTT history for a device
+///
+/// Returns all weight readings stored in MQTT history for a specific device.
+///
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/history/scale1
+/// ```
+///
+/// # Example Response
+/// ```json
+/// [
+///   {
+///     "device_id": "scale1",
+///     "weight": 123.45,
+///     "unit": "kg",
+///     "timestamp": 1640995200,
+///     "is_stable": true
+///   }
+/// ]
+/// ```
+#[get("/api/mqtt/history/{device_id}")]
+async fn get_mqtt_history(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    let readings = state.mqtt_history.get_weight_readings(&id).await;
+    HttpResponse::Ok().json(readings)
+}
+
+/// Get latest MQTT reading for a device
+///
+/// Returns the most recent weight reading from MQTT history for a specific device.
+///
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/history/scale1/latest
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "device_id": "scale1",
+///   "weight": 123.45,
+///   "unit": "kg",
+///   "timestamp": 1640995200,
+///   "is_stable": true
+/// }
+/// ```
+///
+/// # Errors
+/// - `404 Not Found` - No history data available for the device
+#[get("/api/mqtt/history/{device_id}/latest")]
+async fn get_mqtt_latest(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    match state.mqtt_history.get_latest_weight_reading(&id).await {
+        Some(reading) => HttpResponse::Ok().json(reading),
+        None => HttpResponse::NotFound().json(json!({
+            "error": format!("No history data available for device {}", id)
+        })),
+    }
+}
+
+/// Get MQTT status history for a device
+///
+/// Returns all device status updates stored in MQTT history for a specific device.
+///
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/history/scale1/status
+/// ```
+///
+/// # Example Response
+/// ```json
+/// [
+///   {
+///     "device_id": "scale1",
+///     "status": "connected",
+///     "timestamp": 1640995200
+///   }
+/// ]
+/// ```
+#[get("/api/mqtt/history/{device_id}/status")]
+async fn get_mqtt_status_history(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    let statuses = state.mqtt_history.get_device_status(&id).await;
+    HttpResponse::Ok().json(statuses)
+}
+
+/// Get MQTT statistics for a device
+///
+/// Returns statistical information about weight readings for a specific device.
+///
+/// # Example Request
+/// ```http
+/// GET /api/mqtt/history/scale1/stats
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "device_id": "scale1",
+///   "count": 100,
+///   "min_weight": 100.0,
+///   "max_weight": 200.0,
+///   "avg_weight": 150.0,
+///   "unit": "kg"
+/// }
+/// ```
+///
+/// # Errors
+/// - `404 Not Found` - No history data available for the device
+#[get("/api/mqtt/history/{device_id}/stats")]
+async fn get_mqtt_stats(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    match state.mqtt_history.get_weight_stats(&id).await {
+        Some(stats) => HttpResponse::Ok().json(stats),
+        None => HttpResponse::NotFound().json(json!({
+            "error": format!("No history data available for device {}", id)
+        })),
+    }
+}
+
+/// Delete MQTT history for a device
+///
+/// Removes all MQTT history data (weight readings and status updates) for a specific device.
+///
+/// # Example Request
+/// ```http
+/// DELETE /api/mqtt/history/scale1
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "MQTT history cleared for device scale1"
+/// }
+/// ```
+#[delete("/api/mqtt/history/{device_id}")]
+async fn delete_mqtt_history(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    state.mqtt_history.clear_device_history(&id).await;
+    HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": format!("MQTT history cleared for device {}", id)
+    }))
+}
+
+/// Send MQTT command
+///
+/// Publishes a custom MQTT message to a specified topic.
+///
+/// # Example Request
+/// ```http
+/// POST /api/mqtt/send
+/// Content-Type: application/json
+///
+/// {
+///   "topic": "scaleit/command/scale1",
+///   "payload": {
+///     "device_id": "scale1",
+///     "command": "read_gross",
+///     "timestamp": 1640995200
+///   },
+///   "qos": 1,
+///   "retain": false
+/// }
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "MQTT message sent to topic scaleit/command/scale1"
+/// }
+/// ```
+#[post("/api/mqtt/send")]
+async fn send_mqtt_command(
+    payload: web::Json<SendMqttRequest>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let request = payload.into_inner();
+
+    // Get MQTT publisher from DeviceManager
+    let mqtt_publisher = match state.device_manager.get_mqtt_publisher() {
+        Some(publisher) => publisher,
+        None => {
+            return HttpResponse::ServiceUnavailable().json(json!({
+                "success": false,
+                "error": "MQTT is not enabled or not connected"
+            }));
+        }
+    };
+
+    // Publish the message
+    match mqtt_publisher.publish_custom_message(&request.topic, &request.payload, request.qos, request.retain).await {
+        Ok(_) => {
+            info!("MQTT message sent to topic: {}", request.topic);
+            HttpResponse::Ok().json(json!({
+                "success": true,
+                "message": format!("MQTT message sent to topic {}", request.topic)
+            }))
+        }
+        Err(e) => {
+            error!("Failed to send MQTT message: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({
+                "success": false,
+                "error": format!("Failed to send MQTT message: {}", e)
+            }))
+        }
+    }
+}
+
 /// Gracefully shutdown the server
 /// 
 /// Initiates a graceful shutdown procedure:
@@ -1117,16 +1491,23 @@ async fn main() -> std::io::Result<()> {
         dm.list_configs().keys()
     );
 
+    // Initialize MQTT history store
+    let mqtt_history = Arc::new(MqttHistoryStore::new(1000)); // Store up to 1000 entries per device
+
     // Initialize MQTT if enabled
     let mqtt_config = mqtt::MqttConfig::from_env();
+    info!("MQTT config loaded: enabled={}, broker_url={}, client_id={}, topic_prefix={}",
+        mqtt_config.enabled, mqtt_config.broker_url, mqtt_config.client_id, mqtt_config.topic_prefix);
+
     let mqtt_publisher = if mqtt_config.enabled {
+        info!("Initializing MQTT publisher...");
         match mqtt::init_mqtt_publisher(mqtt_config.clone()) {
             Ok(publisher) => {
                 info!("MQTT publisher initialized successfully");
                 Some(publisher)
             }
             Err(e) => {
-                warn!("Failed to initialize MQTT publisher: {}", e);
+                error!("Failed to initialize MQTT publisher: {}", e);
                 None
             }
         }
@@ -1141,22 +1522,29 @@ async fn main() -> std::io::Result<()> {
     }
 
     // Start MQTT subscriber event loop if enabled
-    let _mqtt_subscriber_handle = if mqtt_config.enabled {
+    let _mqtt_subscriber_handle = if mqtt_config.enabled && mqtt_publisher.is_some() {
+        info!("Starting MQTT subscriber event loop...");
         let dm_for_mqtt = dm.clone();
         let mqtt_config_clone = mqtt_config.clone();
         let mqtt_pub_clone = mqtt_publisher.clone();
-        
-        match mqtt::start_mqtt_subscriber_event_loop(mqtt_config_clone, dm_for_mqtt, mqtt_pub_clone).await {
+        let mqtt_history_clone = mqtt_history.clone();
+
+        match mqtt::start_mqtt_subscriber_event_loop(mqtt_config_clone, dm_for_mqtt, mqtt_pub_clone, Some(mqtt_history_clone)).await {
             Ok(handle) => {
-                info!("MQTT subscriber event loop started");
+                info!("MQTT subscriber event loop started successfully");
                 Some(handle)
             }
             Err(e) => {
-                warn!("Failed to start MQTT subscriber event loop: {}", e);
+                error!("Failed to start MQTT subscriber event loop: {}", e);
                 None
             }
         }
     } else {
+        if mqtt_config.enabled {
+            warn!("MQTT subscriber not started - publisher initialization failed");
+        } else {
+            info!("MQTT subscriber not started - MQTT disabled");
+        }
         None
     };
 
@@ -1259,7 +1647,7 @@ async fn main() -> std::io::Result<()> {
     }
     
     HttpServer::new(move || {
-        let state = AppState::new(dm.clone());
+        let state = AppState::new(dm.clone(), mqtt_history.clone());
         let network_mode_clone = network_mode.clone();
         
         // CORS configuration based on NETWORK_MODE
@@ -1388,7 +1776,18 @@ async fn main() -> std::io::Result<()> {
             .service(save_miernik)
             .service(delete_miernik)
             .service(shutdown_server)
-            .service(start_server);
+            .service(start_server)
+            // MQTT API endpoints
+            .service(get_mqtt_config)
+            .service(save_mqtt_config)
+            .service(get_mqtt_status)
+            .service(get_mqtt_devices)
+            .service(get_mqtt_history)
+            .service(get_mqtt_latest)
+            .service(get_mqtt_status_history)
+            .service(get_mqtt_stats)
+            .service(delete_mqtt_history)
+            .service(send_mqtt_command);
         
         // Serve static files if directory exists
         // Check if web directory exists
