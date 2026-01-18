@@ -38,7 +38,7 @@ const ScaleOperationsPanel = () => {
     },
     onSuccess: (response, command, toastId) => {
       dismissToast(toastId as string);
-      
+
       if (response.success) {
         if (response.result && "gross_weight" in response.result) {
           const reading = response.result as WeightReading;
@@ -54,13 +54,13 @@ const ScaleOperationsPanel = () => {
       } else {
         showError(`Command failed: ${response.error || "Unknown error"}`);
       }
-      
+
       addLog(selectedDeviceId!, command, response);
     },
     onError: (error, command, toastId) => {
       dismissToast(toastId as string);
       showError(`API Error during '${command}': ${error.message}`);
-      
+
       // Symulacja odpowiedzi błędu dla logowania
       addLog(selectedDeviceId!, command, { success: false, device_id: selectedDeviceId!, command, error: error.message }, error);
     },
@@ -86,17 +86,17 @@ const ScaleOperationsPanel = () => {
     if (lastReading) {
       return (
         <div className="text-center p-4 bg-muted rounded-lg">
-          <p className="text-sm text-muted-foreground">Last Stable Reading ({lastReading.timestamp.split('T')[1].slice(0, 8)}):</p>
+          <p className="text-sm text-muted-foreground">Last Stable Reading ({lastReading.timestamp?.includes('T') ? lastReading.timestamp.split('T')[1].slice(0, 8) : lastReading.timestamp || "N/A"}):</p>
           <div className="flex justify-center items-baseline space-x-2 mt-1">
             <span className="text-6xl font-extrabold tracking-tighter text-primary">
-              {lastReading.gross_weight.toFixed(2)}
+              {typeof lastReading.gross_weight === 'number' ? lastReading.gross_weight.toFixed(2) : "0.00"}
             </span>
             <span className="text-2xl font-semibold text-muted-foreground">
-              {lastReading.unit}
+              {lastReading.unit || "kg"}
             </span>
           </div>
           <div className="text-sm mt-2">
-            Net: {lastReading.net_weight.toFixed(2)} {lastReading.unit}
+            Net: {typeof lastReading.net_weight === 'number' ? lastReading.net_weight.toFixed(2) : "0.00"} {lastReading.unit || "kg"}
           </div>
           <div className="flex justify-center items-center mt-2 text-xs">
             {lastReading.is_stable ? (
@@ -126,7 +126,7 @@ const ScaleOperationsPanel = () => {
         <CardTitle className="text-xl font-semibold">Scale Operations</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        
+
         {/* Device Selector */}
         <div className="space-y-2">
           <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -146,8 +146,8 @@ const ScaleOperationsPanel = () => {
             </div>
           ) : (
             <Select
-              value={selectedDeviceId}
-              onValueChange={(value) => setSelectedDeviceId(value)}
+              value={selectedDeviceId || ""}
+              onValueChange={(value) => setSelectedDeviceId(value as DeviceId)}
               disabled={commandMutation.isPending}
             >
               <SelectTrigger>
@@ -170,29 +170,29 @@ const ScaleOperationsPanel = () => {
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-muted-foreground">Commands</h4>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Button 
-              onClick={() => handleCommand("readGross")} 
+            <Button
+              onClick={() => handleCommand("readGross")}
               disabled={!selectedDeviceId || commandMutation.isPending}
               variant="outline"
             >
               Read Gross
             </Button>
-            <Button 
-              onClick={() => handleCommand("readNet")} 
+            <Button
+              onClick={() => handleCommand("readNet")}
               disabled={!selectedDeviceId || commandMutation.isPending}
               variant="outline"
             >
               Read Net
             </Button>
-            <Button 
-              onClick={() => handleCommand("tare")} 
+            <Button
+              onClick={() => handleCommand("tare")}
               disabled={!selectedDeviceId || commandMutation.isPending}
               variant="secondary"
             >
               Tare
             </Button>
-            <Button 
-              onClick={() => handleCommand("zero")} 
+            <Button
+              onClick={() => handleCommand("zero")}
               disabled={!selectedDeviceId || commandMutation.isPending}
               variant="destructive"
             >

@@ -1,4 +1,15 @@
-import {
+import type {
+  ScaleCommandRequest,
+  ScaleCommandResponse,
+  DevicesResponse,
+  HealthResponse,
+  DeviceId,
+  DeviceConfig,
+  HostConfig,
+  MiernikConfig,
+} from "@/types/api";
+
+export type {
   ScaleCommandRequest,
   ScaleCommandResponse,
   DevicesResponse,
@@ -16,19 +27,19 @@ const getBridgeUrl = (): string => {
   // Try environment variable first (for Vercel deployment)
   const envUrl = import.meta.env.VITE_BRIDGE_URL || import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
-  
+
   // If frontend is served from the same origin (backend on port 8080), use relative URL
   // This avoids CORS issues when frontend and backend are on the same host
   if (typeof window !== 'undefined') {
     const currentOrigin = window.location.origin;
     const currentPort = window.location.port;
-    
+
     // If we're on port 8080, use relative URL (same origin)
     if (currentPort === '8080' || currentOrigin.includes(':8080')) {
       return ''; // Relative URL - same origin, no CORS needed
     }
   }
-  
+
   // Use master discovery to get the configured server URL
   return getMasterServerUrl();
 };
@@ -73,18 +84,18 @@ export async function executeScaleCommand(
 
     if (!response.ok) {
       // If response has error details, use them
-      const errorMessage = responseData.error || 
-                           (typeof responseData.result === 'object' && responseData.result !== null && 'message' in responseData.result 
-                             ? (responseData.result as { message: string }).message 
-                             : null) ||
-                           `HTTP error! status: ${response.status}`;
+      const errorMessage = responseData.error ||
+        (typeof responseData.result === 'object' && responseData.result !== null && 'message' in responseData.result
+          ? (responseData.result as { message: string }).message
+          : null) ||
+        `HTTP error! status: ${response.status}`;
       throw new Error(errorMessage);
     }
 
     return responseData;
   } catch (error) {
     clearTimeout(timeoutId);
-    
+
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
         throw new Error('Request timeout: Bridge did not respond within 30 seconds');
@@ -146,10 +157,10 @@ export async function getHealth(): Promise<HealthResponse> {
         error.message.includes("ERR_CONNECTION_REFUSED"))
     ) {
       // Check if it's a Mixed Content issue (HTTPS trying to connect to HTTP)
-      const isMixedContent = window.location.protocol === "https:" && 
-                            (error.message.includes("Failed to fetch") || 
-                             error.message.includes("ERR_BLOCKED_BY_CLIENT"));
-      
+      const isMixedContent = window.location.protocol === "https:" &&
+        (error.message.includes("Failed to fetch") ||
+          error.message.includes("ERR_BLOCKED_BY_CLIENT"));
+
       return {
         status: isMixedContent ? "BLOCKED" : "STOPPED",
         service: "ScaleIT Bridge",
@@ -368,7 +379,22 @@ export async function testHostConnection(hostId: string): Promise<{ success: boo
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Failed to test connection (${response.status})`);
   }
+  return response.json();
+}
 
+/**
+ * Test scale device connection (resolves host automatically)
+ */
+export async function testDeviceConnection(deviceId: string): Promise<{ success: boolean; message: string }> {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/devices/${deviceId}/test`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to test device connection (${response.status})`);
+  }
   return response.json();
 }
 

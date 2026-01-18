@@ -36,7 +36,7 @@ describe("API Service", () => {
 
     it("handles health check failure", async () => {
       server.use(
-        http.get("http://localhost:8080/health", () => {
+        http.get("*/health", () => {
           return new HttpResponse(null, { status: 500 });
         }),
       );
@@ -46,7 +46,7 @@ describe("API Service", () => {
 
     it("handles network error", async () => {
       server.use(
-        http.get("http://localhost:8080/health", () => {
+        http.get("*/health", () => {
           return HttpResponse.error();
         }),
       );
@@ -70,7 +70,7 @@ describe("API Service", () => {
 
     it("handles empty device list", async () => {
       server.use(
-        http.get("http://localhost:8080/devices", () => {
+        http.get("*/devices", () => {
           return HttpResponse.json({
             success: true,
             devices: [],
@@ -85,7 +85,7 @@ describe("API Service", () => {
 
     it("handles server error response", async () => {
       server.use(
-        http.get("http://localhost:8080/devices", () => {
+        http.get("*/devices", () => {
           return HttpResponse.json(
             { success: false, error: "Internal server error" },
             { status: 500 },
@@ -98,7 +98,7 @@ describe("API Service", () => {
 
     it("handles malformed response", async () => {
       server.use(
-        http.get("http://localhost:8080/devices", () => {
+        http.get("*/devices", () => {
           return new HttpResponse("invalid json", {
             headers: { "content-type": "application/json" },
           });
@@ -110,7 +110,7 @@ describe("API Service", () => {
 
     it("handles network timeout", async () => {
       server.use(
-        http.get("http://localhost:8080/devices", async () => {
+        http.get("*/devices", async () => {
           await new Promise((resolve) => setTimeout(resolve, 10000)); // Simulate timeout
           return HttpResponse.json({ success: true, devices: [] });
         }),
@@ -202,7 +202,7 @@ describe("API Service", () => {
 
     it("handles server error during command execution", async () => {
       server.use(
-        http.post("http://localhost:8080/scalecmd", () => {
+        http.post("*/scalecmd", () => {
           return new HttpResponse(null, { status: 500 });
         }),
       );
@@ -217,7 +217,7 @@ describe("API Service", () => {
 
     it("handles malformed command request", async () => {
       server.use(
-        http.post("http://localhost:8080/scalecmd", () => {
+        http.post("*/scalecmd", () => {
           return HttpResponse.json(
             { success: false, error: "Invalid request format" },
             { status: 400 },
@@ -273,7 +273,7 @@ describe("API Service", () => {
 
     it("handles empty configuration response", async () => {
       server.use(
-        http.get("http://localhost:8080/api/config", () => {
+        http.get("*/api/config", () => {
           return HttpResponse.json({});
         }),
       );
@@ -284,7 +284,7 @@ describe("API Service", () => {
 
     it("handles server error", async () => {
       server.use(
-        http.get("http://localhost:8080/api/config", () => {
+        http.get("*/api/config", () => {
           return new HttpResponse(null, { status: 500 });
         }),
       );
@@ -305,8 +305,8 @@ describe("API Service", () => {
           connection_type: "Tcp",
           host: "192.168.1.100",
           port: 8080,
-          timeout_ms: 3000,
         },
+        timeout_ms: 3000,
         commands: {
           readGross: "TEST_READ_GROSS",
           readNet: "TEST_READ_NET",
@@ -324,7 +324,7 @@ describe("API Service", () => {
 
     it("handles save configuration error", async () => {
       server.use(
-        http.post("http://localhost:8080/api/config/save", () => {
+        http.post("*/api/config/save", () => {
           return HttpResponse.json(
             { success: false, error: "Configuration invalid" },
             { status: 400 },
@@ -341,6 +341,7 @@ describe("API Service", () => {
         connection: {
           connection_type: "Tcp",
         },
+        timeout_ms: 1000,
         commands: {},
         enabled: false,
       };
@@ -358,8 +359,8 @@ describe("API Service", () => {
           connection_type: "Tcp",
           host: "",
           port: 0,
-          timeout_ms: 0,
         },
+        timeout_ms: 1000,
         commands: {},
         enabled: false,
       };
@@ -386,7 +387,7 @@ describe("API Service", () => {
     it("handles delete nonexistent device", async () => {
       server.use(
         http.delete(
-          "http://localhost:8080/api/config/:deviceId",
+          "*/api/config/:deviceId",
           ({ params }) => {
             return HttpResponse.json(
               { success: false, error: `Device ${params.deviceId} not found` },
@@ -401,7 +402,7 @@ describe("API Service", () => {
 
     it("handles server error during deletion", async () => {
       server.use(
-        http.delete("http://localhost:8080/api/config/:deviceId", () => {
+        http.delete("*/api/config/:deviceId", () => {
           return new HttpResponse(null, { status: 500 });
         }),
       );
@@ -417,7 +418,7 @@ describe("API Service", () => {
   describe("Error Handling", () => {
     it("handles network connectivity issues", async () => {
       server.use(
-        http.get("http://localhost:8080/health", () => {
+        http.get("*/health", () => {
           return HttpResponse.error();
         }),
       );
@@ -427,7 +428,7 @@ describe("API Service", () => {
 
     it("handles JSON parsing errors", async () => {
       server.use(
-        http.get("http://localhost:8080/devices", () => {
+        http.get("*/devices", () => {
           return new HttpResponse("Not JSON", {
             headers: { "content-type": "application/json" },
           });
@@ -439,7 +440,7 @@ describe("API Service", () => {
 
     it("handles unexpected response format", async () => {
       server.use(
-        http.get("http://localhost:8080/devices", () => {
+        http.get("*/devices", () => {
           return HttpResponse.json({
             unexpected: "format",
             missing: "required fields",

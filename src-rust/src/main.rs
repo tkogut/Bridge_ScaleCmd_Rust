@@ -11,17 +11,17 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 
-use scaleit_bridge::device_manager::DeviceManager;
-use scaleit_bridge::error::BridgeError;
-use scaleit_bridge::models::device::SaveConfigRequest;
+use scaleit_bridge::mqtt::{self, MqttHistoryStore, MqttPublisher};
+use scaleit_bridge::models::legacy_device::LegacyDeviceConfig;
+use scaleit_bridge::models::device::DeviceConfig;
+use scaleit_bridge::models::miernik::{MiernikConfig, SaveMiernikRequest};
 use scaleit_bridge::models::host::{SaveHostRequest, SaveMqttRequest};
-use scaleit_bridge::models::miernik::SaveMiernikRequest;
+use scaleit_bridge::models::mqtt::SendMqttRequest;
 use scaleit_bridge::models::weight::{
     DeviceListResponse, HealthResponse, ScaleCommandRequest, ScaleCommandResponse,
 };
-use scaleit_bridge::models::mqtt::SendMqttRequest;
-use scaleit_bridge::mqtt::{self, MqttHistoryStore, MqttPublisher};
-
+use scaleit_bridge::device_manager::DeviceManager;
+use scaleit_bridge::error::BridgeError;
 // Constants
 const DEFAULT_PORT: u16 = 8080;
 const DEFAULT_CONFIG_PATH: &str = "config/devices.json";
@@ -348,53 +348,98 @@ async fn handle_scalecmd(
 /// ```
 #[get("/api/config")]
 async fn get_device_configs(state: Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().json(state.device_manager.list_configs())
+    HttpResponse::Ok().json(state.device_manager.get_integrated_configs())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SaveLegacyConfigRequest {
+    pub device_id: String,
+    pub config: LegacyDeviceConfig,
 }
 
 /// Save or update device configuration
 /// 
 /// Saves a new device configuration or updates an existing one.
 /// The configuration is immediately reloaded after saving.
-/// 
-/// # Example Request
-/// ```http
-/// POST /api/config/save
-/// Content-Type: application/json
-/// 
-/// {
-///   "device_id": "scale1",
-///   "config": {
-///     "name": "Main Scale",
-///     "manufacturer": "Rinstrum",
-///     "model": "C320",
-///     "protocol": "RINCMD",
-///     "connection": { ... },
-///     "enabled": true
-///   }
-/// }
-/// ```
-/// 
-/// # Example Response
-/// ```json
-/// {
-///   "success": true,
-///   "message": "Configuration for scale1 saved and reloaded."
-/// }
-/// ```
 #[post("/api/config/save")]
 async fn save_device_config(
-    payload: web::Json<SaveConfigRequest>,
+    payload: web::Json<SaveLegacyConfigRequest>,
     state: Data<AppState>,
 ) -> impl Responder {
     let device_id = payload.device_id.clone();
-    if let Err(e) = state
-        .device_manager
-        .save_config(&device_id, payload.config.clone())
-        .await
-    {
-        error!("Failed to save config: {:?}", e);
+    let legacy = &payload.config;
+
+    // --- SHIM START: Convert Integrated (Legacy) to Structured ---
+    
+    // 1. Determine Host ID
+    let host_id = match &legacy.connection {
+        scaleit_bridge::models::device::ConnectionConfig::Tcp { host, port } => {
+            format!("host-tcp-{}-{}", host, port)
+        }
+        scaleit_bridge::models::device::ConnectionConfig::Serial { port, .. } => {
+            let clean_port = port.replace(" ", "").replace("\\", "").replace("/", "");
+            format!("host-serial-{}", clean_port)
+        }
+    };
+
+    // 2. Save/Update Host
+    let host_config = scaleit_bridge::models::host::HostConfig {
+        name: match &legacy.connection {
+            scaleit_bridge::models::device::ConnectionConfig::Tcp { host, port } => {
+                format!("TCP {}:{}", host, port)
+            }
+            scaleit_bridge::models::device::ConnectionConfig::Serial { port, .. } => {
+                format!("Serial {}", port)
+            }
+        },
+        connection: legacy.connection.clone(),
+        timeout_ms: legacy.timeout_ms,
+        enabled: true,
+    };
+    
+    if let Err(e) = state.device_manager.save_host(&host_id, host_config).await {
+        error!("Failed to save derived host: {:?}", e);
         return bridge_error_response(Some(device_id), None, e);
     }
+
+    // 3. Determine Miernik ID
+    let miernik_id = format!("miernik-{}", legacy.protocol.to_lowercase());
+
+    // 4. Save/Update Miernik
+    let miernik_config = MiernikConfig {
+        name: format!("{} {}", legacy.manufacturer, legacy.model),
+        protocol: legacy.protocol.clone(),
+        manufacturer: legacy.manufacturer.clone(),
+        model: legacy.model.clone(),
+        commands: legacy.commands.clone(),
+        enabled: true,
+    };
+
+    if let Err(e) = state.device_manager.save_miernik(&miernik_id, miernik_config).await {
+        error!("Failed to save derived miernik: {:?}", e);
+        return bridge_error_response(Some(device_id), None, e);
+    }
+
+    // 5. Save Device config with references
+    let device_config = DeviceConfig {
+        name: legacy.name.clone(),
+        manufacturer: legacy.manufacturer.clone(),
+        model: legacy.model.clone(),
+        host_id,
+        miernik_id,
+        enabled: legacy.enabled,
+    };
+
+    if let Err(e) = state
+        .device_manager
+        .save_config(&device_id, device_config)
+        .await
+    {
+        error!("Failed to save device config: {:?}", e);
+        return bridge_error_response(Some(device_id), None, e);
+    }
+
+    // --- SHIM END ---
 
     if let Err(e) = state.device_manager.reload_config().await {
         error!("Failed to reload config: {:?}", e);
@@ -403,7 +448,7 @@ async fn save_device_config(
 
     HttpResponse::Ok().json(json!({
         "success": true,
-        "message": format!("Configuration for {} saved and reloaded.", device_id)
+        "message": format!("Configuration for {} saved and reloaded (integrated format handled).", device_id)
     }))
 }
 
@@ -599,6 +644,36 @@ async fn test_host_connection(
 ) -> impl Responder {
     let id = host_id.into_inner();
     match state.device_manager.test_host_connection(&id).await {
+        Ok(message) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "message": message
+        })),
+        Err(e) => bridge_error_response(Some(id), None, e),
+    }
+}
+
+/// Test connection for a specific scale device
+/// 
+/// Resolves the host associated with the device and attempts to test its connection.
+#[post("/api/devices/{device_id}/test")]
+async fn test_device_connection(
+    device_id: web::Path<String>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let id = device_id.into_inner();
+    
+    // Resolve the device to get its host_id
+    let host_id = match state.device_manager.get_config(&id) {
+        Ok(config) => config.host_id,
+        Err(e) => {
+            error!("Failed to resolve device {} for connection test: {:?}", id, e);
+            return bridge_error_response(Some(id), None, e);
+        }
+    };
+
+    info!("Testing connection for device {} via host {}", id, host_id);
+    
+    match state.device_manager.test_host_connection(&host_id).await {
         Ok(message) => HttpResponse::Ok().json(json!({
             "success": true,
             "message": message
@@ -946,7 +1021,7 @@ async fn get_mqtt_status(state: Data<AppState>) -> impl Responder {
 /// ```
 #[get("/api/mqtt/devices")]
 async fn get_mqtt_devices(state: Data<AppState>) -> impl Responder {
-    let devices = state.mqtt_history.get_devices_with_history().await;
+    let devices = state.mqtt_history.get_devices_info().await;
     HttpResponse::Ok().json(json!({
         "devices": devices
     }))
@@ -1150,7 +1225,7 @@ async fn send_mqtt_command(
     let request = payload.into_inner();
 
     // Get MQTT publisher from DeviceManager
-    let mqtt_publisher = match state.device_manager.get_mqtt_publisher() {
+    let mqtt_publisher: Arc<dyn MqttPublisher> = match state.device_manager.get_mqtt_publisher() {
         Some(publisher) => publisher,
         None => {
             return HttpResponse::ServiceUnavailable().json(json!({
@@ -1218,6 +1293,84 @@ async fn shutdown_server(state: Data<AppState>) -> impl Responder {
         "success": true,
         "message": "Shutdown initiated. Server will stop after disconnecting all devices."
     }))
+}
+
+/// Run Mosquitto Broker in a new window
+#[post("/api/mqtt/run-broker")]
+async fn run_mqtt_broker() -> impl Responder {
+    info!("Run Mosquitto Broker request received");
+    
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+        // Exact command: & "C:\Program Files\mosquitto\mosquitto.exe" -v
+        let cmd = "& 'C:\\Program Files\\mosquitto\\mosquitto.exe' -v";
+        
+        match Command::new("cmd")
+            .args(&["/c", "start", "powershell", "-NoExit", "-Command", cmd])
+            .spawn() {
+                Ok(_) => {
+                    info!("Mosquitto Broker process started in a new window");
+                    HttpResponse::Ok().json(json!({
+                        "success": true,
+                        "message": "Mosquitto Broker started in a new window."
+                    }))
+                }
+                Err(e) => {
+                    error!("Failed to start Mosquitto Broker: {}", e);
+                    HttpResponse::InternalServerError().json(json!({
+                        "success": false,
+                        "error": format!("Failed to start Mosquitto Broker: {}", e)
+                    }))
+                }
+            }
+    }
+    #[cfg(not(windows))]
+    {
+        HttpResponse::NotImplemented().json(json!({
+            "success": false,
+            "error": "This command is only supported on Windows"
+        }))
+    }
+}
+
+/// Run MQTT Telemetry (mosquitto_sub) in a new window
+#[post("/api/mqtt/run-sub")]
+async fn run_mqtt_sub() -> impl Responder {
+    info!("Run MQTT Telemetry request received");
+    
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+        // Exact command: .\mosquitto_sub.exe -h localhost -p 1883 -v -t "scaleit/#"
+        let cmd = ".\\mosquitto_sub.exe -h localhost -p 1883 -v -t 'scaleit/#'";
+        
+        match Command::new("cmd")
+            .args(&["/c", "start", "powershell", "-NoExit", "-Command", cmd])
+            .spawn() {
+                Ok(_) => {
+                    info!("MQTT Telemetry process started in a new window");
+                    HttpResponse::Ok().json(json!({
+                        "success": true,
+                        "message": "MQTT Telemetry started in a new window."
+                    }))
+                }
+                Err(e) => {
+                    error!("Failed to start MQTT Telemetry: {}", e);
+                    HttpResponse::InternalServerError().json(json!({
+                        "success": false,
+                        "error": format!("Failed to start MQTT Telemetry: {}", e)
+                    }))
+                }
+            }
+    }
+    #[cfg(not(windows))]
+    {
+        HttpResponse::NotImplemented().json(json!({
+            "success": false,
+            "error": "This command is only supported on Windows"
+        }))
+    }
 }
 
 /// Get server information (IP addresses, network mode, version)
@@ -1495,8 +1648,36 @@ async fn main() -> std::io::Result<()> {
     let mqtt_history = Arc::new(MqttHistoryStore::new(1000)); // Store up to 1000 entries per device
 
     // Initialize MQTT if enabled
-    let mqtt_config = mqtt::MqttConfig::from_env();
-    info!("MQTT config loaded: enabled={}, broker_url={}, client_id={}, topic_prefix={}",
+    // First get from environment (as base defaults)
+    let mut mqtt_config = mqtt::MqttConfig::from_env();
+    
+    // Then override from config file if available in DeviceManager
+    if let Some(dm_mqtt) = dm.get_mqtt_config() {
+        info!("Found MQTT configuration in devices.json, applying settings...");
+        mqtt_config.enabled = dm_mqtt.enabled;
+        
+        // Priority: Env Var (if set explicitly) > devices.json > Default
+        if std::env::var("MQTT_BROKER_URL").is_ok() {
+            info!("  Using MQTT_BROKER_URL from environment");
+        } else {
+            mqtt_config.broker_url = dm_mqtt.broker_url;
+        }
+
+        if std::env::var("MQTT_CLIENT_ID").is_ok() {
+            info!("  Using MQTT_CLIENT_ID from environment");
+        } else {
+            mqtt_config.client_id = dm_mqtt.client_id;
+        }
+
+        if std::env::var("MQTT_TOPIC_PREFIX").is_ok() {
+            info!("  Using MQTT_TOPIC_PREFIX from environment: {}", mqtt_config.topic_prefix);
+        } else {
+            mqtt_config.topic_prefix = dm_mqtt.topic_prefix;
+            info!("  Using topic_prefix from devices.json: {}", mqtt_config.topic_prefix);
+        }
+    }
+
+    info!("MQTT Final Config: enabled={}, broker_url={}, client_id={}, topic_prefix={}",
         mqtt_config.enabled, mqtt_config.broker_url, mqtt_config.client_id, mqtt_config.topic_prefix);
 
     let mqtt_publisher = if mqtt_config.enabled {
@@ -1770,6 +1951,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_host)
             .service(save_host)
             .service(test_host_connection)
+            .service(test_device_connection)
             .service(delete_host)
             .service(get_mierniki)
             .service(get_miernik)
@@ -1787,7 +1969,9 @@ async fn main() -> std::io::Result<()> {
             .service(get_mqtt_status_history)
             .service(get_mqtt_stats)
             .service(delete_mqtt_history)
-            .service(send_mqtt_command);
+            .service(send_mqtt_command)
+            .service(run_mqtt_broker)
+            .service(run_mqtt_sub);
         
         // Serve static files if directory exists
         // Check if web directory exists

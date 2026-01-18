@@ -1,21 +1,22 @@
-import Layout from "@/components/Layout";
 import React, { useState } from "react";
-import DeviceList from "@/components/DeviceList";
-import HostConfigurationTable from "@/components/HostConfigurationTable";
-import IndicatorConfigurationTable from "@/components/IndicatorConfigurationTable";
+import Layout from "@/components/Layout";
+import { DeviceList } from "@/components/DeviceList";
 import DeviceConfigForm from "@/components/DeviceConfigForm";
-import MasterServerConfig from "@/components/MasterServerConfig";
 import MqttConfigForm from "@/components/MqttConfigForm";
 import { DeviceConfig, DeviceId } from "@/types/api";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Wifi, Server, Database, Globe } from "lucide-react";
+import HostConfigurationTable from "@/components/HostConfigurationTable";
+import IndicatorConfigurationTable from "@/components/IndicatorConfigurationTable";
+import MasterServerConfig from "@/components/MasterServerConfig";
 
 const Configuration = () => {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isMqttOpen, setIsMqttOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<{ id: DeviceId; config: DeviceConfig } | undefined>(undefined);
-  const [isMqttFormOpen, setIsMqttFormOpen] = useState(false);
 
   const handleAdd = () => {
     setEditingDevice(undefined);
@@ -26,82 +27,67 @@ const Configuration = () => {
     setEditingDevice({ id, config });
     setIsFormOpen(true);
   };
-  
+
   const handleSaveSuccess = () => {
-    // Inwalidacja zapytania, aby odświeżyć listę urządzeń
+    // Invalidate queries to refresh device list
     queryClient.invalidateQueries({ queryKey: ["deviceConfigs"] });
-    // Ponadto, inwalidujemy listę urządzeń używaną w ScaleOperationsPanel
     queryClient.invalidateQueries({ queryKey: ["devices"] });
   };
 
-  const handleMqttSaveSuccess = () => {
-    // Invalidate MQTT-related queries
+  const handleMqttSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["mqttConfig"] });
-    queryClient.invalidateQueries({ queryKey: ["mqttStatus"] });
   };
 
   return (
     <Layout>
       <div className="space-y-8">
-        <div>
+        <div className="flex flex-col space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Configuration</h2>
           <p className="text-muted-foreground">
-            Manage industrial scale devices, host connections, and indicator protocols.
+            Manage your industrial scale connections and MQTT bridge settings.
           </p>
         </div>
-        
-        {/* Device Configuration Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Device Configuration - Konfiguracja wagi</CardTitle>
-          </CardHeader>
-          <CardContent>
+
+        <Tabs defaultValue="devices" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="devices">Scale Devices</TabsTrigger>
+            <TabsTrigger value="hosts">Hosts</TabsTrigger>
+            <TabsTrigger value="mierniki">Mierniki</TabsTrigger>
+            <TabsTrigger value="mqtt">MQTT Bridge</TabsTrigger>
+            <TabsTrigger value="master">Master Server</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="devices" className="space-y-4">
             <DeviceList onEdit={handleEdit} onAdd={handleAdd} />
-          </CardContent>
-        </Card>
+          </TabsContent>
 
-        {/* Host Configuration Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Host Configuration - Konfiguracja Hosta</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <TabsContent value="hosts" className="space-y-4">
             <HostConfigurationTable />
-          </CardContent>
-        </Card>
+          </TabsContent>
 
-        {/* Indicator Configuration Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Indicator Configuration - Konfiguracja Miernika</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <TabsContent value="mierniki" className="space-y-4">
             <IndicatorConfigurationTable />
-          </CardContent>
-        </Card>
+          </TabsContent>
 
-        {/* MQTT Configuration */}
-        <Card>
-          <CardHeader>
-            <CardTitle>MQTT Configuration - Konfiguracja MQTT</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Configure MQTT settings for publishing weight readings and receiving commands.
-                This enables real-time communication with external systems via MQTT broker.
+          <TabsContent value="mqtt" className="space-y-4">
+            <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg">
+              <Wifi className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">MQTT Bridge Configuration</h3>
+              <p className="text-muted-foreground mb-6 text-center max-w-md">
+                Configure how the bridge connects to your MQTT broker to publish weight readings and receive commands.
               </p>
-              <Button onClick={() => setIsMqttFormOpen(true)}>
+              <Button onClick={() => setIsMqttOpen(true)}>
                 Configure MQTT Settings
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </TabsContent>
 
-        {/* Network Settings */}
-        <MasterServerConfig />
+          <TabsContent value="master" className="space-y-4">
+            <MasterServerConfig />
+          </TabsContent>
+        </Tabs>
       </div>
-      
+
       <DeviceConfigForm
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
@@ -110,9 +96,9 @@ const Configuration = () => {
       />
 
       <MqttConfigForm
-        open={isMqttFormOpen}
-        onOpenChange={setIsMqttFormOpen}
-        onSaveSuccess={handleMqttSaveSuccess}
+        open={isMqttOpen}
+        onOpenChange={setIsMqttOpen}
+        onSaveSuccess={handleMqttSuccess}
       />
     </Layout>
   );

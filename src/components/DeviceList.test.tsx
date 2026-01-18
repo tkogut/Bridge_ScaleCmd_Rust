@@ -135,10 +135,10 @@ describe("DeviceList Component", () => {
 
   it("renders loading state initially", () => {
     mockGetAllDeviceConfigs.mockReturnValue(
-      new Promise(() => {}), // Never resolves to show loading state
+      new Promise(() => { }), // Never resolves to show loading state
     );
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
     expect(
       screen.getByText("Loading device configurations..."),
     ).toBeInTheDocument();
@@ -150,23 +150,35 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "192.168.1.1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
       DWF: {
         name: "DFW - Dini Argeo",
         manufacturer: "Dini Argeo",
         model: "DFW",
-        host_id: "host-2",
-        miernik_id: "miernik-2",
+        protocol: "DINI_ARGEO",
+        connection: {
+          connection_type: "Serial",
+          port: "COM1",
+          baud_rate: 9600,
+          timeout_ms: 1000,
+        },
+        commands: {},
         enabled: true,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByText("C320 Rinstrum")).toBeInTheDocument();
@@ -180,20 +192,25 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum Scale",
         manufacturer: "Rinstrum",
         model: "Rinstrum C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "host-1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByText("C320 Rinstrum Scale")).toBeInTheDocument();
-      expect(screen.getByText("host-1")).toBeInTheDocument();
-      expect(screen.getByText("miernik-1")).toBeInTheDocument();
+      expect(screen.getByText(/host-1/)).toBeInTheDocument();
     });
   });
 
@@ -203,15 +220,21 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "192.168.1.1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       const badge = screen.getByTestId("badge");
@@ -226,15 +249,21 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "192.168.1.1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("edit-icon")).toBeInTheDocument();
@@ -248,16 +277,22 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "192.168.1.1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
     };
 
     const onEditMock = vi.fn();
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={onEditMock} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={onEditMock} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("edit-icon")).toBeInTheDocument();
@@ -275,8 +310,14 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "192.168.1.1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
     };
@@ -284,10 +325,10 @@ describe("DeviceList Component", () => {
     // Mock window.confirm
     global.confirm = vi.fn().mockReturnValue(true);
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
     mockDeleteDeviceConfig.mockResolvedValue(undefined);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("trash2-icon")).toBeInTheDocument();
@@ -298,8 +339,7 @@ describe("DeviceList Component", () => {
 
     await waitFor(() => {
       expect(mockDeleteDeviceConfig).toHaveBeenCalledWith(
-        "C320",
-        expect.any(Object),
+        "C320"
       );
     });
   });
@@ -310,16 +350,22 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "192.168.1.1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
     mockSaveDeviceConfig.mockResolvedValue(undefined);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("switch")).toBeInTheDocument();
@@ -341,7 +387,7 @@ describe("DeviceList Component", () => {
       new Error("Failed to fetch devices"),
     );
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(
@@ -355,7 +401,7 @@ describe("DeviceList Component", () => {
 
     mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByText(/no.*devices.*configured/i)).toBeInTheDocument();
@@ -368,7 +414,7 @@ describe("DeviceList Component", () => {
 
     mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={onAddMock} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={onAddMock} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("plus-circle-icon")).toBeInTheDocument();
@@ -386,19 +432,24 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-tcp-1",
-        miernik_id: "miernik-rincmd-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "host-tcp-1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
-      expect(screen.getByText("host-tcp-1")).toBeInTheDocument();
-      expect(screen.getByText("miernik-rincmd-1")).toBeInTheDocument();
+      expect(screen.getByText(/host-tcp-1/)).toBeInTheDocument();
     });
   });
 
@@ -408,31 +459,49 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "host-1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: true,
       },
       DWF: {
         name: "DFW - Dini Argeo",
         manufacturer: "Dini Argeo",
         model: "DFW",
-        host_id: "host-2",
-        miernik_id: "miernik-2",
+        protocol: "DINI_ARGEO",
+        connection: {
+          connection_type: "Serial",
+          port: "COM1",
+          baud_rate: 9600,
+          timeout_ms: 1000,
+        },
+        commands: {},
         enabled: true,
       },
       CUSTOM: {
         name: "Custom Scale",
         manufacturer: "Custom Corp",
         model: "Custom Model",
-        host_id: "host-3",
-        miernik_id: "miernik-3",
+        protocol: "CUSTOM",
+        connection: {
+          connection_type: "Tcp",
+          host: "host-3",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: false,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByText("C320 Rinstrum")).toBeInTheDocument();
@@ -454,15 +523,21 @@ describe("DeviceList Component", () => {
         name: "C320 Rinstrum",
         manufacturer: "Rinstrum",
         model: "C320",
-        host_id: "host-1",
-        miernik_id: "miernik-1",
+        protocol: "RINCMD",
+        connection: {
+          connection_type: "Tcp",
+          host: "host-1",
+          port: 8080,
+          timeout_ms: 3000,
+        },
+        commands: {},
         enabled: false,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       const badge = screen.getByTestId("badge");
@@ -477,19 +552,24 @@ describe("DeviceList Component", () => {
         name: "DFW - Dini Argeo",
         manufacturer: "Dini Argeo",
         model: "DFW",
-        host_id: "host-serial-1",
-        miernik_id: "miernik-ascii-1",
+        protocol: "DINI_ARGEO",
+        connection: {
+          connection_type: "Serial",
+          port: "host-serial-1",
+          baud_rate: 9600,
+          timeout_ms: 1000,
+        },
+        commands: {},
         enabled: true,
       },
     };
 
-    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs);
+    mockGetAllDeviceConfigs.mockResolvedValue(mockConfigs as any);
 
-    renderWithQueryClient(<DeviceList onEdit={() => {}} onAdd={() => {}} />);
+    renderWithQueryClient(<DeviceList onEdit={() => { }} onAdd={() => { }} />);
 
     await waitFor(() => {
       expect(screen.getByText("host-serial-1")).toBeInTheDocument();
-      expect(screen.getByText("miernik-ascii-1")).toBeInTheDocument();
     });
   });
 });

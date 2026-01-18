@@ -88,22 +88,7 @@ pub trait MqttPublisher: Send + Sync {
     async fn publish_custom_message(&self, topic: &str, payload: &serde_json::Value, qos: i32, retain: bool) -> Result<(), MqttError>;
 }
 
-/// MQTT subscriber - handles command subscriptions and executes commands via callback
-#[allow(dead_code)]
-pub struct RealMqttSubscriber {
-    client: Arc<Mutex<AsyncClient>>,
-    config: MqttConfig,
-}
 
-#[allow(dead_code)]
-impl RealMqttSubscriber {
-    pub fn new(client: AsyncClient, config: MqttConfig) -> Self {
-        Self {
-            client: Arc::new(Mutex::new(client)),
-            config,
-        }
-    }
-}
 
 /// MQTT error types
 #[derive(Debug, thiserror::Error)]
@@ -280,6 +265,16 @@ pub struct DeviceStatusEntry {
     pub timestamp: u64,
 }
 
+/// Information about a device in MQTT history
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MqttDeviceInfo {
+    pub device_id: String,
+    pub weight_readings_count: usize,
+    pub status_updates_count: usize,
+    pub last_weight_reading: Option<WeightReadingEntry>,
+    pub last_status_update: Option<DeviceStatusEntry>,
+}
+
 /// MQTT History Store - in-memory storage for MQTT data
 #[derive(Debug, Clone)]
 pub struct MqttHistoryStore {
@@ -371,6 +366,32 @@ impl MqttHistoryStore {
         devices
     }
 
+    /// Get detailed information for all devices with history
+    pub async fn get_devices_info(&self) -> Vec<MqttDeviceInfo> {
+        let devices = self.get_devices_with_history().await;
+        let mut info = Vec::new();
+
+        let weight_readings = self.weight_readings.lock().await;
+        let device_status = self.device_status.lock().await;
+
+        for device_id in devices {
+            let wr_count = weight_readings.get(&device_id).map(|v| v.len()).unwrap_or(0);
+            let ds_count = device_status.get(&device_id).map(|v| v.len()).unwrap_or(0);
+            let last_wr = weight_readings.get(&device_id).and_then(|v| v.last()).cloned();
+            let last_ds = device_status.get(&device_id).and_then(|v| v.last()).cloned();
+
+            info.push(MqttDeviceInfo {
+                device_id,
+                weight_readings_count: wr_count,
+                status_updates_count: ds_count,
+                last_weight_reading: last_wr,
+                last_status_update: last_ds,
+            });
+        }
+
+        info
+    }
+
     /// Get statistics for a device's weight readings
     pub async fn get_weight_stats(&self, device_id: &str) -> Option<WeightStats> {
         let readings = self.get_weight_readings(device_id).await;
@@ -447,6 +468,7 @@ pub fn init_mqtt_publisher(config: MqttConfig) -> Result<Arc<dyn MqttPublisher>,
     // Parse broker URL to extract host and port
     let (host, port) = parse_broker_url(&config.broker_url)?;
     info!("Parsed broker URL: {}:{}", host, port);
+    info!("Connecting to MQTT broker at {}:{} with client_id: {}", host, port, config.client_id);
 
     // Create MQTT options
     let mut mqttoptions = MqttOptions::new(&config.client_id, &host, port);
@@ -509,6 +531,7 @@ pub async fn start_mqtt_subscriber_event_loop(
     
     // Parse broker URL
     let (host, port) = parse_broker_url(&config.broker_url)?;
+    info!("MQTT Subscriber connecting to {}:{}...", host, port);
     
     // Create MQTT options with unique client ID for subscriber
     let client_id = format!("{}-subscriber", config.client_id);
@@ -523,8 +546,11 @@ pub async fn start_mqtt_subscriber_event_loop(
     // Create async client
     let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
     
-    // Subscribe to command topics
+    // Subscribe to all relevant topics (command, weight, status)
     let command_topic = format!("{}/command/+", config.topic_prefix);
+    let weight_topic = format!("{}/weight/+", config.topic_prefix);
+    let status_topic = format!("{}/status/+", config.topic_prefix);
+    
     let qos = match config.qos {
         0 => QoS::AtMostOnce,
         1 => QoS::AtLeastOnce,
@@ -532,8 +558,16 @@ pub async fn start_mqtt_subscriber_event_loop(
         _ => QoS::AtLeastOnce,
     };
     
+    info!("Subscribing to MQTT topics: {}, {}, {}", command_topic, weight_topic, status_topic);
+    
     client.subscribe(&command_topic, qos).await
         .map_err(|e| MqttError::SubscribeError(format!("Failed to subscribe to {}: {}", command_topic, e)))?;
+    
+    client.subscribe(&weight_topic, qos).await
+        .map_err(|e| MqttError::SubscribeError(format!("Failed to subscribe to {}: {}", weight_topic, e)))?;
+    
+    client.subscribe(&status_topic, qos).await
+        .map_err(|e| MqttError::SubscribeError(format!("Failed to subscribe to {}: {}", status_topic, e)))?;
     
     // Spawn event loop task
     let handle = tokio::spawn(async move {
@@ -550,20 +584,26 @@ pub async fn start_mqtt_subscriber_event_loop(
                 Ok(rumqttc::Event::Incoming(rumqttc::Packet::Publish(publish))) => {
                     let topic = publish.topic.clone();
                     let payload = publish.payload;
+                    info!("Received MQTT message on topic: {}", topic);
 
                     // Check if this is a command topic
                     if topic.starts_with(&format!("{}/command/", config.topic_prefix)) {
+                        info!("Topic matched command prefix: {}", topic);
                         // Extract device_id from topic: {prefix}/command/{device_id}
-                        let topic_parts: Vec<&str> = topic.split('/').collect();
-                        let device_id = if topic_parts.len() >= 3 {
-                            topic_parts[2].to_string() // Third part is device_id
-                        } else {
-                            warn!("Invalid command topic format: {}", topic);
-                            continue;
+                        // Handle multi-segment prefixes like "scaleit/bridge"
+                        let command_prefix = format!("{}/command/", config.topic_prefix);
+                        let device_id = match topic.strip_prefix(&command_prefix) {
+                            Some(id) if !id.is_empty() => id.to_string(),
+                            _ => {
+                                warn!("Invalid command topic format: {}", topic);
+                                continue;
+                            }
                         };
+                        info!("Extracted device_id from topic: {}", device_id);
 
                         // Try to parse as full DeviceCommandMessage first
                         let command = if let Ok(cmd_msg) = serde_json::from_slice::<DeviceCommandMessage>(&payload) {
+                            info!("Parsed full DeviceCommandMessage: {:?}", cmd_msg);
                             cmd_msg.command
                         } else {
                             // Try to parse as simple command object (for MQTT Explorer compatibility)
@@ -573,13 +613,18 @@ pub async fn start_mqtt_subscriber_event_loop(
                             }
 
                             match serde_json::from_slice::<SimpleCommand>(&payload) {
-                                Ok(simple_cmd) => simple_cmd.command,
+                                Ok(simple_cmd) => {
+                                    info!("Parsed simple command: {}", simple_cmd.command);
+                                    simple_cmd.command
+                                },
                                 Err(e) => {
-                                    warn!("Failed to parse MQTT command message from topic {}: {}", topic, e);
+                                    warn!("Failed to parse MQTT command message from topic {} (payload: {:?}): {}", topic, String::from_utf8_lossy(&payload), e);
                                     continue;
                                 }
                             }
                         };
+
+                        info!("Executing command '{}' for device '{}'", command, device_id);
 
                         // Create ScaleCommandRequest
                         let request = crate::models::weight::ScaleCommandRequest {
@@ -600,6 +645,7 @@ pub async fn start_mqtt_subscriber_event_loop(
                     }
                     // Check if this is a weight reading topic
                     else if topic.starts_with(&format!("{}/weight/", config.topic_prefix)) {
+                        info!("Topic matched weight prefix: {}", topic);
                         if let Some(ref store) = history_store {
                             match serde_json::from_slice::<WeightReadingMessage>(&payload) {
                                 Ok(weight_msg) => {

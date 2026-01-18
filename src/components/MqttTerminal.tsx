@@ -241,7 +241,7 @@ const MqttTerminal: React.FC = () => {
               </div>
             </div>
           ) : (
-            <Select value={selectedDeviceId} onValueChange={setSelectedDeviceId}>
+            <Select value={selectedDeviceId || ""} onValueChange={setSelectedDeviceId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a device" />
               </SelectTrigger>
@@ -271,7 +271,7 @@ const MqttTerminal: React.FC = () => {
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Enter command (e.g., read_gross, tare, zero)"
+              placeholder="Enter command (e.g., readGross, tare, zero)"
               disabled={!canSendCommands}
             />
             <Button
@@ -294,7 +294,7 @@ const MqttTerminal: React.FC = () => {
         <div className="space-y-2">
           <label className="text-sm font-medium">Quick Commands</label>
           <div className="flex flex-wrap gap-2">
-            {["read_gross", "read_net", "tare", "zero", "read_status"].map((cmd) => (
+            {["readGross", "readNet", "tare", "zero", "readStatus"].map((cmd) => (
               <Button
                 key={cmd}
                 variant="outline"
@@ -351,11 +351,10 @@ const MqttTerminal: React.FC = () => {
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`p-3 rounded-lg border ${
-                      msg.direction === 'received'
-                        ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
-                        : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
-                    }`}
+                    className={`p-3 rounded-lg border ${msg.direction === 'received'
+                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                      : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                      }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -397,7 +396,7 @@ const MqttTerminal: React.FC = () => {
               {latestData.latest_weight && (
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <div className="text-sm">
-                    <strong>Latest Weight:</strong> {latestData.latest_weight.weight.toFixed(2)} {latestData.latest_weight.unit}
+                    <strong>Latest Weight:</strong> {typeof latestData.latest_weight.weight === 'number' ? latestData.latest_weight.weight.toFixed(2) : "0.00"} {latestData.latest_weight.unit || "kg"}
                     {latestData.latest_weight.is_stable && (
                       <Badge variant="secondary" className="ml-2 text-xs">Stable</Badge>
                     )}

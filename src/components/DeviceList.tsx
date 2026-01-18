@@ -25,25 +25,23 @@ interface DeviceListProps {
   onAdd: () => void;
 }
 
-const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
+export const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
   const queryClient = useQueryClient();
 
   const {
     data: configs,
     isLoading,
     error,
-    refetch,
   } = useQuery({
     queryKey: ["deviceConfigs"],
     queryFn: getAllDeviceConfigs,
-    refetchInterval: 60000, // Odświeżanie co minutę
+    refetchInterval: 60000,
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteDeviceConfig,
     onSuccess: (_, deviceId) => {
       showSuccess(`Device ${deviceId} deleted successfully.`);
-      // Inwalidacja obu zapytań, aby odświeżyć listę i operacje
       queryClient.invalidateQueries({ queryKey: ["deviceConfigs"] });
       queryClient.invalidateQueries({ queryKey: ["devices"] });
     },
@@ -126,8 +124,8 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
             <TableRow>
               <TableHead className="w-[150px]">ID</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Host</TableHead>
-              <TableHead>Miernik</TableHead>
+              <TableHead>Connection</TableHead>
+              <TableHead>Protocol</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right w-[100px]">Actions</TableHead>
             </TableRow>
@@ -149,12 +147,22 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
                   <TableCell>{config.name}</TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      <div className="font-medium">{config.host_id}</div>
+                      <div className="font-medium">
+                        {config.connection.connection_type === "Tcp"
+                          ? `${config.connection.host}:${config.connection.port}`
+                          : config.connection.port}
+                      </div>
+                      <div className="text-muted-foreground text-xs">
+                        {config.connection.connection_type === "Tcp" ? "TCP/IP" : `Serial (${config.connection.baud_rate} bps)`}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      <div className="font-medium">{config.miernik_id}</div>
+                      <div className="font-medium">{config.protocol}</div>
+                      <div className="text-muted-foreground text-xs">
+                        {config.model}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -190,7 +198,7 @@ const DeviceList: React.FC<DeviceListProps> = ({ onEdit, onAdd }) => {
                         disabled={deleteMutation.isPending}
                       >
                         {deleteMutation.isPending &&
-                        deleteMutation.variables === id ? (
+                          deleteMutation.variables === id ? (
                           <Loader2 className="h-4 w-4 animate-spin text-destructive" />
                         ) : (
                           <Trash2 className="h-4 w-4 text-destructive" />

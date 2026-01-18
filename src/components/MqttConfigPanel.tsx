@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  getMqttDevices, 
-  getMqttHistory, 
+import {
+  getMqttDevices,
+  getMqttHistory,
   getMqttLatest,
   getMqttStats,
   deleteMqttHistory,
@@ -14,12 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Loader2, 
-  Trash2, 
-  RefreshCw, 
-  Activity, 
-  Clock, 
+import {
+  Loader2,
+  Trash2,
+  RefreshCw,
+  Activity,
+  Clock,
   Scale,
   AlertTriangle,
 } from "lucide-react";
@@ -42,8 +42,8 @@ const MqttConfigPanel = () => {
   const queryClient = useQueryClient();
 
   // Fetch devices with MQTT history
-  const { 
-    data: devicesData, 
+  const {
+    data: devicesData,
     isLoading: isLoadingDevices,
     error: devicesError,
     refetch: refetchDevices,
@@ -54,8 +54,8 @@ const MqttConfigPanel = () => {
   });
 
   // Fetch latest data for selected device
-  const { 
-    data: latestData, 
+  const {
+    data: latestData,
     isLoading: isLoadingLatest,
   } = useQuery({
     queryKey: ["mqttLatest", selectedDeviceId],
@@ -65,8 +65,8 @@ const MqttConfigPanel = () => {
   });
 
   // Fetch stats for selected device
-  const { 
-    data: statsData, 
+  const {
+    data: statsData,
     isLoading: isLoadingStats,
   } = useQuery({
     queryKey: ["mqttStats", selectedDeviceId],
@@ -76,8 +76,8 @@ const MqttConfigPanel = () => {
   });
 
   // Fetch history for selected device
-  const { 
-    data: historyData, 
+  const {
+    data: historyData,
     isLoading: isLoadingHistory,
     refetch: refetchHistory,
   } = useQuery({
@@ -128,7 +128,7 @@ const MqttConfigPanel = () => {
   const formatRelativeTime = (timestamp: number): string => {
     const now = Date.now() / 1000;
     const diff = now - timestamp;
-    
+
     if (diff < 60) return `${Math.floor(diff)}s ago`;
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -137,26 +137,19 @@ const MqttConfigPanel = () => {
 
   // Render weight reading
   const renderWeightReading = (reading: WeightReadingEntry) => (
-    <div 
+    <div
       key={`${reading.device_id}-${reading.timestamp}`}
       className="flex items-center justify-between p-2 bg-muted/30 rounded text-sm"
     >
       <div className="flex items-center gap-2">
         <Scale className="h-4 w-4 text-muted-foreground" />
-        <span className="font-semibold text-green-600 dark:text-green-400">
-          {reading.weight.toFixed(2)} {reading.unit}
-        </span>
-        {reading.is_stable && (
-          <Badge variant="secondary" className="text-xs py-0">
-            Stable
-          </Badge>
-        )}
+        <span className="font-medium">{reading.device_id}</span>
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Clock className="h-3 w-3" />
-        <span title={formatTimestamp(reading.timestamp)}>
-          {formatRelativeTime(reading.timestamp)}
-        </span>
+      <div className="text-primary font-mono font-bold">
+        {typeof reading.weight === 'number' ? reading.weight.toFixed(2) : "0.00"} {reading.unit || "kg"}
+      </div>
+      <div className="text-xs text-muted-foreground italic">
+        {reading.is_stable ? "stable" : "unstable"}
       </div>
     </div>
   );
@@ -192,9 +185,9 @@ const MqttConfigPanel = () => {
           <Activity className="h-5 w-5" />
           MQTT History
         </CardTitle>
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => {
             refetchDevices();
             if (selectedDeviceId) refetchHistory();
@@ -220,7 +213,7 @@ const MqttConfigPanel = () => {
             </div>
           ) : (
             <Select
-              value={selectedDeviceId}
+              value={selectedDeviceId || ""}
               onValueChange={setSelectedDeviceId}
             >
               <SelectTrigger>
@@ -256,15 +249,15 @@ const MqttConfigPanel = () => {
                       <Scale className="h-8 w-8 text-green-600 dark:text-green-400" />
                       <div>
                         <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                          {latestData.latest_weight.weight.toFixed(2)} {latestData.latest_weight.unit}
+                          {typeof latestData.latest_weight.weight === 'number' ? latestData.latest_weight.weight.toFixed(2) : "0"} {latestData.latest_weight.unit}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {latestData.latest_weight.is_stable ? "Stable" : "Unstable"} · {formatRelativeTime(latestData.latest_weight.timestamp)}
+                          {latestData.latest_weight.is_stable ? "Stable" : "Unstable"} · {latestData.latest_weight.timestamp ? formatRelativeTime(latestData.latest_weight.timestamp) : "unknown"}
                         </div>
                       </div>
                     </div>
                     {latestData.latest_status && (
-                      <Badge 
+                      <Badge
                         variant={latestData.latest_status.status === "connected" ? "default" : "secondary"}
                       >
                         {latestData.latest_status.status}
@@ -288,6 +281,16 @@ const MqttConfigPanel = () => {
                     <div className="text-xs text-muted-foreground">Status Updates</div>
                     <div className="font-semibold">{statsData.status_updates_count}</div>
                   </div>
+                  {latestData.latest_weight && (
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm">
+                        <strong>Latest Weight:</strong> {typeof latestData.latest_weight.weight === 'number' ? latestData.latest_weight.weight.toFixed(2) : "0.00"} {latestData.latest_weight.unit || "kg"}
+                        {latestData.latest_weight.is_stable && (
+                          <Badge variant="secondary" className="ml-2 text-xs">Stable</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {statsData.first_weight_reading && (
                     <div className="p-2 bg-muted/50 rounded col-span-2">
                       <div className="text-xs text-muted-foreground">First Reading</div>
@@ -301,7 +304,7 @@ const MqttConfigPanel = () => {
             )}
 
             {/* History */}
-            {historyData && historyData.weight_readings.length > 0 && (
+            {Array.isArray(historyData?.weight_readings) && historyData.weight_readings.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium text-muted-foreground">Recent History</h4>
@@ -321,8 +324,8 @@ const MqttConfigPanel = () => {
             <div className="pt-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     size="sm"
                     disabled={deleteHistoryMutation.isPending}
                   >

@@ -37,8 +37,8 @@ describe("MqttConfigPanel", () => {
 
       // Wait for the component to render (it shows loading initially, then title)
       await waitFor(() => {
-        const hasTitle = screen.queryByText("MQTT History") !== null ||
-                        screen.queryByText(/Loading MQTT data/) !== null;
+        const hasTitle = screen.queryByText(/MQTT History & Statistics/) !== null ||
+          screen.queryByText(/Loading MQTT devices/) !== null;
         expect(hasTitle).toBe(true);
       });
     });
@@ -451,11 +451,11 @@ describe("MqttConfigPanel", () => {
 
       // Wait for initial load to complete
       await waitFor(() => {
-        expect(screen.getByText("MQTT History")).toBeInTheDocument();
+        expect(screen.getByText(/MQTT History & Statistics/)).toBeInTheDocument();
       });
 
       // The refresh button should be present (may be inside the card)
-      const card = screen.getByText("MQTT History").closest("div");
+      const card = screen.getByText(/MQTT History & Statistics/).closest("div");
       expect(card).toBeInTheDocument();
     });
   });

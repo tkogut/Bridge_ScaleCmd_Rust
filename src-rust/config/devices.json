@@ -1,10 +1,7 @@
 {
-  "devices": {
-    "c320": {
-      "name": "C320 Rinstrum",
-      "manufacturer": "Rinstrum",
-      "model": "C320",
-      "protocol": "RINCMD",
+  "hosts": {
+    "rinstrum_serial_host": {
+      "name": "Rinstrum Serial Port",
       "connection": {
         "connection_type": "Serial",
         "port": "COM9",
@@ -15,19 +12,10 @@
         "flow_control": "none"
       },
       "timeout_ms": 3000,
-      "commands": {
-        "readnet": "20050025",
-        "zero": "21120008:0B",
-        "tare": "21120008:0C",
-        "readgross": "20050026"
-      },
       "enabled": false
     },
-    "dfw": {
-      "name": "DFW - Dini Argeo",
-      "manufacturer": "Dini Argeo",
-      "model": "DFW",
-      "protocol": "DINI_ARGEO",
+    "dini_serial_host": {
+      "name": "Dini Argeo Serial Port",
       "connection": {
         "connection_type": "Serial",
         "port": "COM4",
@@ -38,32 +26,77 @@
         "flow_control": "none"
       },
       "timeout_ms": 1000,
-      "commands": {
-        "readgross": "READ",
-        "tare": "TARE",
-        "zero": "ZERO",
-        "readnet": "REXT"
-      },
       "enabled": false
     },
-    "c320tcp": {
-      "name": "C320 Rinstrum TCP",
-      "manufacturer": "Rinstrum",
-      "model": "C320",
-      "protocol": "RINCMD",
+    "rinstrum_tcp_host": {
+      "name": "Rinstrum TCP Adapter",
       "connection": {
         "connection_type": "Tcp",
         "host": "192.168.1.254",
         "port": 4001
       },
       "timeout_ms": 5000,
+      "enabled": true
+    }
+  },
+  "mierniki": {
+    "rinstrum_c320": {
+      "name": "Rinstrum C320",
+      "protocol": "RINCMD",
+      "manufacturer": "Rinstrum",
+      "model": "C320",
       "commands": {
+        "readnet": "20050025",
         "zero": "21120008:0B",
-        "readNet": "20050025",
         "tare": "21120008:0C",
-        "readGross": "20050026"
+        "readgross": "20050026"
+      },
+      "enabled": true
+    },
+    "dini_dfw": {
+      "name": "Dini Argeo DFW",
+      "protocol": "DINI_ARGEO",
+      "manufacturer": "Dini Argeo",
+      "model": "DFW",
+      "commands": {
+        "readgross": "READ",
+        "tare": "TARE",
+        "zero": "ZERO",
+        "readnet": "REXT"
       },
       "enabled": true
     }
+  },
+  "devices": {
+    "c320": {
+      "name": "C320 Rinstrum",
+      "manufacturer": "Rinstrum",
+      "model": "C320",
+      "host_id": "rinstrum_serial_host",
+      "miernik_id": "rinstrum_c320",
+      "enabled": false
+    },
+    "dfw": {
+      "name": "DFW - Dini Argeo",
+      "manufacturer": "Dini Argeo",
+      "model": "DFW",
+      "host_id": "dini_serial_host",
+      "miernik_id": "dini_dfw",
+      "enabled": false
+    },
+    "c320tcp": {
+      "name": "C320 Rinstrum TCP",
+      "manufacturer": "Rinstrum",
+      "model": "C320",
+      "host_id": "rinstrum_tcp_host",
+      "miernik_id": "rinstrum_c320",
+      "enabled": true
+    }
+  },
+  "mqtt": {
+    "broker_url": "mqtt://127.0.0.1:1883",
+    "client_id": "scaleit_bridge_test",
+    "topic_prefix": "scaleit/bridge",
+    "enabled": true
   }
 }

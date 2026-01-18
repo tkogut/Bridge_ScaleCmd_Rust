@@ -38,7 +38,7 @@ const MasterServerConfig = () => {
     setConfig(currentConfig);
     setManualIp(currentConfig.manualIp || "");
     setManualPort(currentConfig.port || 8080);
-    
+
     // Test current connection
     testConnection();
   }, []);
@@ -67,7 +67,7 @@ const MasterServerConfig = () => {
     const newConfig = getMasterServerConfig();
     setConfig(newConfig);
     showSuccess(`Master server configured: ${newConfig.url}`);
-    
+
     // Test the new connection
     testConnection();
   };
@@ -95,7 +95,7 @@ const MasterServerConfig = () => {
         const newConfig = getMasterServerConfig();
         setConfig(newConfig);
         showSuccess(`Master server detected: ${detectedIp}`);
-        
+
         // Test the detected connection
         await testConnection();
       } else {
@@ -116,7 +116,7 @@ const MasterServerConfig = () => {
     try {
       const result = await testMasterConnection();
       setTestResult(result);
-      
+
       if (result.success && result.serverInfo) {
         setCurrentServerInfo(result.serverInfo);
         showSuccess(result.message);
@@ -185,7 +185,7 @@ const MasterServerConfig = () => {
               <p>
                 <span className="font-medium">Network Mode:</span> {currentServerInfo.network_mode}
               </p>
-              {currentServerInfo.ip_addresses.length > 0 && (
+              {Array.isArray(currentServerInfo.ip_addresses) && currentServerInfo.ip_addresses.length > 0 && (
                 <p>
                   <span className="font-medium">Available IPs:</span>{" "}
                   {currentServerInfo.ip_addresses.join(", ")}

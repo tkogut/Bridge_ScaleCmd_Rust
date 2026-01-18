@@ -27,23 +27,8 @@ export interface DeviceConfig {
   name: string;
   manufacturer: string;
   model: string;
-  host_id: string;
-  miernik_id: string;
-  enabled: boolean;
-}
-
-export interface HostConfig {
-  name: string;
-  connection: TcpConnection | SerialConnection;
-  timeout_ms: number;
-  enabled: boolean;
-}
-
-export interface MiernikConfig {
-  name: string;
   protocol: string;
-  manufacturer: string;
-  model: string;
+  connection: TcpConnection | SerialConnection;
   commands: Record<string, string>;
   enabled: boolean;
 }
@@ -52,16 +37,14 @@ export interface TcpConnection {
   connection_type: "Tcp";
   host: string;
   port: number;
+  timeout_ms: number;
 }
 
 export interface SerialConnection {
   connection_type: "Serial";
   port: string;
   baud_rate: number;
-  data_bits?: number;
-  stop_bits?: "one" | "two";
-  parity?: "none" | "even" | "odd";
-  flow_control?: "none" | "software" | "hardware";
+  timeout_ms: number;
 }
 
 export interface DevicesResponse {
@@ -73,6 +56,22 @@ export interface HealthResponse {
   status: "OK" | "ERROR" | "STOPPED" | "BLOCKED";
   service: string;
   version: string;
+}
+
+export interface HostConfig {
+  name: string;
+  connection: TcpConnection | SerialConnection;
+  timeout_ms: number;
+  enabled: boolean;
+}
+
+export interface MiernikConfig {
+  name: string;
+  manufacturer: string;
+  model: string;
+  protocol: string;
+  commands: Record<string, string>;
+  enabled: boolean;
 }
 
 export interface LogEntry {

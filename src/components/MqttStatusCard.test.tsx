@@ -315,7 +315,7 @@ describe("MqttStatusCard", () => {
         expect(screen.getByText("Connected")).toBeInTheDocument();
       });
 
-      const refreshButton = screen.getByRole("button");
+      const refreshButton = screen.getByRole("button", { name: /refresh/i });
       await user.click(refreshButton);
 
       // The button click should trigger a refetch

@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use tempfile::TempDir;
 
 use scaleit_bridge::device_manager::DeviceManager;
-use scaleit_bridge::models::device::{AppConfig, ConnectionConfig, DeviceConfig};
+use scaleit_bridge::models::device::{ConnectionConfig, DeviceConfig};
+use scaleit_bridge::models::host::{AppConfig, HostConfig};
+use scaleit_bridge::models::miernik::MiernikConfig;
 use scaleit_bridge::models::weight::{
     HealthResponse, ScaleCommandRequest, ScaleCommandResponse, WeightReading,
 };
@@ -19,31 +21,55 @@ impl TestApp {
         let temp_dir = TempDir::new().expect("Failed to create temp directory");
         let config_path = temp_dir.path().join("test_devices.json");
 
-        // Create test device configuration
-        let mut devices = HashMap::new();
+        // 1. Create Host
+        let mut hosts = HashMap::new();
+        hosts.insert("local_host".to_string(), HostConfig {
+            name: "Local TCP Host".to_string(),
+            connection: ConnectionConfig::Tcp {
+                host: "127.0.0.1".to_string(),
+                port: 9999,
+            },
+            timeout_ms: 1000,
+            enabled: true,
+        });
+
+        // 2. Create Miernik
+        let mut mierniki = HashMap::new();
         let mut commands = HashMap::new();
         commands.insert("readGross".to_string(), "TEST_READ_GROSS".to_string());
         commands.insert("readNet".to_string(), "TEST_READ_NET".to_string());
         commands.insert("tare".to_string(), "TEST_TARE".to_string());
         commands.insert("zero".to_string(), "TEST_ZERO".to_string());
 
+        mierniki.insert("rinstrum_miernik".to_string(), MiernikConfig {
+            name: "Rinstrum C320".to_string(),
+            protocol: "RINCMD".to_string(),
+            manufacturer: "Rinstrum".to_string(),
+            model: "C320".to_string(),
+            commands: commands.clone(),
+            enabled: true,
+        });
+
+        // 3. Create Device
+        let mut devices = HashMap::new();
         let test_device = DeviceConfig {
             name: "Test Scale".to_string(),
             manufacturer: "Test Manufacturer".to_string(),
             model: "TestModel".to_string(),
-            protocol: "RINCMD".to_string(),
-            connection: ConnectionConfig::Tcp {
-                host: "127.0.0.1".to_string(),
-                port: 9999,
-            },
-            commands,
-            timeout_ms: 1000,
+            host_id: "local_host".to_string(),
+            miernik_id: "rinstrum_miernik".to_string(),
             enabled: true,
         };
 
         devices.insert("test_scale".to_string(), test_device);
 
-        let app_config = AppConfig { devices };
+        // 4. App Config
+        let app_config = AppConfig { 
+            hosts, 
+            mierniki, 
+            devices,
+            mqtt: None 
+        };
 
         // Write config to file
         let config_json = serde_json::to_string_pretty(&app_config).unwrap();
@@ -320,7 +346,11 @@ async fn test_get_device_configs() {
     assert_eq!(test_device.name, "Test Scale");
     assert_eq!(test_device.manufacturer, "Test Manufacturer");
     assert_eq!(test_device.model, "TestModel");
-    assert_eq!(test_device.protocol, "RINCMD");
+    
+    // New validation properties
+    assert_eq!(test_device.host_id, "local_host");
+    assert_eq!(test_device.miernik_id, "rinstrum_miernik");
+    
     assert!(test_device.enabled);
 }
 

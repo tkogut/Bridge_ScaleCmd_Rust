@@ -62,8 +62,28 @@ impl DeviceManager {
             .collect()
     }
 
-    pub fn list_configs(&self) -> HashMap<String, DeviceConfig> {
-        self.devices.read().clone()
+    pub fn get_integrated_configs(&self) -> HashMap<String, crate::models::legacy_device::LegacyDeviceConfig> {
+        let devices = self.devices.read();
+        let hosts = self.hosts.read();
+        let mierniki = self.mierniki.read();
+        
+        let mut integrated = HashMap::new();
+        
+        for (id, dev) in devices.iter() {
+            if let (Some(host), Some(miernik)) = (hosts.get(&dev.host_id), mierniki.get(&dev.miernik_id)) {
+                integrated.insert(id.clone(), crate::models::legacy_device::LegacyDeviceConfig {
+                    name: dev.name.clone(),
+                    manufacturer: dev.manufacturer.clone(),
+                    model: dev.model.clone(),
+                    protocol: miernik.protocol.clone(),
+                    connection: host.connection.clone(),
+                    timeout_ms: host.timeout_ms,
+                    commands: miernik.commands.clone(),
+                    enabled: dev.enabled,
+                });
+            }
+        }
+        integrated
     }
 
     pub fn get_config(&self, device_id: &str) -> Result<DeviceConfig, BridgeError> {
@@ -72,6 +92,10 @@ impl DeviceManager {
             .get(device_id)
             .cloned()
             .ok_or_else(|| BridgeError::DeviceNotFound(device_id.to_string()))
+    }
+
+    pub fn list_configs(&self) -> HashMap<String, DeviceConfig> {
+        self.devices.read().clone()
     }
 
     // Host management methods

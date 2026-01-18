@@ -7,16 +7,16 @@ import { getMasterServerUrl } from "./master-discovery";
 const getBridgeUrl = (): string => {
   const envUrl = import.meta.env.VITE_BRIDGE_URL || import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
-  
+
   if (typeof window !== 'undefined') {
     const currentOrigin = window.location.origin;
     const currentPort = window.location.port;
-    
+
     if (currentPort === '8080' || currentOrigin.includes(':8080')) {
       return '';
     }
   }
-  
+
   return getMasterServerUrl();
 };
 
@@ -116,11 +116,11 @@ export interface SendMqttRequest {
 export async function getMqttStatus(): Promise<MqttStatus> {
   const bridgeUrl = getBridgeUrl();
   const response = await fetch(`${bridgeUrl}/api/mqtt/status`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch MQTT status (${response.status})`);
   }
-  
+
   return response.json();
 }
 
@@ -130,11 +130,11 @@ export async function getMqttStatus(): Promise<MqttStatus> {
 export async function getMqttDevices(): Promise<MqttDevicesResponse> {
   const bridgeUrl = getBridgeUrl();
   const response = await fetch(`${bridgeUrl}/api/mqtt/devices`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch MQTT devices (${response.status})`);
   }
-  
+
   return response.json();
 }
 
@@ -157,21 +157,21 @@ export async function getMqttHistory(
 ): Promise<MqttHistoryResponse> {
   const bridgeUrl = getBridgeUrl();
   const params = new URLSearchParams();
-  
+
   if (options?.limit) params.append('limit', options.limit.toString());
   if (options?.offset) params.append('offset', options.offset.toString());
   if (options?.since) params.append('since', options.since.toString());
   if (options?.until) params.append('until', options.until.toString());
-  
+
   const queryString = params.toString();
   const url = `${bridgeUrl}/api/mqtt/history/${encodeURIComponent(deviceId)}${queryString ? `?${queryString}` : ''}`;
-  
+
   const response = await fetch(url);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch MQTT history for ${deviceId} (${response.status})`);
   }
-  
+
   return response.json();
 }
 
@@ -181,11 +181,11 @@ export async function getMqttHistory(
 export async function getMqttLatest(deviceId: string): Promise<MqttLatestResponse> {
   const bridgeUrl = getBridgeUrl();
   const response = await fetch(`${bridgeUrl}/api/mqtt/history/${encodeURIComponent(deviceId)}/latest`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch latest MQTT data for ${deviceId} (${response.status})`);
   }
-  
+
   return response.json();
 }
 
@@ -201,19 +201,19 @@ export async function getMqttDeviceStatus(
 ): Promise<MqttDeviceStatusResponse> {
   const bridgeUrl = getBridgeUrl();
   const params = new URLSearchParams();
-  
+
   if (options?.limit) params.append('limit', options.limit.toString());
   if (options?.offset) params.append('offset', options.offset.toString());
-  
+
   const queryString = params.toString();
   const url = `${bridgeUrl}/api/mqtt/history/${encodeURIComponent(deviceId)}/status${queryString ? `?${queryString}` : ''}`;
-  
+
   const response = await fetch(url);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch MQTT status for ${deviceId} (${response.status})`);
   }
-  
+
   return response.json();
 }
 
@@ -223,11 +223,11 @@ export async function getMqttDeviceStatus(
 export async function getMqttStats(deviceId: string): Promise<MqttStatsResponse> {
   const bridgeUrl = getBridgeUrl();
   const response = await fetch(`${bridgeUrl}/api/mqtt/history/${encodeURIComponent(deviceId)}/stats`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch MQTT stats for ${deviceId} (${response.status})`);
   }
-  
+
   return response.json();
 }
 
@@ -330,7 +330,6 @@ export async function sendMqttCommand(request: SendMqttRequest): Promise<{ succe
     });
 
     if (!response.ok) {
-      // If the endpoint doesn't exist yet (404), show appropriate message
       if (response.status === 404) {
         throw new Error('MQTT send API not available. Please rebuild the backend first.');
       }
@@ -342,12 +341,35 @@ export async function sendMqttCommand(request: SendMqttRequest): Promise<{ succe
 
     return response.json();
   } catch (error) {
-    // If network error, provide helpful message
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('Cannot connect to server. Please check if the backend is running.');
     }
     throw error;
   }
+}
+
+/**
+ * Run Mosquitto Broker (Windows only)
+ */
+export async function runMqttBroker(): Promise<{ success: boolean; message: string }> {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/mqtt/run-broker`, { method: 'POST' });
+  if (!response.ok) {
+    throw new Error(`Failed to run Mosquitto Broker (${response.status})`);
+  }
+  return response.json();
+}
+
+/**
+ * Run MQTT Telemetry (mosquitto_sub) in a new window (Windows only)
+ */
+export async function runMqttSub(): Promise<{ success: boolean; message: string }> {
+  const bridgeUrl = getBridgeUrl();
+  const response = await fetch(`${bridgeUrl}/api/mqtt/run-sub`, { method: 'POST' });
+  if (!response.ok) {
+    throw new Error(`Failed to run MQTT Telemetry (${response.status})`);
+  }
+  return response.json();
 }
 
 // Default export for convenience
@@ -362,4 +384,6 @@ export default {
   getMqttConfig,
   saveMqttConfig,
   sendMqttCommand,
+  runMqttBroker,
+  runMqttSub,
 };

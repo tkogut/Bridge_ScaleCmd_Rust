@@ -3,9 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { DeviceConfig, DeviceId } from "@/types/api";
-import { saveDeviceConfig, getAllDeviceConfigs, getAllHosts, getAllMierniki } from "@/services/bridge-api";
+import { getAllDeviceConfigs, saveDeviceConfig } from "@/services/bridge-api";
 import { showSuccess, showError } from "@/utils/toast";
-import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,36 +35,20 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
-// Schemat walidacji dla konfiguracji urządzenia
+// Validation schema for device configuration
 const DeviceConfigSchema = z.object({
-  deviceId: z.string()
-    .min(3, "Device ID must be at least 3 characters long")
-    .regex(/^[a-zA-Z0-9_]+$/, "Device ID must be alphanumeric or underscore"),
+  deviceId: z.string().min(3, "Device ID must be at least 3 characters long").regex(/^[a-z0-9_]+$/, "Device ID must be lowercase alphanumeric or underscore"),
   name: z.string().min(3, "Name is required"),
   manufacturer: z.string().min(1, "Manufacturer is required"),
   model: z.string().min(1, "Model is required"),
   protocol: z.string().min(1, "Protocol is required"),
   connection_type: z.enum(["Tcp", "Serial"]),
-  // TCP fields - optional at schema level, validated in superRefine based on connection_type
   host: z.string().optional(),
-  tcp_port: z.union([
-    z.coerce.number().int().max(65535),
-    z.null(),
-    z.undefined(),
-    z.literal(""),
-  ]).optional(),
-  // Serial fields - optional at schema level, validated in superRefine based on connection_type
-  // No .min() validation here - only in superRefine for Serial connections
+  tcp_port: z.coerce.number().int().min(1).max(65535).optional(),
   serial_port: z.string().optional(),
-  baud_rate: z.union([
-    z.coerce.number().int(),
-    z.null(),
-    z.undefined(),
-    z.literal(""),
-  ]).optional(),
+  baud_rate: z.coerce.number().int().min(1).optional(),
   timeout_ms: z.coerce.number().int().min(100).max(30000),
-  
-  // Uproszczone pola dla komend (w pełni konfigurowalny Bridge wymagałby bardziej złożonego formularza)
+
   read_gross_cmd: z.string().min(1, "Command is required"),
   read_net_cmd: z.string().min(1, "Command is required"),
   tare_cmd: z.string().min(1, "Command is required"),
@@ -73,61 +56,35 @@ const DeviceConfigSchema = z.object({
   enabled: z.boolean().default(true),
 }).superRefine((values, ctx) => {
   if (values.connection_type === "Tcp") {
-    // Validate TCP fields
-    if (!values.host || values.host.trim() === "") {
+    if (!values.host) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["host"],
         message: "Host IP is required for TCP connections",
       });
-    } else {
-      // Validate IP format if provided
-      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-      if (!ipRegex.test(values.host.trim())) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["host"],
-          message: "Invalid IP address format",
-        });
-      }
     }
-    if (values.tcp_port === undefined || values.tcp_port === null || values.tcp_port === 0 || values.tcp_port === "") {
+    if (values.tcp_port === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["tcp_port"],
         message: "Port is required for TCP connections",
       });
-    } else if (typeof values.tcp_port === "number" && (values.tcp_port < 1 || values.tcp_port > 65535)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["tcp_port"],
-        message: "Port must be between 1 and 65535",
-      });
     }
-    // Don't validate serial fields for TCP connections
   } else if (values.connection_type === "Serial") {
-    // Validate Serial fields
-    if (!values.serial_port || values.serial_port.trim() === "") {
+    if (!values.serial_port) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["serial_port"],
         message: "Serial port path is required",
       });
     }
-    if (values.baud_rate === undefined || values.baud_rate === null || values.baud_rate === 0 || values.baud_rate === "") {
+    if (values.baud_rate === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["baud_rate"],
         message: "Baud rate is required for serial connections",
       });
-    } else if (typeof values.baud_rate === "number" && values.baud_rate < 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["baud_rate"],
-        message: "Baud rate must be at least 1",
-      });
     }
-    // Don't validate TCP fields for Serial connections
   }
 });
 
@@ -147,63 +104,72 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
   onSaveSuccess,
 }) => {
   const isEdit = !!initialConfig;
-  
-  // Load hosts and mierniki for select options
-  const { data: hosts } = useQuery({
-    queryKey: ["hosts"],
-    queryFn: getAllHosts,
-  });
 
-  const { data: mierniki } = useQuery({
-    queryKey: ["mierniki"],
-    queryFn: getAllMierniki,
-  });
-
-  // Funkcja pomocnicza do spłaszczania danych dla formularza
   const getInitialValues = React.useCallback((): Partial<DeviceFormValues> => {
     if (!initialConfig) {
       return {
         deviceId: "",
         name: "",
-        manufacturer: "",
-        model: "",
-        host_id: "",
-        miernik_id: "",
+        manufacturer: "Rinstrum",
+        model: "C320",
+        protocol: "RINCMD",
+        connection_type: "Tcp",
+        host: "192.168.1.254",
+        tcp_port: 4001,
+        serial_port: "",
+        baud_rate: 9600,
+        timeout_ms: 1000,
+        read_gross_cmd: "20050026",
+        read_net_cmd: "20050025",
+        tare_cmd: "21120008:0C",
+        zero_cmd: "21120008:0B",
         enabled: true,
       };
     }
 
     const { id, config } = initialConfig;
-    return {
+    const baseValues = {
       deviceId: id,
       name: config.name,
       manufacturer: config.manufacturer,
       model: config.model,
-      host_id: config.host_id,
-      miernik_id: config.miernik_id,
+      protocol: config.protocol,
+      connection_type: config.connection.connection_type,
+      read_gross_cmd: config.commands["readGross"] || "",
+      read_net_cmd: config.commands["readNet"] || "",
+      tare_cmd: config.commands["tare"] || "",
+      zero_cmd: config.commands["zero"] || "",
+      timeout_ms: config.connection.timeout_ms,
       enabled: config.enabled ?? true,
     };
+
+    if (config.connection.connection_type === "Tcp") {
+      return {
+        ...baseValues,
+        host: config.connection.host,
+        tcp_port: config.connection.port,
+      };
+    } else {
+      return {
+        ...baseValues,
+        serial_port: config.connection.port,
+        baud_rate: config.connection.baud_rate,
+      };
+    }
   }, [initialConfig]);
 
   const form = useForm<DeviceFormValues>({
     resolver: zodResolver(DeviceConfigSchema),
     defaultValues: getInitialValues(),
-    mode: "onChange",
   });
-  
-  // Resetowanie formularza przy otwarciu/zmianie initialConfig
+
   React.useEffect(() => {
     if (open) {
-      const initialValues = getInitialValues();
-      console.log("Resetting form with initial values:", initialValues);
-      form.reset(initialValues);
-    } else {
-      // Reset form when dialog closes
-      form.reset();
+      form.reset(getInitialValues());
     }
   }, [getInitialValues, open, form]);
 
-
+  const connectionType = form.watch("connection_type");
   const isSubmitting = form.formState.isSubmitting;
 
   const onSubmit = async (values: DeviceFormValues) => {
@@ -212,93 +178,75 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
       name,
       manufacturer,
       model,
-      host_id,
-      miernik_id,
+      protocol,
+      connection_type,
+      read_gross_cmd,
+      read_net_cmd,
+      tare_cmd,
+      zero_cmd,
+      timeout_ms,
+      host,
+      tcp_port,
+      serial_port,
+      baud_rate,
       enabled,
     } = values;
 
-    // Normalize deviceId to lowercase
-    const normalizedDeviceId = deviceId.toLowerCase().trim();
+    let connection: DeviceConfig["connection"];
 
-    // Check if device ID already exists (only for new devices, not when editing)
-    if (!isEdit) {
-      try {
-        const existingConfigs = await getAllDeviceConfigs();
-        if (existingConfigs[normalizedDeviceId]) {
-          showError(`Device ID '${normalizedDeviceId}' already exists. Please use a different ID or edit the existing device.`);
-          form.setError("deviceId", {
-            type: "manual",
-            message: "Device ID already exists",
-          });
-          return;
-        }
-      } catch (error) {
-        console.warn("Could not check existing devices:", error);
-      }
-    }
-
-    // Validate that host and miernik exist
-    if (!hosts || !hosts[host_id]) {
-      showError(`Host '${host_id}' not found. Please select a valid host.`);
-      form.setError("host_id", {
-        type: "manual",
-        message: "Host not found",
-      });
-      return;
-    }
-
-    if (!mierniki || !mierniki[miernik_id]) {
-      showError(`Miernik '${miernik_id}' not found. Please select a valid miernik.`);
-      form.setError("miernik_id", {
-        type: "manual",
-        message: "Miernik not found",
-      });
-      return;
+    if (connection_type === "Tcp") {
+      connection = {
+        connection_type: "Tcp",
+        host: host!,
+        port: tcp_port!,
+        timeout_ms,
+      };
+    } else {
+      connection = {
+        connection_type: "Serial",
+        port: serial_port!,
+        baud_rate: baud_rate!,
+        timeout_ms,
+      };
     }
 
     const newConfig: DeviceConfig = {
-      name: name.trim(),
-      manufacturer: manufacturer.trim(),
-      model: model.trim(),
-      host_id: host_id.trim(),
-      miernik_id: miernik_id.trim(),
+      name,
+      manufacturer,
+      model,
+      protocol,
+      connection,
+      commands: {
+        readGross: read_gross_cmd,
+        readNet: read_net_cmd,
+        tare: tare_cmd,
+        zero: zero_cmd,
+      },
       enabled,
     };
 
     try {
-      await saveDeviceConfig(normalizedDeviceId, newConfig);
+      await saveDeviceConfig(deviceId, newConfig);
       showSuccess(`Device '${name}' configuration saved successfully.`);
-      if (!isEdit) {
-        form.reset(getInitialValues());
-      }
       onSaveSuccess();
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to save device config:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      showError(`Failed to save configuration: ${errorMessage}`);
+      showError(`Failed to save configuration: ${(error as Error).message}`);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Device Configuration" : "Add New Device"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Device" : "Add New Device"}</DialogTitle>
           <DialogDescription>
-            Configure connection parameters and scale commands for the industrial device.
+            Configure connection and protocol settings for your industrial scale.
           </DialogDescription>
         </DialogHeader>
-        
+
         <Form {...form}>
-          <form onSubmit={(e) => {
-            console.log("Form submit event triggered");
-            console.log("Form errors:", form.formState.errors);
-            console.log("Form values:", form.getValues());
-            form.handleSubmit(onSubmit)(e);
-          }} className="space-y-6 py-4">
-            
-            {/* General Settings */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -307,7 +255,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
                   <FormItem>
                     <FormLabel>Device ID</FormLabel>
                     <FormControl>
-                      <Input placeholder="C320" {...field} disabled={isEdit} />
+                      <Input placeholder="e.g. scale_1" {...field} disabled={isEdit} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -318,14 +266,17 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Device Name</FormLabel>
+                    <FormLabel>Friendly Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Production Line 1 Scale" {...field} />
+                      <Input placeholder="e.g. Main Production Scale" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="manufacturer"
@@ -333,7 +284,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
                   <FormItem>
                     <FormLabel>Manufacturer</FormLabel>
                     <FormControl>
-                      <Input placeholder="Rinstrum" {...field} />
+                      <Input placeholder="e.g. Rinstrum" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -346,7 +297,7 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
                   <FormItem>
                     <FormLabel>Model</FormLabel>
                     <FormControl>
-                      <Input placeholder="C320" {...field} />
+                      <Input placeholder="e.g. C320" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -356,119 +307,206 @@ const DeviceConfigForm: React.FC<DeviceConfigFormProps> = ({
 
             <Separator />
 
-            {/* Host and Miernik Selection */}
-            <h3 className="text-lg font-semibold">Connection & Protocol</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="host_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Host</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      disabled={!hosts || Object.keys(hosts).length === 0}
-                    >
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">Connection Settings</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="connection_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Tcp">TCP/IP</SelectItem>
+                          <SelectItem value="Serial">Serial Port</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="timeout_ms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Timeout (ms)</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select host" />
-                        </SelectTrigger>
+                        <Input type="number" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {hosts && Object.entries(hosts).map(([hostId, hostConfig]) => (
-                          <SelectItem key={hostId} value={hostId}>
-                            {hostConfig.name} ({hostId})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {(!hosts || Object.keys(hosts).length === 0) && (
-                      <p className="text-sm text-muted-foreground">
-                        No hosts available. Please create a host first.
-                      </p>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
+              {connectionType === "Tcp" ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="host"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IP Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="192.168.1.254" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="tcp_port"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Port</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="4001" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="serial_port"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>COM Port</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. COM3" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="baud_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Baud Rate</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="9600" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">Protocol & Commands</h3>
               <FormField
                 control={form.control}
-                name="miernik_id"
+                name="protocol"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Miernik</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      disabled={!mierniki || Object.keys(mierniki).length === 0}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select miernik" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {mierniki && Object.entries(mierniki).map(([miernikId, miernikConfig]) => (
-                          <SelectItem key={miernikId} value={miernikId}>
-                            {miernikConfig.name} ({miernikConfig.protocol})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {(!mierniki || Object.keys(mierniki).length === 0) && (
-                      <p className="text-sm text-muted-foreground">
-                        No mierniki available. Please create a miernik first.
-                      </p>
-                    )}
+                    <FormLabel>Protocol Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. RINCMD" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="read_gross_cmd"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Read Gross</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="read_net_cmd"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Read Net</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tare_cmd"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tare</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="zero_cmd"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Zero</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
+
+            <Separator />
 
             <FormField
               control={form.control}
               name="enabled"
               render={({ field }) => (
-                <FormItem className="flex flex-col space-y-2">
-                  <FormLabel>Device Enabled</FormLabel>
-                  <FormControl>
-                    <div className="flex items-center space-x-3">
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      <span className="text-sm text-muted-foreground">
-                        {field.value
-                          ? "Bridge will auto-connect this device on startup."
-                          : "Device stays offline until you enable it here."}
-                      </span>
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Enabled</FormLabel>
+                    <div className="text-sm text-muted-foreground">
+                      Whether this device is active and connecting.
                     </div>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="mt-6">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting}
-                onClick={() => {
-                  console.log("Submit button clicked");
-                  console.log("Form is valid:", form.formState.isValid);
-                  console.log("Form errors:", form.formState.errors);
-                }}
-              >
+              <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEdit ? "Save Changes" : "Add Device"}
+                {isEdit ? "Update Device" : "Create Device"}
               </Button>
             </DialogFooter>
           </form>

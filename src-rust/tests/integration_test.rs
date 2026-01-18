@@ -7,9 +7,9 @@ use tempfile::TempDir;
 use tokio::time::timeout;
 
 use scaleit_bridge::device_manager::DeviceManager;
-use scaleit_bridge::models::device::{
-    AppConfig, ConnectionConfig, DeviceConfig, FlowControl, Parity, StopBits,
-};
+use scaleit_bridge::models::device::{ConnectionConfig, DeviceConfig};
+use scaleit_bridge::models::host::{AppConfig, HostConfig};
+use scaleit_bridge::models::miernik::MiernikConfig;
 use scaleit_bridge::models::weight::{
     DeviceListResponse, HealthResponse, ScaleCommandRequest, ScaleCommandResponse,
 };
@@ -24,78 +24,106 @@ impl TestEnvironment {
         let temp_dir = TempDir::new().expect("Failed to create temp directory");
         let config_path = temp_dir.path().join("integration_test_devices.json");
 
-        // Create comprehensive test configuration
-        let mut devices = HashMap::new();
+        // 1. Create Hosts
+        let mut hosts = HashMap::new();
+        hosts.insert("local_tcp".to_string(), HostConfig {
+            name: "Local TCP".to_string(),
+            connection: ConnectionConfig::Tcp {
+                host: "127.0.0.1".to_string(),
+                port: 4001,
+            },
+            timeout_ms: 3000,
+            enabled: true,
+        });
 
-        // Rinstrum C320 device
+        hosts.insert("local_serial".to_string(), HostConfig {
+            name: "Local Serial".to_string(),
+            connection: ConnectionConfig::Serial {
+                port: "/dev/ttyUSB0".to_string(),
+                baud_rate: 9600,
+                data_bits: 8,
+                stop_bits: scaleit_bridge::models::device::StopBits::One,
+                parity: scaleit_bridge::models::device::Parity::None,
+                flow_control: scaleit_bridge::models::device::FlowControl::None,
+            },
+            timeout_ms: 1000,
+            enabled: true,
+        });
+
+        // 2. Create Mierniki
+        let mut mierniki = HashMap::new();
+        
         let mut rinstrum_commands = HashMap::new();
         rinstrum_commands.insert("readGross".to_string(), "20050026".to_string());
         rinstrum_commands.insert("readNet".to_string(), "20050025".to_string());
         rinstrum_commands.insert("tare".to_string(), "21120008:0C".to_string());
         rinstrum_commands.insert("zero".to_string(), "21120008:0B".to_string());
 
-        let rinstrum_device = DeviceConfig {
-            name: "C320 Rinstrum".to_string(),
+        mierniki.insert("rinstrum_miernik".to_string(), MiernikConfig {
+            name: "Rinstrum C320".to_string(),
+            protocol: "RINCMD".to_string(),
             manufacturer: "Rinstrum".to_string(),
             model: "C320".to_string(),
-            protocol: "RINCMD".to_string(),
-            connection: ConnectionConfig::Tcp {
-                host: "127.0.0.1".to_string(),
-                port: 4001,
-            },
             commands: rinstrum_commands,
             enabled: true,
-            timeout_ms: 3000,
-        };
+        });
 
-        // Dini Argeo device
         let mut dini_commands = HashMap::new();
         dini_commands.insert("readGross".to_string(), "READ".to_string());
         dini_commands.insert("readNet".to_string(), "REXT".to_string());
         dini_commands.insert("tare".to_string(), "TARE".to_string());
         dini_commands.insert("zero".to_string(), "ZERO".to_string());
 
+        mierniki.insert("dini_miernik".to_string(), MiernikConfig {
+            name: "Dini Argeo".to_string(),
+            protocol: "DINI_ARGEO".to_string(),
+            manufacturer: "Dini Argeo".to_string(),
+            model: "DFW".to_string(),
+            commands: dini_commands,
+            enabled: true,
+        });
+
+        // 3. Create Devices
+        let mut devices = HashMap::new();
+
+        let rinstrum_device = DeviceConfig {
+            name: "C320 Rinstrum".to_string(),
+            manufacturer: "Rinstrum".to_string(),
+            model: "C320".to_string(),
+            host_id: "local_tcp".to_string(),
+            miernik_id: "rinstrum_miernik".to_string(),
+            enabled: true,
+        };
+
         let dini_device = DeviceConfig {
             name: "DFW - Dini Argeo".to_string(),
             manufacturer: "Dini Argeo".to_string(),
             model: "DFW".to_string(),
-            protocol: "DINI_ARGEO".to_string(),
-            connection: ConnectionConfig::Serial {
-                port: "/dev/ttyUSB0".to_string(),
-                baud_rate: 9600,
-                data_bits: 8,
-                stop_bits: StopBits::One,
-                parity: Parity::None,
-                flow_control: FlowControl::None,
-            },
-            commands: dini_commands,
+            host_id: "local_serial".to_string(),
+            miernik_id: "dini_miernik".to_string(),
             enabled: true,
-            timeout_ms: 1000,
         };
-
-        // Disabled device for testing
-        let mut disabled_commands = HashMap::new();
-        disabled_commands.insert("readGross".to_string(), "TEST".to_string());
 
         let disabled_device = DeviceConfig {
             name: "Disabled Scale".to_string(),
             manufacturer: "Test Corp".to_string(),
             model: "Disabled".to_string(),
-            protocol: "RINCMD".to_string(),
-            connection: ConnectionConfig::Tcp {
-                host: "127.0.0.1".to_string(),
-                port: 9999,
-            },
-            commands: disabled_commands,
+            host_id: "local_tcp".to_string(),
+            miernik_id: "rinstrum_miernik".to_string(),
             enabled: false,
-            timeout_ms: 1000,
         };
 
         devices.insert("C320".to_string(), rinstrum_device);
         devices.insert("DWF".to_string(), dini_device);
         devices.insert("DISABLED".to_string(), disabled_device);
 
-        let app_config = AppConfig { devices };
+        // 4. App Config
+        let app_config = AppConfig { 
+            hosts, 
+            mierniki, 
+            devices,
+            mqtt: None 
+        };
 
         // Write config to file
         let config_json = serde_json::to_string_pretty(&app_config).unwrap();
@@ -427,7 +455,8 @@ async fn test_configuration_management() {
     assert_eq!(c320_config.name, "C320 Rinstrum");
     assert_eq!(c320_config.manufacturer, "Rinstrum");
     assert_eq!(c320_config.model, "C320");
-    assert_eq!(c320_config.protocol, "RINCMD");
+    assert_eq!(c320_config.host_id, "local_tcp");
+    assert_eq!(c320_config.miernik_id, "rinstrum_miernik");
     assert!(c320_config.enabled);
 }
 
